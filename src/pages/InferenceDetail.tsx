@@ -268,31 +268,31 @@ function InferenceDetail() {
                   <Code2 className="h-4 w-4" />
                   Planned eBPF Programs ({parsed.ebpf_programs.length})
                 </h4>
-                <div className="space-y-2">
+                 <div className="space-y-2">
                   {parsed.ebpf_programs.map((prog: any, i: number) => (
-                    <div key={i} className="border border-indigo-500/50 rounded-lg overflow-hidden bg-indigo-950/20">
-                      <div className="px-4 py-3 border-b border-indigo-500/30">
+                    <div key={i} className="border rounded-lg overflow-hidden bg-slate-950 border-indigo-500/40">
+                      <div className="px-4 py-3 border-b border-indigo-500/30 bg-indigo-950/20">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-semibold" style={{ color: '#a78bfa' }}>{prog.name}</span>
-                          <Badge variant="outline" className="text-xs" style={{ borderColor: '#818cf8', color: '#818cf8' }}>
+                          <span className="text-sm font-semibold font-mono text-indigo-300">{prog.name}</span>
+                          <Badge variant="outline" className="text-xs bg-indigo-600/20 border-indigo-500 text-indigo-300">
                             {prog.type}
                           </Badge>
                         </div>
-                        <div className="text-xs font-mono" style={{ color: '#c4b5fd' }}>
+                        <div className="text-xs font-mono text-indigo-400/80">
                           @ {prog.target}
                         </div>
                       </div>
                       {prog.description && (
-                        <div className="px-4 py-2 text-xs bg-slate-900/50">
-                          <span style={{ color: '#94a3b8' }}>{prog.description}</span>
+                        <div className="px-4 py-2 text-xs border-b border-indigo-500/20">
+                          <span className="text-indigo-300/90">{prog.description}</span>
                         </div>
                       )}
-                      <div className="px-4 py-2 bg-slate-950/50 border-t border-indigo-500/20 text-xs">
-                        <span style={{ color: '#94a3b8' }}>
-                          Duration: <span style={{ color: '#22d3ee' }} className="font-semibold">{prog.duration}s</span>
+                      <div className="px-4 py-2 border-t border-indigo-500/20 text-xs">
+                        <span className="text-indigo-300">
+                          Duration: <span className="text-cyan-400 font-semibold">{prog.duration}s</span>
                           {prog.filters && (
                             <span className="ml-3">
-                              • Filters: <code className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(99, 102, 241, 0.2)', color: '#c4b5fd' }}>{JSON.stringify(prog.filters)}</code>
+                              • Filters: <code className="text-xs px-1.5 py-0.5 rounded bg-indigo-900/40 text-indigo-200">{JSON.stringify(prog.filters)}</code>
                             </span>
                           )}
                         </span>
@@ -374,32 +374,32 @@ function InferenceDetail() {
     const isSuccess = !hasError && (program.success || program.verified === true || program.exit_code === 0);
     
     return (
-      <div className={`border rounded-lg overflow-hidden ${hasError ? 'border-red-500' : isSuccess ? 'border-green-500' : 'border-amber-500'}`}>
-        <div className={`px-4 py-3 border-b ${hasError ? 'bg-red-950/30' : isSuccess ? 'bg-green-950/30' : 'bg-amber-950/30'}`}>
+      <div className="border rounded-lg overflow-hidden bg-slate-950 border-indigo-500/40">
+        <div className="px-4 py-3 border-b border-indigo-500/30 bg-indigo-950/20">
           <div className="flex items-center justify-between mb-2">
             <div className="flex-1">
-              <h4 className="font-semibold text-sm" style={{ color: hasError ? '#ef4444' : isSuccess ? '#22c55e' : '#f59e0b' }}>
+              <h4 className="font-semibold text-sm font-mono text-indigo-300">
                 {program.name || program.target || 'eBPF Program'}
               </h4>
               {program.target && program.name !== program.target && (
-                <div className="text-xs mt-1 font-mono" style={{ color: '#94a3b8' }}>
+                <div className="text-xs mt-1 font-mono text-indigo-400/80">
                   @ {program.target}
                 </div>
               )}
             </div>
             <div className="flex items-center gap-2">
               {program.success !== undefined && (
-                <Badge variant={program.success ? 'default' : 'destructive'} className="text-xs">
+                <Badge variant={program.success ? 'default' : 'destructive'} className="text-xs bg-indigo-600 text-white border-indigo-500">
                   {program.success ? '✓ Success' : '✗ Failed'}
                 </Badge>
               )}
               {program.verified !== undefined && (
-                <Badge variant={program.verified ? 'default' : 'destructive'} className="text-xs">
+                <Badge variant={program.verified ? 'default' : 'destructive'} className="text-xs bg-indigo-600 text-white border-indigo-500">
                   {program.verified ? '✓ Verified' : '✗ Verification Failed'}
                 </Badge>
               )}
               {program.exit_code !== undefined && (
-                <Badge variant={program.exit_code === 0 ? 'default' : 'destructive'} className="text-xs">
+                <Badge variant={program.exit_code === 0 ? 'default' : 'destructive'} className="text-xs bg-indigo-600 text-white border-indigo-500">
                   {program.exit_code === 0 ? '✓ Exit 0' : `✗ Exit ${program.exit_code}`}
                 </Badge>
               )}
@@ -410,68 +410,68 @@ function InferenceDetail() {
           {(program.event_count !== undefined || program.duration !== undefined) && (
             <div className="flex items-center gap-4 text-xs mt-2">
               {program.duration !== undefined && (
-                <span style={{ color: '#94a3b8' }}>
-                  Duration: <span style={{ color: '#22d3ee' }} className="font-semibold">{program.duration}s</span>
+                <span className="text-indigo-300">
+                  Duration: <span className="text-cyan-400 font-semibold">{program.duration}s</span>
                 </span>
               )}
               {program.event_count !== undefined && (
-                <span style={{ color: '#94a3b8' }}>
-                  Events: <span style={{ color: '#22d3ee' }} className="font-semibold">{program.event_count}</span>
+                <span className="text-indigo-300">
+                  Events: <span className="text-cyan-400 font-semibold">{program.event_count}</span>
                 </span>
               )}
               {program.events_per_second !== undefined && (
-                <span style={{ color: '#94a3b8' }}>
-                  Rate: <span style={{ color: '#fbbf24' }} className="font-semibold">{program.events_per_second.toFixed(2)}/s</span>
+                <span className="text-indigo-300">
+                  Rate: <span className="text-yellow-400 font-semibold">{program.events_per_second.toFixed(2)}/s</span>
                 </span>
               )}
             </div>
           )}
           
           {program.description && (
-            <p className="text-xs mt-2" style={{ color: '#94a3b8' }}>{program.description}</p>
+            <p className="text-xs mt-2 text-indigo-300/90">{program.description}</p>
           )}
           
           {program.summary && (
-            <div className="mt-2 text-xs p-2 rounded" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa' }}>
+            <div className="mt-2 text-xs p-2 rounded bg-indigo-900/40 text-indigo-200">
               {program.summary}
             </div>
           )}
         </div>
         
         {program.error && (
-          <div className="p-4 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800">
-            <div className="text-xs font-semibold text-red-700 dark:text-red-400 mb-2 flex items-center gap-2">
+          <div className="p-4 bg-red-950/40 border-b border-red-800/50">
+            <div className="text-xs font-semibold text-red-400 mb-2 flex items-center gap-2">
               <AlertTriangle className="h-3 w-3" />
               Error
             </div>
-            <div className="bg-background p-3 rounded border border-red-300 dark:border-red-800">
+            <div className="bg-slate-950 p-3 rounded border border-red-800/50 text-red-400 font-mono text-xs">
               <CollapsibleContent content={program.error} maxLines={10} />
             </div>
           </div>
         )}
         
         {program.code && (
-          <div className="p-4 bg-muted/30">
-            <div className="text-xs text-muted-foreground mb-2 font-semibold">Program Code:</div>
-            <div className="bg-background p-3 rounded border font-mono text-xs">
+          <div className="p-4 border-t border-indigo-500/20">
+            <div className="text-xs text-indigo-300 mb-2 font-semibold">Program Code:</div>
+            <div className="bg-slate-950 p-3 rounded border border-indigo-500/30 font-mono text-xs text-indigo-300">
               <CollapsibleContent content={program.code} maxLines={15} />
             </div>
           </div>
         )}
         
         {program.output && !program.error && (
-          <div className="p-4 border-t bg-muted/20">
-            <div className="text-xs text-muted-foreground mb-2 font-semibold">Output:</div>
-            <div className="bg-background p-3 rounded border font-mono text-xs">
+          <div className="p-4 border-t border-indigo-500/20">
+            <div className="text-xs text-indigo-300 mb-2 font-semibold">Output:</div>
+            <div className="bg-slate-950 p-3 rounded border border-indigo-500/30 font-mono text-xs text-cyan-400">
               <CollapsibleContent content={program.output} maxLines={10} />
             </div>
           </div>
         )}
         
         {program.stderr && program.stderr.trim() && (
-          <div className="p-4 border-t bg-red-50 dark:bg-red-950/20">
-            <div className="text-xs font-semibold text-red-700 dark:text-red-400 mb-2">Stderr:</div>
-            <div className="bg-background p-3 rounded border border-red-300 dark:border-red-800 font-mono text-xs text-red-600 dark:text-red-400">
+          <div className="p-4 border-t border-red-800/50 bg-red-950/20">
+            <div className="text-xs font-semibold text-red-400 mb-2">Stderr:</div>
+            <div className="bg-slate-950 p-3 rounded border border-red-800/50 font-mono text-xs text-red-400">
               <CollapsibleContent content={program.stderr} maxLines={10} />
             </div>
           </div>
