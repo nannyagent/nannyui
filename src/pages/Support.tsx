@@ -70,7 +70,7 @@ const Support = () => {
                     Report bugs, request features, or contribute to our open source agent on GitHub.
                   </p>
                   <a 
-                    href="https://github.com/nannyai/agent/issues" 
+                    href="https://github.com/harshavmb/nannyapi/agent/issues" 
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline inline-flex items-center gap-2"
@@ -229,7 +229,7 @@ const Support = () => {
                 <GlassMorphicCard>
                   <h3 className="text-lg font-semibold mb-2">How do I install the NannyAI agent?</h3>
                   <p className="text-muted-foreground text-sm">
-                    Run our one-line installer: <code className="bg-secondary px-2 py-1 rounded text-xs">curl -sSL https://install.nannyai.dev | sudo bash</code>. 
+                    Run our one-line installer: <code className="bg-secondary px-2 py-1 rounded text-xs">curl -sSL https://download.nannyai.dev | sudo bash</code>. 
                     See our <a href="/documentation" className="text-primary hover:underline">installation guide</a> for detailed instructions.
                   </p>
                 </GlassMorphicCard>
@@ -302,7 +302,7 @@ const Support = () => {
                   <h3 className="text-lg font-semibold mb-2">Is the agent open source?</h3>
                   <p className="text-muted-foreground text-sm">
                     Yes! The NannyAI agent is open source under Apache 2.0 license. You can view the source code, contribute, 
-                    or modify it on <a href="https://github.com/nannyai/agent" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">GitHub</a>. 
+                    or modify it on <a href="https://github.com/harshavmb/nannyapi/agent" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">GitHub</a>. 
                     The cloud platform is proprietary.
                   </p>
                 </GlassMorphicCard>

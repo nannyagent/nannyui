@@ -265,7 +265,7 @@ const TermsOfService = () => {
                     For questions about these Terms of Service, please contact us:
                   </p>
                   <div className="text-muted-foreground space-y-2">
-                    <p><strong>Email:</strong> <a href="mailto:legal@nannyai.dev" className="text-primary hover:underline">legal@nannyai.dev</a></p>
+                    <p><strong>Email:</strong> <a href="mailto:support@nannyai.dev" className="text-primary hover:underline">support@nannyai.dev</a></p>
                     <p><strong>Address:</strong> NannyAI, Inc., 123 Tech Street, San Francisco, CA 94105, USA</p>
                   </div>
                 </div>

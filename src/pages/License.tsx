@@ -263,7 +263,7 @@ While redistributing the Work or Derivative Works thereof, You may choose to off
                 For a complete list of all third-party dependencies and their licenses used in NannyAI, please see our GitHub repository:
               </p>
               <a 
-                href="https://github.com/nannyai/agent/blob/main/DEPENDENCIES.md" 
+                href="https://github.com/harshavmb/nannyapi/agent/blob/main/DEPENDENCIES.md" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-primary hover:underline inline-flex items-center gap-2"
@@ -280,7 +280,7 @@ While redistributing the Work or Derivative Works thereof, You may choose to off
               </p>
               <div className="space-y-2">
                 <a 
-                  href="https://github.com/nannyai/agent/blob/main/CONTRIBUTING.md" 
+                  href="https://github.com/harshavmb/nannyapi/agent/blob/main/CONTRIBUTING.md" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-primary hover:underline inline-flex items-center gap-2 block"
@@ -288,7 +288,7 @@ While redistributing the Work or Derivative Works thereof, You may choose to off
                   Contribution Guidelines <ExternalLink className="h-4 w-4" />
                 </a>
                 <a 
-                  href="https://github.com/nannyai/agent/blob/main/CODE_OF_CONDUCT.md" 
+                  href="https://github.com/harshavmb/nannyapi/agent/blob/main/CODE_OF_CONDUCT.md" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-primary hover:underline inline-flex items-center gap-2 block"
@@ -304,8 +304,8 @@ While redistributing the Work or Derivative Works thereof, You may choose to off
                 If you have questions about licensing, commercial use, or need clarification on how you can use NannyAI:
               </p>
               <div className="text-muted-foreground space-y-2">
-                <p><strong>Email:</strong> <a href="mailto:legal@nannyai.dev" className="text-primary hover:underline">legal@nannyai.dev</a></p>
-                <p><strong>GitHub:</strong> <a href="https://github.com/nannyai" className="text-primary hover:underline">github.com/nannyai</a></p>
+                <p><strong>Email:</strong> <a href="mailto:support@nannyai.dev" className="text-primary hover:underline">support@nannyai.dev</a></p>
+                <p><strong>GitHub:</strong> <a href="https://github.com/harshavmb/nannyapi" className="text-primary hover:underline">github.com/harshavmb/nannyapi</a></p>
               </div>
             </GlassMorphicCard>
           </div>
