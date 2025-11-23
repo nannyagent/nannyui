@@ -5,99 +5,145 @@ import { motion } from 'framer-motion';
 import { Server, Key, Users, Clock, ArrowUpRight, Activity } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
+import Footer from '@/components/Footer';
 import GlassMorphicCard from '@/components/GlassMorphicCard';
 import TransitionWrapper from '@/components/TransitionWrapper';
 import ErrorBanner from '@/components/ErrorBanner';
 import withAuth from '@/utils/withAuth';
-import { fetchApi, getBackendURL } from '@/utils/config';
-import { setAccessToken, setUsername } from '@/utils/authUtils';
-import { safeFetch } from '@/utils/errorHandling';
 import { placeholderStats, placeholderActivities } from '@/mocks/placeholderData';
+import { getCurrentUser, getCurrentSession } from '@/services/authService';
+import { getRecentActivities, getActivityIcon, formatActivityTime, type Activity as ActivityType } from '@/services/activityService';
+import { getRecentInvestigationsFromAPI, formatInvestigationTime, type Investigation } from '@/services/investigationService';
+import { getDashboardStats } from '@/services/statsService';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const [hasError, setHasError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("There was an issue connecting to the API. Some data may not be current.");
+  const [errorMessage, setErrorMessage] = useState("There was an issue loading your dashboard data.");
   const [stats, setStats] = useState(placeholderStats);
-  const [activities, setActivities] = useState(placeholderActivities);
+  const [activities, setActivities] = useState<ActivityType[]>([]);
+  const [investigations, setInvestigations] = useState<Investigation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [usePlaceholder, setUsePlaceholder] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Fetch data from the API
+    // Fetch user data and dashboard information
     const fetchData = async () => {
       try {
         setLoading(true);
         
-        // Add credentials explicitly to ensure cookies are sent
-        const response = await fetchApi('/github/profile', {
-          method: 'GET'
-        });
+        const currentUser = await getCurrentUser();
+        const session = await getCurrentSession();
         
-        if (!response.ok) {
-          console.error(`GitHub profile HTTP error! status: ${response.status}`);
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-
-        // Check for only refresh_token content response
-        if (data.refresh_token && !data.access_token && !data.user) {
-          // We do nothing as refresh_token is still valid
+        if (!currentUser || !session) {
+          console.error('No user or session found');
+          navigate('/login');
           return;
         }
         
-        // Set access_token in localStorage
-        if (data.access_token) {
-          setAccessToken(data.access_token);
-
-          // Set username in localStorage
-          if (data.user && data.user.name) {
-            setUsername(data.user.name);
-          }
-
-          // Fetch dashboard stats
-          const statsResult = await safeFetch(
-            fetchApi('api/dashboard/stats', { method: 'GET' }, data.access_token),
-            placeholderStats
-          );
+        setUser(currentUser);
+        
+        // Fetch real data from Supabase with timeouts to prevent hanging
+        try {
+          // Add timeout wrapper for all API calls
+          const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number = 15000): Promise<T> => {
+            return Promise.race([
+              promise,
+              new Promise<T>((_, reject) => 
+                setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+              )
+            ]);
+          };
           
-          if (statsResult.data) {
-            setStats(statsResult.data);
-          }
-
-          // Fetch recent activities 
-          const activitiesResult = await safeFetch(
-            fetchApi('api/dashboard/activities', { method: 'GET' }, data.access_token),
-            placeholderActivities
-          );
+          // Fetch all data in parallel with timeouts
+          const [recentActivities, recentInvestigations, dashboardStats] = await Promise.allSettled([
+            withTimeout(getRecentActivities(5)),
+            withTimeout(getRecentInvestigationsFromAPI(5)),
+            withTimeout(getDashboardStats())
+          ]);
           
-          if (activitiesResult.data) {
-            setActivities(activitiesResult.data);
+          // Handle activities
+          if (recentActivities.status === 'fulfilled' && recentActivities.value && recentActivities.value.length > 0) {
+            setActivities(recentActivities.value);
+            setUsePlaceholder(false);
+          } else {
+            console.log('No activities found or request failed:', recentActivities.status === 'rejected' ? recentActivities.reason : 'No data');
+            setActivities([]);
+            setUsePlaceholder(true);
           }
-        } else {
-          console.warn('No access token received from GitHub profile endpoint');
-          setErrorMessage("Authentication incomplete. Please try logging in again.");
+          
+          // Handle investigations
+          if (recentInvestigations.status === 'fulfilled' && recentInvestigations.value) {
+            setInvestigations(recentInvestigations.value);
+          } else {
+            console.log('Failed to fetch investigations:', recentInvestigations.status === 'rejected' ? recentInvestigations.reason : 'No data');
+            setInvestigations([]);
+          }
+          
+          // Handle stats
+          if (dashboardStats.status === 'fulfilled' && dashboardStats.value) {
+            const stats = dashboardStats.value;
+            setStats([
+              { 
+                title: 'Total Agents', 
+                value: String(stats.totalAgents), 
+                icon: 'Server', 
+                change: '+15%' 
+              },
+              { 
+                title: 'Active Tokens', 
+                value: String(stats.activeTokens), 
+                icon: 'Key', 
+                change: '+20%' 
+              },
+              { 
+                title: 'Total Users', 
+                value: String(stats.totalUsers), 
+                icon: 'Users', 
+                change: '+8%' 
+              },
+              { 
+                title: 'Uptime', 
+                value: stats.uptime, 
+                icon: 'Clock', 
+                change: '+0.2%' 
+              },
+            ]);
+          } else {
+            console.log('Failed to fetch dashboard stats:', dashboardStats.status === 'rejected' ? dashboardStats.reason : 'No data');
+          }
+          
+        } catch (dataError) {
+          console.error('Error fetching dashboard data:', dataError);
+          setErrorMessage("Could not load data from Supabase. Check if the 'activities' table exists.");
           setHasError(true);
+          setUsePlaceholder(true);
         }
+        
+        setLoading(false);
       } catch (error) {
-        setErrorMessage("Error connecting to authentication service. Using placeholder data.");
+        console.error('Error loading dashboard:', error);
+        setErrorMessage("Error loading dashboard. Please try again.");
         setHasError(true);
-      } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [navigate]);
 
   return (
-    <div className="min-h-screen flex">
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col min-h-screen max-h-screen overflow-hidden">
-        <Navbar />
+    <div className="min-h-screen flex flex-col">
+      <div className="flex flex-1">
+        <Sidebar />
         
-        <TransitionWrapper className="flex-1 overflow-y-auto p-6">
-          <div className="container pb-8">
+        <div className="flex-1 flex flex-col">
+          <Navbar />
+          
+          <TransitionWrapper className="flex-1 p-6">
+            <div className="container pb-8">
             {hasError && (
               <ErrorBanner 
                 message={errorMessage}
@@ -157,29 +203,60 @@ const Dashboard = () => {
                   >
                     <GlassMorphicCard className="h-full">
                       <div className="flex justify-between items-center mb-6">
-                        <h3 className="font-medium">API Usage</h3>
-                        <div className="flex space-x-1 text-sm">
-                          <button className="px-2 py-1 rounded bg-primary/10 text-primary">Daily</button>
-                          <button className="px-2 py-1 rounded hover:bg-muted/50">Weekly</button>
-                          <button className="px-2 py-1 rounded hover:bg-muted/50">Monthly</button>
-                        </div>
+                        <h3 className="font-medium">Recent Investigations</h3>
+                        <button 
+                          className="px-3 py-1 rounded bg-primary/10 text-primary text-sm hover:bg-primary/20 transition-colors"
+                          onClick={() => navigate('/investigations')}
+                        >
+                          View All
+                        </button>
                       </div>
                       
-                      <div className="relative h-64 mt-4">
-                        <div className="absolute inset-0 flex items-end justify-between px-2">
-                          {[...Array(14)].map((_, i) => (
-                            <div 
-                              key={i} 
-                              className="w-4 bg-primary/80 rounded-t"
-                              style={{ 
-                                height: `${20 + Math.random() * 70}%`,
-                                opacity: 0.7 + Math.random() * 0.3
-                              }}
-                            />
-                          ))}
-                        </div>
-                        
-                        <div className="absolute inset-x-0 bottom-0 h-[1px] bg-border/50" />
+                      <div className="space-y-4">
+                        {investigations.length > 0 ? (
+                          investigations.map((investigation: Investigation) => (
+                            <div key={investigation.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <Server className="h-4 w-4 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-sm truncate">{investigation.issue}</h4>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  ID: {investigation.investigation_id}
+                                </p>
+                                <div className="flex items-center space-x-2 mt-2">
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                    investigation.priority === 'critical' ? 'bg-red-100 text-red-800' :
+                                    investigation.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                                    investigation.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    {investigation.priority}
+                                  </span>
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                    investigation.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                    investigation.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                                    investigation.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {investigation.status.replace('_', ' ')}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {formatInvestigationTime(investigation.created_at)}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8">
+                            <Server className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                            <p className="text-sm text-muted-foreground">No investigations yet</p>
+                            <p className="text-xs text-muted-foreground/70 mt-1">
+                              Recent diagnostic investigations will appear here
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </GlassMorphicCard>
                   </motion.div>
@@ -192,26 +269,49 @@ const Dashboard = () => {
                     <GlassMorphicCard className="h-full">
                       <h3 className="font-medium mb-6">Recent Activities</h3>
                       
-                      <div className="space-y-4">
-                        {activities.map((activity, i) => (
-                          <div key={i} className="flex items-start space-x-3">
-                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                              {activity.icon === 'Server' && <Server className="h-4 w-4 text-primary" />}
-                              {activity.icon === 'Key' && <Key className="h-4 w-4 text-primary" />}
-                              {activity.icon === 'Activity' && <Activity className="h-4 w-4 text-primary" />}
-                              {activity.icon === 'Users' && <Users className="h-4 w-4 text-primary" />}
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium">{activity.title}</p>
-                              <p className="text-xs text-muted-foreground">{activity.time}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      {activities.length > 0 ? (
+                        <div className="space-y-4">
+                          {activities.map((activity) => {
+                            const iconName = activity.icon || getActivityIcon(activity.activity_type);
+                            return (
+                              <div key={activity.id} className="flex items-start space-x-3">
+                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                  {iconName === 'Server' && <Server className="h-4 w-4 text-primary" />}
+                                  {iconName === 'Key' && <Key className="h-4 w-4 text-primary" />}
+                                  {iconName === 'Activity' && <Activity className="h-4 w-4 text-primary" />}
+                                  {iconName === 'Users' && <Users className="h-4 w-4 text-primary" />}
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium">{activity.title}</p>
+                                  {activity.description && (
+                                    <p className="text-xs text-muted-foreground mt-0.5">{activity.description}</p>
+                                  )}
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {formatActivityTime(activity.created_at)}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Activity className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                          <p className="text-sm text-muted-foreground">No activities yet</p>
+                          <p className="text-xs text-muted-foreground/70 mt-1">
+                            Activities from agents, users, and sessions will appear here
+                          </p>
+                        </div>
+                      )}
                       
-                      <button className="mt-4 text-sm text-primary hover:text-primary/80 flex items-center">
-                        View all activities <ArrowUpRight className="ml-1 h-3 w-3" />
-                      </button>
+                      {activities.length > 0 && (
+                        <button 
+                          className="mt-4 text-sm text-primary hover:text-primary/80 flex items-center"
+                          onClick={() => navigate('/activities')}
+                        >
+                          View all activities <ArrowUpRight className="ml-1 h-3 w-3" />
+                        </button>
+                      )}
                     </GlassMorphicCard>
                   </motion.div>
                 </div>
@@ -219,9 +319,12 @@ const Dashboard = () => {
             )}
           </div>
         </TransitionWrapper>
+        </div>
       </div>
+      <Footer />
     </div>
   );
 };
 
-export default withAuth(Dashboard);
+const DashboardPage = withAuth(Dashboard);
+export default DashboardPage;

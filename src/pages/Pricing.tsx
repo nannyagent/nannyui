@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Check, X, Server, Shield, Users, Clock, Zap, MessageCircle, Database } from 'lucide-react';
 import Navbar from '@/components/Navbar';
@@ -7,6 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import TransitionWrapper from '@/components/TransitionWrapper';
+import { getPricingPlans, type PricingPlan } from '@/services/pricingService';
 
 const PlanFeature: React.FC<{ name: string; included: boolean }> = ({ name, included }) => (
   <div className="flex items-center mb-3">
@@ -20,72 +21,53 @@ const PlanFeature: React.FC<{ name: string; included: boolean }> = ({ name, incl
 );
 
 const Pricing = () => {
-  const plans = [
-    {
-      name: 'Free',
-      price: '$0',
-      description: 'For personal projects and small teams',
-      features: [
-        { name: 'Up to 2 agents', included: true },
-        { name: 'Core API access', included: true },
-        { name: 'Basic monitoring', included: true },
-        { name: 'Community support', included: true },
-        { name: '50 API calls / day', included: true },
-        { name: 'Data retention: 7 days', included: true },
-        { name: 'Advanced security features', included: false },
-        { name: 'Priority support', included: false },
-        { name: 'Custom agents', included: false },
-      ],
-      icon: Server,
-      cta: 'Start for Free',
-      popular: false,
-      color: 'bg-blue-50',
-      borderColor: 'border-blue-200'
-    },
-    {
-      name: 'Basic',
-      price: '$29',
-      period: '/month',
-      description: 'For growing businesses and teams',
-      features: [
-        { name: 'Up to 10 agents', included: true },
-        { name: 'Full API access', included: true },
-        { name: 'Advanced monitoring', included: true },
-        { name: 'Email support', included: true },
-        { name: '500 API calls / day', included: true },
-        { name: 'Data retention: 30 days', included: true },
-        { name: 'Basic security features', included: true },
-        { name: 'Priority support', included: false },
-        { name: 'Custom agents', included: false },
-      ],
-      icon: Shield,
-      cta: 'Start 14-Day Trial',
-      popular: true,
-      color: 'bg-purple-50',
-      borderColor: 'border-purple-200'
-    },
-    {
-      name: 'Pro',
-      price: '$99',
-      period: '/month',
-      description: 'For enterprises and large teams',
-      features: [
-        { name: 'Unlimited agents', included: true },
-        { name: 'Full API access', included: true },
-        { name: 'Enterprise monitoring', included: true },
-        { name: 'Priority support', included: true },
-        { name: 'Unlimited API calls', included: true },
-        { name: 'Data retention: 1 year', included: true },
-        { name: 'Advanced security features', included: true },
-        { name: 'Priority support', included: true },
-        { name: 'Custom agents', included: true },
-      ],
-      icon: Users,
-      cta: 'Contact Sales',
-      popular: false,
-      color: 'bg-amber-50',
-      borderColor: 'border-amber-200'
+  const [plans, setPlans] = useState<PricingPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadPlans = async () => {
+      setLoading(true);
+      const data = await getPricingPlans();
+      setPlans(data);
+      setLoading(false);
+    };
+    loadPlans();
+  }, []);
+
+  const getPlanIcon = (slug: string) => {
+    switch (slug) {
+      case 'free': return Server;
+      case 'basic': return Shield;
+      case 'pro': return Users;
+      default: return Server;
     }
+  };
+
+  const getPlanColor = (slug: string) => {
+    switch (slug) {
+      case 'free': return { bg: 'bg-blue-50', border: 'border-blue-200' };
+      case 'basic': return { bg: 'bg-purple-50', border: 'border-purple-200' };
+      case 'pro': return { bg: 'bg-amber-50', border: 'border-amber-200' };
+      default: return { bg: 'bg-gray-50', border: 'border-gray-200' };
+    }
+  };
+
+  const formatPrice = (cents: number) => {
+    if (cents === 0) return '$0';
+    return `$${(cents / 100).toFixed(0)}`;
+  };
+
+  const getPlanFeatures = (plan: PricingPlan) => [
+    { name: `Up to ${plan.max_agents} agent${plan.max_agents > 1 ? 's' : ''}`, included: true },
+    { name: plan.core_api_access ? 'Core API access' : 'No API access', included: plan.core_api_access },
+    { name: `${plan.monitoring} monitoring`, included: true },
+    { name: `${plan.support} support`, included: true },
+    { name: `${plan.api_calls_per_day.toLocaleString()} API calls / day`, included: true },
+    { name: `${plan.tokens_per_day.toLocaleString()} tokens / day`, included: true },
+    { name: `Data retention: ${plan.data_retention_days} days`, included: true },
+    { name: 'Advanced security features', included: plan.advanced_security },
+    { name: 'Priority support', included: plan.priority_support },
+    { name: 'Custom agents', included: plan.custom_agents },
   ];
 
   const benefits = [
@@ -140,56 +122,79 @@ const Pricing = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-              {plans.map((plan, i) => (
-                <motion.div
-                  key={plan.name}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 * i, duration: 0.4 }}
-                  className="flex flex-col"
-                >
-                  <Card className={`h-full flex flex-col ${plan.popular ? 'border-2 border-primary shadow-lg' : ''}`}>
-                    {plan.popular && (
-                      <div className="bg-primary text-primary-foreground text-xs font-medium text-center py-1 rounded-t-md">
-                        MOST POPULAR
-                      </div>
-                    )}
-                    <CardHeader className={`${plan.color} rounded-t-lg`}>
-                      <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center mb-4">
-                        <plan.icon className="h-6 w-6 text-primary" />
-                      </div>
-                      <CardTitle>{plan.name}</CardTitle>
-                      <div className="mt-2 flex items-baseline">
-                        <span className="text-3xl font-bold">{plan.price}</span>
-                        {plan.period && <span className="text-muted-foreground ml-1">{plan.period}</span>}
-                      </div>
-                      <CardDescription className="mt-2">{plan.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-1">
-                      <div className="pt-4">
-                        {plan.features.map((feature, index) => (
-                          <PlanFeature 
-                            key={index} 
-                            name={feature.name} 
-                            included={feature.included} 
-                          />
-                        ))}
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      <button 
-                        className={`w-full py-2 px-4 rounded-md text-center ${
-                          plan.popular 
-                            ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
-                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                        } font-medium transition-colors`}
-                      >
-                        {plan.cta}
-                      </button>
-                    </CardFooter>
-                  </Card>
-                </motion.div>
-              ))}
+              {loading ? (
+                <div className="col-span-3 text-center py-12">
+                  <p className="text-muted-foreground">Loading pricing plans...</p>
+                </div>
+              ) : plans.length === 0 ? (
+                <div className="col-span-3 text-center py-12">
+                  <p className="text-muted-foreground">No pricing plans available</p>
+                </div>
+              ) : (
+                plans.map((plan, i) => {
+                  const Icon = getPlanIcon(plan.slug);
+                  const colors = getPlanColor(plan.slug);
+                  const features = getPlanFeatures(plan);
+                  const isPopular = plan.slug === 'basic';
+                  const cta = plan.slug === 'free' ? 'Start for Free' : 
+                              plan.slug === 'pro' ? 'Contact Sales' : 'Start 14-Day Trial';
+                  const description = plan.features?.notes || 
+                                    (plan.slug === 'free' ? 'For personal projects and small teams' :
+                                     plan.slug === 'basic' ? 'For growing businesses and teams' :
+                                     'For enterprises and large teams');
+
+                  return (
+                    <motion.div
+                      key={plan.plan_id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 * i, duration: 0.4 }}
+                      className="flex flex-col"
+                    >
+                      <Card className={`h-full flex flex-col ${isPopular ? 'border-2 border-primary shadow-lg' : ''}`}>
+                        {isPopular && (
+                          <div className="bg-primary text-primary-foreground text-xs font-medium text-center py-1 rounded-t-md">
+                            MOST POPULAR
+                          </div>
+                        )}
+                        <CardHeader className={`${colors.bg} rounded-t-lg`}>
+                          <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center mb-4">
+                            <Icon className="h-6 w-6 text-primary" />
+                          </div>
+                          <CardTitle>{plan.name}</CardTitle>
+                          <div className="mt-2 flex items-baseline">
+                            <span className="text-3xl font-bold">{formatPrice(plan.monthly_price_cents)}</span>
+                            {plan.monthly_price_cents > 0 && <span className="text-muted-foreground ml-1">/month</span>}
+                          </div>
+                          <CardDescription className="mt-2">{description}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-1">
+                          <div className="pt-4">
+                            {features.map((feature, index) => (
+                              <PlanFeature 
+                                key={index} 
+                                name={feature.name} 
+                                included={feature.included} 
+                              />
+                            ))}
+                          </div>
+                        </CardContent>
+                        <CardFooter>
+                          <button 
+                            className={`w-full py-2 px-4 rounded-md text-center ${
+                              isPopular 
+                                ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
+                                : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                            } font-medium transition-colors`}
+                          >
+                            {cta}
+                          </button>
+                        </CardFooter>
+                      </Card>
+                    </motion.div>
+                  );
+                })
+              )}
             </div>
             
             <motion.div

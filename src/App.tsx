@@ -12,12 +12,28 @@ import Dashboard from "./pages/Dashboard";
 import Account from "./pages/Account";
 import Tokens from "./pages/Tokens";
 import Agents from "./pages/Agents";
+import Activities from "./pages/Activities";
+import Investigations from "./pages/Investigations";
+import InvestigationEpisode from "./pages/InvestigationEpisode";
+import InferenceDetail from "./pages/InferenceDetail";
+import AgentRegistration from "./pages/AgentRegistration";
 import Documentation from "./pages/Documentation";
 import Contact from "./pages/Contact";
 import Cookies from "./pages/Cookies";
 import Status from "./pages/Status";
 import Pricing from "./pages/Pricing";
+import About from "./pages/About";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import License from "./pages/License";
+import Security from "./pages/Security";
+import Features from "./pages/Features";
+import UseCases from "./pages/UseCases";
+import HowItWorks from "./pages/HowItWorks";
+import Trademarks from "./pages/Trademarks";
+import Support from "./pages/Support";
 import NotFound from "./pages/NotFound";
+import ServerError from "./pages/ServerError";
 import CookieConsent from "./components/CookieConsent";
 
 const queryClient = new QueryClient({
@@ -38,18 +54,34 @@ const App = () => (
         <BrowserRouter>
           <CookieConsent />
           <AnimatePresence mode="wait">
-            <Routes>
+                        <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/account" element={<Account />} />
               <Route path="/tokens" element={<Tokens />} />
               <Route path="/agents" element={<Agents />} />
+              <Route path="/activities" element={<Activities />} />
+              <Route path="/investigations" element={<Investigations />} />
+              <Route path="/investigations/:investigationId" element={<InvestigationEpisode />} />
+              <Route path="/investigations/:investigationId/inference/:inferenceId" element={<InferenceDetail />} />
+              <Route path="/agents/register" element={<AgentRegistration />} />
               <Route path="/documentation" element={<Documentation />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/cookies" element={<Cookies />} />
               <Route path="/status" element={<Status />} />
               <Route path="/pricing" element={<Pricing />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/license" element={<License />} />
+              <Route path="/security" element={<Security />} />
+              <Route path="/features" element={<Features />} />
+              <Route path="/use-cases" element={<UseCases />} />
+              <Route path="/how-it-works" element={<HowItWorks />} />
+              <Route path="/trademarks" element={<Trademarks />} />
+              <Route path="/support" element={<Support />} />
+              <Route path="/500" element={<ServerError />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AnimatePresence>
