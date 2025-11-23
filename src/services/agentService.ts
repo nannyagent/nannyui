@@ -46,16 +46,26 @@ export interface AgentMetric {
     kernel_version?: string;
     platform_family?: string;
     platform_version?: string;
+    // Additional fields used in AgentDetailsSheet
+    name?: string;
+    version?: string;
+    architecture?: string;
+    family?: string;
   };
   kernel_version?: string;
   filesystem_info?: any[];
   block_devices?: any[];
   device_fingerprint?: string;
+  // Load averages - can be nested object or direct properties
   load_averages?: {
     load1?: number;
     load5?: number;
     load15?: number;
   };
+  // Direct load properties (alternative format)
+  load1?: number;
+  load5?: number;
+  load15?: number;
   network_stats?: {
     bytes_recv?: number;
     bytes_sent?: number;
