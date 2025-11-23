@@ -146,7 +146,25 @@ const Documentation = () => {
                     </div>
                     
                     <div>
-                      <h3 className="text-base font-medium mb-2">4. Verify Connection</h3>
+                      <h3 className="text-base font-medium mb-2">4. Register Your Agent</h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Register your agent with the API using device authentication:
+                      </p>
+                      <div className="relative">
+                        <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
+                          agent-api register
+                        </div>
+                        <button className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground">
+                          <Copy className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        The agent will provide codes that you enter at <a href="/agents/register" className="text-primary hover:underline">the agent registration page</a>
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-base font-medium mb-2">5. Verify Connection</h3>
                       <p className="text-sm text-muted-foreground mb-3">
                         Check if your agent is properly connected:
                       </p>

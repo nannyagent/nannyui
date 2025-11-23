@@ -6,16 +6,28 @@ import AgentDetailsSheet from './AgentDetailsSheet';
 describe('AgentDetailsSheet component', () => {
   const mockAgent = {
     id: 'agent-123',
-    hostname: 'test-server',
-    status: 'online',
+    fingerprint: 'agent-123-fingerprint',
+    name: 'test-server',
+    status: 'active' as const,
     version: 'v1.5.0',
     location: 'US East',
-    created_at: '30 mins ago',
+    created_at: '2024-01-01T00:00:00Z',
     ip_address: '10.0.0.1',
-    type: 'Development',
     kernel_version: '5.4.0-42-generic',
     os_version: 'Ubuntu 20.04 LTS',
-    user_id: 'user-123456'
+    owner: 'user-123456',
+    last_seen: '2024-01-01T00:30:00Z',
+    lastMetric: {
+      agent_id: 'agent-123',
+      recorded_at: '2024-01-01T00:00:00Z',
+      cpu_percent: 45.5,
+      memory_mb: 2048,
+      disk_percent: 65.0,
+      os_info: {
+        platform: 'Ubuntu 20.04 LTS',
+        kernel_version: '5.4.0-42-generic'
+      }
+    }
   };
 
   const mockOnOpenChange = vi.fn();
@@ -29,24 +41,25 @@ describe('AgentDetailsSheet component', () => {
       />
     );
 
-    // Verify agent details are displayed
-    expect(screen.getByText(mockAgent.hostname)).toBeInTheDocument();
-    expect(screen.getByText(mockAgent.type + ' agent •')).toBeInTheDocument();
-    expect(screen.getByText('Online')).toBeInTheDocument();
-    expect(screen.getByText(mockAgent.id)).toBeInTheDocument();
-    expect(screen.getByText(mockAgent.ip_address)).toBeInTheDocument();
-    expect(screen.getByText(mockAgent.location)).toBeInTheDocument();
-    expect(screen.getByText(mockAgent.version)).toBeInTheDocument();
-    expect(screen.getByText(mockAgent.user_id)).toBeInTheDocument();
-    expect(screen.getByText(mockAgent.os_version)).toBeInTheDocument();
-    expect(screen.getByText(mockAgent.kernel_version)).toBeInTheDocument();
+    // Verify agent name appears (may appear multiple times in sheet)
+    const nameElements = screen.getAllByText(mockAgent.name);
+    expect(nameElements.length).toBeGreaterThan(0);
+    
+    // Verify status badge (appears multiple times)
+    const statusElements = screen.getAllByText(mockAgent.status);
+    expect(statusElements.length).toBeGreaterThan(0);
+    
+    // Verify fingerprint is displayed (truncated in badge)
+    expect(screen.getByText(/ID: agent-123/i)).toBeInTheDocument();
+    
+    // Verify system information section exists
+    expect(screen.getByText('System Information')).toBeInTheDocument();
   });
 
-  it('should display "Not available" for missing system information', () => {
+  it('should display "Unknown" for missing system information', () => {
     const agentWithMissingInfo = {
       ...mockAgent,
-      kernel_version: undefined,
-      os_version: undefined
+      lastMetric: undefined
     };
 
     render(
@@ -57,9 +70,12 @@ describe('AgentDetailsSheet component', () => {
       />
     );
 
-    // Verify "Not available" is shown for missing info
-    expect(screen.getAllByText('Not available')[0]).toBeInTheDocument();
-    expect(screen.getAllByText('Not available')[1]).toBeInTheDocument();
+    // Verify "Unknown" is shown for missing metrics
+    const unknownElements = screen.getAllByText('Unknown');
+    expect(unknownElements.length).toBeGreaterThan(0);
+    
+    // Verify no metrics message is shown
+    expect(screen.getByText('No metrics data available')).toBeInTheDocument();
   });
 
   it('should call onOpenChange when close button is clicked', () => {
@@ -82,7 +98,7 @@ describe('AgentDetailsSheet component', () => {
   it('should display offline status correctly', () => {
     const offlineAgent = {
       ...mockAgent,
-      status: 'offline'
+      status: 'offline' as const
     };
 
     render(
@@ -93,11 +109,9 @@ describe('AgentDetailsSheet component', () => {
       />
     );
 
-    // Verify offline status is displayed
-    expect(screen.getByText('Offline')).toBeInTheDocument();
-    
-    // Check last seen time for offline agent
-    expect(screen.getByText('5h ago')).toBeInTheDocument();
+    // Verify offline status is displayed (appears multiple times in badges)
+    const offlineElements = screen.getAllByText('offline');
+    expect(offlineElements.length).toBeGreaterThan(0);
   });
 
   it('should display the timeline information correctly', () => {
@@ -109,14 +123,14 @@ describe('AgentDetailsSheet component', () => {
       />
     );
 
-    // Verify timeline information
-    expect(screen.getByText('Created')).toBeInTheDocument();
-    expect(screen.getByText(mockAgent.created_at)).toBeInTheDocument();
-    expect(screen.getByText('Last Seen')).toBeInTheDocument();
-    expect(screen.getByText('Just now')).toBeInTheDocument();
+    // Verify that last updated timestamp is shown
+    expect(screen.getByText(/Last updated:/i)).toBeInTheDocument();
+    
+    // Verify System Information section exists (which shows OS info)
+    expect(screen.getByText('System Information')).toBeInTheDocument();
   });
 
-  it('should render the Run Command button', () => {
+  it('should render the Performance Details section', () => {
     render(
       <AgentDetailsSheet 
         agent={mockAgent} 
@@ -125,7 +139,15 @@ describe('AgentDetailsSheet component', () => {
       />
     );
 
-    // Verify Run Command button is present
-    expect(screen.getByText('Run Command')).toBeInTheDocument();
+    // Verify Performance Details section is present
+    expect(screen.getByText('Performance Details')).toBeInTheDocument();
+    
+    // Verify metrics are displayed
+    expect(screen.getByText('CPU Usage')).toBeInTheDocument();
+    expect(screen.getByText('Memory Usage')).toBeInTheDocument();
+    
+    // Disk Usage appears multiple times (in overview and details)
+    const diskUsageElements = screen.getAllByText('Disk Usage');
+    expect(diskUsageElements.length).toBeGreaterThan(0);
   });
 });

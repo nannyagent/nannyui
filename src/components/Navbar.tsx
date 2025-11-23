@@ -4,17 +4,29 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, User, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { getUsername } from '@/utils/authUtils';
+import { getCurrentUser } from '@/services/authService';
 
 const Navbar: React.FC = () => {
-  const [userName, setUserName] = useState('Nanny User');
+  const [userName, setUserName] = useState('User');
 
   useEffect(() => {
-    // Get username from localStorage
-    const storedName = getUsername();
-    if (storedName) {
-      setUserName(storedName);
-    }
+    const fetchUser = async () => {
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          // Try to get name from user metadata, fallback to email
+          const displayName = user.user_metadata?.name || 
+                             user.user_metadata?.full_name || 
+                             user.email?.split('@')[0] || 
+                             'User';
+          setUserName(displayName);
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+      }
+    };
+
+    fetchUser();
   }, []);
 
   return (

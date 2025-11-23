@@ -1,22 +1,25 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   ChevronsLeft, 
   ChevronsRight, 
   Home, 
   User, 
-  Key, 
   Server, 
   BookOpen,
   Mail,
   Github,
   LogOut,
   Activity,
-  DollarSign
+  DollarSign,
+  Shield,
+  BarChart3,
+  Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { logoutUser } from '@/utils/authUtils';
+import { signOut } from '@/services/authService';
+import { useToast } from '@/hooks/use-toast';
 
 interface SidebarLinkProps {
   to: string;
@@ -50,20 +53,49 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({ to, icon: Icon, label, collap
 const Sidebar: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   
   const links = [
     { to: '/dashboard', icon: Home, label: 'Dashboard' },
     { to: '/account', icon: User, label: 'Account' },
-    { to: '/tokens', icon: Key, label: 'Auth Tokens' },
     { to: '/agents', icon: Server, label: 'Agents' },
-    { to: '/status', icon: Activity, label: 'API Status' },
+    { to: '/agents/register', icon: Shield, label: 'Register Agent' },
+    { to: '/activities', icon: Activity, label: 'Activities' },
+    { to: '/investigations', icon: Search, label: 'Investigations' },
+    { to: '/status', icon: BarChart3, label: 'API Status' },
     { to: '/pricing', icon: DollarSign, label: 'Pricing' },
     { to: '/documentation', icon: BookOpen, label: 'Documentation' },
     { to: '/contact', icon: Mail, label: 'Contact' },
   ];
 
-  const handleLogout = () => {
-    logoutUser();
+  const handleLogout = async () => {
+    try {
+      const { error } = await signOut();
+      
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to sign out. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      toast({
+        title: "Success",
+        description: "You have been signed out successfully.",
+      });
+      
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Key, Plus, Copy, Trash2, Eye, EyeOff, Info, Calendar, Clock } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
+import Footer from '@/components/Footer';
 import GlassMorphicCard from '@/components/GlassMorphicCard';
 import TransitionWrapper from '@/components/TransitionWrapper';
 import ErrorBanner from '@/components/ErrorBanner';
@@ -32,31 +33,18 @@ const Tokens = () => {
   // Function to fetch tokens from the API
   const fetchAuthTokens = async () => {
     setLoading(true);
-    const accessToken = localStorage.getItem('access_token');
-
-    if (accessToken) {
-      try {
-        const result = await safeFetch(
-          fetchApi('api/auth-tokens', { method: 'GET' }, accessToken),
-          placeholderTokens
-        );
-
-        if (result.data) {
-          setTokens(result.data);
-          setHasError(false);
-        } else {
-          setHasError(true);
-        }
-      } catch (error) {
-        console.error('Error fetching tokens:', error);
-        setHasError(true);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      console.error('Access token not found in localStorage');
-      setLoading(false);
+    try {
+      // TODO: Integrate with Supabase tokens table
+      // For now, using placeholder data
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setTokens(placeholderTokens);
+      setHasError(false);
+    } catch (error) {
+      console.error('Error loading tokens:', error);
       setHasError(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -199,17 +187,18 @@ const Tokens = () => {
   };
 
   return (
-    <div className="min-h-screen flex">
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col min-h-screen max-h-screen overflow-hidden">
-        <Navbar />
+    <div className="min-h-screen flex flex-col">
+      <div className="flex flex-1">
+        <Sidebar />
         
-        <TransitionWrapper className="flex-1 overflow-y-auto p-6">
-          <div className="container pb-8">
-            {hasError && (
-              <ErrorBanner 
-                message="There was an issue loading your authentication tokens. Some data may not be current."
+        <div className="flex-1 flex flex-col">
+          <Navbar />
+          
+          <TransitionWrapper className="flex-1 p-6">
+            <div className="container pb-8">
+              {hasError && (
+                <ErrorBanner 
+                  message="There was an issue loading your authentication tokens. Some data may not be current."
                 onDismiss={() => setHasError(false)}
               />
             )}
@@ -386,8 +375,11 @@ const Tokens = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
+      <Footer />
     </div>
   );
 };
 
-export default withAuth(Tokens);
+const TokensPage = withAuth(Tokens);
+export default TokensPage;

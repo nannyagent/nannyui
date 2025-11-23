@@ -6,6 +6,10 @@ import Dashboard from './Dashboard';
 import * as errorHandling from '@/utils/errorHandling';
 import * as config from '@/utils/config';
 import * as authUtils from '@/utils/authUtils';
+import * as authService from '@/services/authService';
+import * as activityService from '@/services/activityService';
+import * as investigationService from '@/services/investigationService';
+import * as statsService from '@/services/statsService';
 import { placeholderStats, placeholderActivities } from '@/mocks/placeholderData';
 
 // Mock the modules
@@ -24,6 +28,16 @@ vi.mock('@/utils/withAuth', () => ({
 vi.mock('@/components/TransitionWrapper', () => ({
   default: ({ children }) => <div data-testid="transition-wrapper">{children}</div>
 }));
+
+// Mock useNavigate
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate
+  };
+});
 
 vi.mock('@/utils/errorHandling', () => ({
   safeFetch: vi.fn(),
@@ -56,9 +70,31 @@ vi.mock('@/utils/authUtils', () => ({
   setUsername: vi.fn()
 }));
 
+// Mock Supabase services
+vi.mock('@/services/authService', () => ({
+  getCurrentUser: vi.fn(),
+  getCurrentSession: vi.fn()
+}));
+
+vi.mock('@/services/activityService', () => ({
+  getRecentActivities: vi.fn(),
+  getActivityIcon: vi.fn(),
+  formatActivityTime: vi.fn()
+}));
+
+vi.mock('@/services/investigationService', () => ({
+  getRecentInvestigationsFromAPI: vi.fn(),
+  formatInvestigationTime: vi.fn()
+}));
+
+vi.mock('@/services/statsService', () => ({
+  getDashboardStats: vi.fn()
+}));
+
 describe('Dashboard component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockNavigate.mockClear();
     localStorage.clear();
   });
 
@@ -82,23 +118,36 @@ describe('Dashboard component', () => {
   //   expect(screen.getByRole('status') || screen.getByTestId('loading-spinner')).toBeInTheDocument();
   // });
 
-  it('should fetch GitHub profile and dashboard data on mount', async () => {
-    const mockGitHubResponse = {
-      ok: true,
-      json: async () => ({ 
-        access_token: 'mock-token',
-        user: { name: 'Test User' }
-      })
+  it('should fetch user session and dashboard data on mount', async () => {
+    const mockUser = { 
+      id: 'user-123', 
+      email: 'test@example.com',
+      app_metadata: {},
+      user_metadata: {},
+      aud: 'authenticated',
+      created_at: '2024-01-01T00:00:00Z'
+    };
+    const mockSession = { 
+      access_token: 'mock-token', 
+      refresh_token: 'refresh-token',
+      expires_in: 3600,
+      token_type: 'bearer',
+      user: mockUser 
+    };
+    const mockStats = {
+      totalAgents: 10,
+      activeTokens: 5,
+      totalInvestigations: 20,
+      openIssues: 3,
+      totalUsers: 1,
+      uptime: '99.9%'
     };
 
-    vi.mocked(config.fetchApi).mockResolvedValue(mockGitHubResponse as Response);
-    vi.mocked(errorHandling.safeFetch).mockResolvedValueOnce({ 
-      data: placeholderStats, 
-      error: null 
-    }).mockResolvedValueOnce({ 
-      data: placeholderActivities, 
-      error: null 
-    });
+    vi.mocked(authService.getCurrentUser).mockResolvedValue(mockUser as any);
+    vi.mocked(authService.getCurrentSession).mockResolvedValue(mockSession as any);
+    vi.mocked(activityService.getRecentActivities).mockResolvedValue([]);
+    vi.mocked(investigationService.getRecentInvestigationsFromAPI).mockResolvedValue([]);
+    vi.mocked(statsService.getDashboardStats).mockResolvedValue(mockStats);
 
     render(
       <BrowserRouter>
@@ -106,36 +155,24 @@ describe('Dashboard component', () => {
       </BrowserRouter>
     );
 
-    // Verify that fetchApi was called with the correct parameters
+    // Verify that auth services were called
     await waitFor(() => {
-      expect(config.fetchApi).toHaveBeenCalledWith('/github/profile', expect.any(Object));
+      expect(authService.getCurrentUser).toHaveBeenCalled();
+      expect(authService.getCurrentSession).toHaveBeenCalled();
     });
 
-    // Verify that access token was stored
+    // Verify that dashboard data services were called
     await waitFor(() => {
-      expect(authUtils.setAccessToken).toHaveBeenCalledWith('mock-token');
-    });
-
-    // Verify that username was stored
-    await waitFor(() => {
-      expect(authUtils.setUsername).toHaveBeenCalledWith('Test User');
-    });
-
-    // Verify that dashboard stats were fetched
-    await waitFor(() => {
-      expect(errorHandling.safeFetch).toHaveBeenCalled();
+      expect(activityService.getRecentActivities).toHaveBeenCalled();
+      expect(investigationService.getRecentInvestigationsFromAPI).toHaveBeenCalled();
+      expect(statsService.getDashboardStats).toHaveBeenCalled();
     });
   });
 
-  it('should show error banner when API call fails', async () => {
-    // Mock GitHub API call to fail
-    const mockGitHubResponse = {
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error'
-    };
-
-    vi.mocked(config.fetchApi).mockResolvedValue(mockGitHubResponse as Response);
+  it('should redirect to login when auth fails', async () => {
+    // Mock auth services to return null (no session)
+    vi.mocked(authService.getCurrentUser).mockResolvedValue(null);
+    vi.mocked(authService.getCurrentSession).mockResolvedValue(null);
 
     render(
       <BrowserRouter>
@@ -143,10 +180,10 @@ describe('Dashboard component', () => {
       </BrowserRouter>
     );
 
-    // Wait for the error banner to appear
+    // The component should redirect to login when auth fails
     await waitFor(() => {
-      const errorBanner = screen.getByText(/Error connecting to authentication service/i);
-      expect(errorBanner).toBeInTheDocument();
+      expect(authService.getCurrentUser).toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith('/login');
     });
   });
 

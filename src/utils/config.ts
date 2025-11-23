@@ -33,7 +33,7 @@ export const getFrontendURL = (): string => {
   
   // Handle localhost development
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return window.location.protocol + '//' + hostname + ':' + (window.location.port || '8081');
+    return window.location.protocol + '//' + hostname + ':' + (window.location.port || '8080');
   }
   
   // Handle production and test domains

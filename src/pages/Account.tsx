@@ -1,251 +1,449 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Github, Calendar, Edit } from 'lucide-react';
+import { User, Mail, Github, Calendar, Edit, Shield, Smartphone, Clock, CheckCircle, XCircle, Key } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
+import Footer from '@/components/Footer';
 import GlassMorphicCard from '@/components/GlassMorphicCard';
 import TransitionWrapper from '@/components/TransitionWrapper';
 import ErrorBanner from '@/components/ErrorBanner';
 import withAuth from '@/utils/withAuth';
-import { fetchApi } from '@/utils/config';
-import { safeFetch } from '@/utils/errorHandling';
-import { placeholderProfile, placeholderUserAuthToken } from '@/mocks/placeholderData';
+import { getCurrentUser, getCurrentSession } from '@/services/authService';
+import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 const Account = () => {
-  const [profile, setProfile] = useState(placeholderProfile);
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    // Fetch data from the API
-    const fetchAccount = async () => {
+    // Fetch user and session data from Supabase
+    const fetchAccountData = async () => {
       setLoading(true);
-      const accessToken = localStorage.getItem('access_token');
-      
-      if (accessToken) {
-        try {
-          // Fetch user ID from the API
-          const userIdResult = await safeFetch(
-            fetchApi('api/user-auth-token', { method: 'GET' }, accessToken),
-            placeholderUserAuthToken
-          );
+      try {
+        const [currentUser, currentSession] = await Promise.all([
+          getCurrentUser(),
+          getCurrentSession()
+        ]);
 
-          if (userIdResult.error) {
-            setHasError(true);
-            setLoading(false);
-            return;
-          }
-
-          const userID = userIdResult.data;
-
-          // Fetch user profile using the user ID
-          const profileResult = await safeFetch(
-            fetchApi(`api/user/${userID}`, { method: 'GET' }, accessToken),
-            placeholderProfile
-          );
-
-          if (profileResult.data) {
-            setProfile(profileResult.data);
-            setHasError(false);
-          } else {
-            setHasError(true);
-          }
-        } catch (error) {
-          console.error("Error fetching userinfo from API:", error);
+        if (currentUser && currentSession) {
+          setUser(currentUser);
+          setSession(currentSession);
+          setHasError(false);
+        } else {
           setHasError(true);
-        } finally {
-          setLoading(false);
         }
-      } else {
-        console.error('Access token not found in localStorage');
-        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching user data from Supabase:", error);
         setHasError(true);
+      } finally {
+        setLoading(false);
       }
     };
     
-    fetchAccount();
-
-    if (localStorage.getItem('access_token')) {
-      setIsAuthorized(true);
-    }
+    fetchAccountData();
   }, []);
 
-  const githubUsername = profile?.html_url ? profile.html_url.split('/').pop() : '';
-  const decodedName = profile?.name ? decodeURIComponent(profile.name).replace(/\+/g, ' ') : '';
+  // Helper functions to format data
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getAuthProvider = () => {
+    if (!user?.app_metadata?.provider && !user?.app_metadata?.providers) return 'email';
+    return user.app_metadata.provider || user.app_metadata.providers?.[0] || 'email';
+  };
+
+  const displayName = user?.user_metadata?.name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
+  const provider = getAuthProvider();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <div className="flex flex-1">
+          <Sidebar />
+          <div className="flex-1 flex flex-col">
+            <Navbar />
+            <TransitionWrapper className="flex-1 p-6">
+              <div className="container pb-8">
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <p className="mt-4 text-muted-foreground">Loading account data...</p>
+                </div>
+              </div>
+            </div>
+          </TransitionWrapper>
+        </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen flex">
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col min-h-screen max-h-screen overflow-hidden">
-        <Navbar />
+    <div className="min-h-screen flex flex-col">
+      <div className="flex flex-1">
+        <Sidebar />
         
-        <TransitionWrapper className="flex-1 overflow-y-auto p-6">
-          <div className="container pb-8">
-            {hasError && (
-              <ErrorBanner 
-                message="There was an issue loading your profile information. Some data may not be current."
-                onDismiss={() => setHasError(false)}
-              />
-            )}
+        <div className="flex-1 flex flex-col">
+          <Navbar />
+          
+          <TransitionWrapper className="flex-1 p-6">
+            <div className="container pb-8">
+              {hasError && (
+                <ErrorBanner 
+                  message="There was an issue loading your profile information. Some data may not be current."
+                  onDismiss={() => setHasError(false)}
+                />
+              )}
             
             <div className="mb-8">
               <h1 className="text-3xl font-bold tracking-tight">Account</h1>
               <p className="text-muted-foreground mt-2">
-                Manage your profile and account settings.
+                View your profile and authentication details.
               </p>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-1">
                 <GlassMorphicCard className="text-center">
-                  <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                    <User className="h-12 w-12 text-primary" />
-                  </div>
+                  {avatarUrl ? (
+                    <img 
+                      src={avatarUrl} 
+                      alt={displayName}
+                      className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-primary/20"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                      <User className="h-12 w-12 text-primary" />
+                    </div>
+                  )}
                   
-                  <h2 className="mt-4 text-xl font-semibold">{decodedName}</h2>
-                  <p className="text-muted-foreground">Administrator</p>
+                  <h2 className="mt-4 text-xl font-semibold">{displayName}</h2>
+                  <p className="text-muted-foreground text-sm">{user?.email}</p>
                   
                   <div className="mt-6 py-4 border-t border-b border-border/40">
                     <div className="flex items-center justify-center space-x-2 text-sm">
-                      <Github className="h-4 w-4" />
-                      <span>{profile?.html_url || "github.com/user"}</span>
+                      {provider === 'github' && <Github className="h-4 w-4" />}
+                      {provider === 'google' && <Mail className="h-4 w-4" />}
+                      {provider === 'email' && <Mail className="h-4 w-4" />}
+                      <span className="capitalize">Signed in with {provider}</span>
                     </div>
                   </div>
                   
-                  <div className="mt-6">
-                    <button className="w-full py-2 px-4 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors">
-                      Edit Profile
-                    </button>
+                  <div className="mt-4 text-left space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">User ID:</span>
+                      <span className="font-mono text-xs">{user?.id.substring(0, 8)}...</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Email Confirmed:</span>
+                      {user?.email_confirmed_at ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )}
+                    </div>
+                    {user?.phone && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Phone Confirmed:</span>
+                        {user?.phone_confirmed_at ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                      </div>
+                    )}
                   </div>
                 </GlassMorphicCard>
                 
                 <GlassMorphicCard className="mt-6">
-                  <h3 className="font-medium mb-4">Account Information</h3>
+                  <h3 className="font-medium mb-4">Account Timeline</h3>
                   
                   <div className="space-y-4">
-                    <div className="flex items-center">
-                      <Mail className="h-4 w-4 text-muted-foreground mr-2" />
-                      <span className="text-sm">{profile?.email || "user@example.com"}</span>
+                    <div className="flex items-start">
+                      <Calendar className="h-4 w-4 text-muted-foreground mr-3 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Joined</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(user?.created_at)}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 text-muted-foreground mr-2" />
-                      <span className="text-sm">Joined April 2023</span>
+                    <div className="flex items-start">
+                      <Clock className="h-4 w-4 text-muted-foreground mr-3 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Last Sign In</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(user?.last_sign_in_at)}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      <User className="h-4 w-4 text-muted-foreground mr-2" />
-                      <span className="text-sm">Admin access</span>
-                    </div>
+                    {user?.email_confirmed_at && (
+                      <div className="flex items-start">
+                        <Mail className="h-4 w-4 text-muted-foreground mr-3 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Email Confirmed</p>
+                          <p className="text-xs text-muted-foreground">{formatDate(user?.email_confirmed_at)}</p>
+                        </div>
+                      </div>
+                    )}
+                    {user?.phone && (
+                      <div className="flex items-start">
+                        <Smartphone className="h-4 w-4 text-muted-foreground mr-3 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Phone Number</p>
+                          <p className="text-xs text-muted-foreground">{user.phone}</p>
+                          {user?.phone_confirmed_at && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Confirmed: {formatDate(user.phone_confirmed_at)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </GlassMorphicCard>
               </div>
               
               <div className="lg:col-span-2">
                 <GlassMorphicCard>
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-medium">Profile Details</h3>
-                    <button className="p-2 rounded-full hover:bg-muted/80 transition-colors">
-                      <Edit className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <h3 className="font-medium mb-6">User Details</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-1">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                         Full Name
                       </label>
-                      <input
-                        type="text"
-                        defaultValue={decodedName}
-                        className="w-full px-3 py-2 rounded-md border border-border bg-background/50"
-                      />
+                      <p className="text-sm">{displayName}</p>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-1">
-                        Email
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Email Address
                       </label>
-                      <input
-                        type="email"
-                        defaultValue={profile?.email}
-                        className="w-full px-3 py-2 rounded-md border border-border bg-background/50"
-                      />
+                      <p className="text-sm">{user?.email || 'N/A'}</p>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-1">
-                        GitHub Username
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Phone Number
                       </label>
-                      <input
-                        type="text"
-                        defaultValue={githubUsername}
-                        className="w-full px-3 py-2 rounded-md border border-border bg-background/50"
-                      />
+                      <p className="text-sm">{user?.phone || 'Not provided'}</p>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-1">
-                        Role
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Authentication Provider
                       </label>
-                      <select className="w-full px-3 py-2 rounded-md border border-border bg-background/50">
-                        <option>Administrator</option>
-                        <option>Developer</option>
-                        <option>Viewer</option>
-                      </select>
+                      <p className="text-sm capitalize">{provider}</p>
                     </div>
-                  </div>
-                  
-                  <div className="mt-6 text-right">
-                    <button className="py-2 px-4 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors">
-                      Save Changes
-                    </button>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Account Created
+                      </label>
+                      <p className="text-sm">{formatDate(user?.created_at)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Last Sign In
+                      </label>
+                      <p className="text-sm">{formatDate(user?.last_sign_in_at)}</p>
+                    </div>
+                    {user?.email_confirmed_at && (
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Email Confirmed At
+                        </label>
+                        <p className="text-sm">{formatDate(user.email_confirmed_at)}</p>
+                      </div>
+                    )}
+                    {user?.phone_confirmed_at && (
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Phone Confirmed At
+                        </label>
+                        <p className="text-sm">{formatDate(user.phone_confirmed_at)}</p>
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        User ID
+                      </label>
+                      <p className="text-xs font-mono break-all">{user?.id}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Role (App Metadata)
+                      </label>
+                      <p className="text-sm">{user?.role || 'authenticated'}</p>
+                    </div>
                   </div>
                 </GlassMorphicCard>
                 
                 <GlassMorphicCard className="mt-6">
-                  <h3 className="font-medium mb-6">Security Settings</h3>
+                  <h3 className="font-medium mb-6">Current Session</h3>
+                  
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Access Token (Last 20 chars)
+                        </label>
+                        <p className="text-xs font-mono break-all">
+                          ...{session?.access_token.slice(-20)}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Token Type
+                        </label>
+                        <p className="text-sm">{session?.token_type || 'Bearer'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Session Expires At
+                        </label>
+                        <p className="text-sm">{session?.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Refresh Token Available
+                        </label>
+                        <div className="flex items-center">
+                          {session?.refresh_token ? (
+                            <>
+                              <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                              <span className="text-sm">Yes</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-4 w-4 text-red-500 mr-2" />
+                              <span className="text-sm">No</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </GlassMorphicCard>
+
+                <GlassMorphicCard className="mt-6">
+                  <h3 className="font-medium mb-6">Security & Authentication</h3>
                   
                   <div className="space-y-6">
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h4 className="font-medium">Password</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Update your password
-                          </p>
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0">
+                        <Shield className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      </div>
+                      <div className="ml-4 flex-1">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium">Multi-Factor Authentication (MFA)</h4>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {user?.app_metadata?.mfa_enabled ? 'MFA is enabled on your account' : 'Add an extra layer of security to your account'}
+                            </p>
+                          </div>
+                          <div className="ml-4">
+                            {user?.app_metadata?.mfa_enabled ? (
+                              <div className="flex items-center text-green-600">
+                                <CheckCircle className="h-5 w-5 mr-2" />
+                                <span className="text-sm font-medium">Enabled</span>
+                              </div>
+                            ) : (
+                              <button className="py-1.5 px-4 text-sm border border-primary rounded-md text-primary hover:bg-primary/10 transition-colors">
+                                Enable MFA
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <button className="py-1 px-3 text-sm border border-border rounded-md hover:bg-muted/50 transition-colors">
-                          Change
-                        </button>
                       </div>
                     </div>
                     
-                    <div className="border-t border-border/40 pt-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h4 className="font-medium">Two-Factor Authentication</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Add an extra layer of security
-                          </p>
+                    {provider === 'email' && (
+                      <div className="border-t border-border/40 pt-6 flex items-start">
+                        <div className="flex-shrink-0">
+                          <Key className="h-5 w-5 text-muted-foreground mt-0.5" />
                         </div>
-                        <button className="py-1 px-3 text-sm border border-primary rounded-md text-primary hover:bg-primary/10 transition-colors">
-                          Enable
-                        </button>
+                        <div className="ml-4 flex-1">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-medium">Password</h4>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Update your password to keep your account secure
+                              </p>
+                            </div>
+                            <button className="ml-4 py-1.5 px-4 text-sm border border-border rounded-md hover:bg-muted/50 transition-colors">
+                              Change Password
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )}
                     
                     <div className="border-t border-border/40 pt-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h4 className="font-medium">Sessions</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Manage your active sessions
-                          </p>
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0">
+                          <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
                         </div>
-                        <button className="py-1 px-3 text-sm border border-border rounded-md hover:bg-muted/50 transition-colors">
-                          View All
-                        </button>
+                        <div className="ml-4 flex-1">
+                          <h4 className="font-medium">Email Verification</h4>
+                          <div className="flex items-center mt-2">
+                            {user?.email_confirmed_at ? (
+                              <>
+                                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                                <span className="text-sm text-muted-foreground">
+                                  Email verified on {formatDate(user.email_confirmed_at)}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="h-4 w-4 text-yellow-500 mr-2" />
+                                <span className="text-sm text-muted-foreground">Email not verified</span>
+                                <button className="ml-4 text-sm text-primary hover:underline">
+                                  Resend verification email
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
+
+                    {user?.phone && (
+                      <div className="border-t border-border/40 pt-6">
+                        <div className="flex items-start">
+                          <div className="flex-shrink-0">
+                            <Smartphone className="h-5 w-5 text-muted-foreground mt-0.5" />
+                          </div>
+                          <div className="ml-4 flex-1">
+                            <h4 className="font-medium">Phone Verification</h4>
+                            <div className="flex items-center mt-2">
+                              {user?.phone_confirmed_at ? (
+                                <>
+                                  <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                                  <span className="text-sm text-muted-foreground">
+                                    Phone verified on {formatDate(user.phone_confirmed_at)}
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="h-4 w-4 text-yellow-500 mr-2" />
+                                  <span className="text-sm text-muted-foreground">Phone not verified</span>
+                                  <button className="ml-4 text-sm text-primary hover:underline">
+                                    Verify phone number
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </GlassMorphicCard>
               </div>
@@ -253,8 +451,11 @@ const Account = () => {
           </div>
         </TransitionWrapper>
       </div>
+      </div>
+      <Footer />
     </div>
   );
 };
 
-export default withAuth(Account);
+const AccountPage = withAuth(Account);
+export default AccountPage;
