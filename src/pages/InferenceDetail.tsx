@@ -495,7 +495,7 @@ function InferenceDetail() {
   const extractBashContent = (content: string | any) => {
     try {
       // If already parsed, use it
-      let parsed = typeof content === 'string' ? JSON.parse(content) : content;
+      const parsed = typeof content === 'string' ? JSON.parse(content) : content;
       
       // Handle messages array format (TensorZero format)
       if (parsed.messages && Array.isArray(parsed.messages)) {
