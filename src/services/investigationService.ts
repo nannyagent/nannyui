@@ -83,9 +83,14 @@ export interface InvestigationsResponse {
   };
 }
 
-// Get Supabase URL (hardcoded for production)
+// Get Supabase URL from environment variables
 const getSupabaseUrl = (): string => {
-  return 'https://gpqzsricripnvbrpsyws.supabase.co';
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  if (!url) {
+    console.error('VITE_SUPABASE_URL is not defined in environment variables');
+    return 'http://127.0.0.1:54321'; // fallback for development
+  }
+  return url;
 };
 
 /**

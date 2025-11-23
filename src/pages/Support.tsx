@@ -70,7 +70,7 @@ const Support = () => {
                     Report bugs, request features, or contribute to our open source agent on GitHub.
                   </p>
                   <a 
-                    href="https://github.com/harshavmb/nannyapi/agent/issues" 
+                    href="https://github.com/harshavmb/nannyapi/issues" 
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline inline-flex items-center gap-2"
