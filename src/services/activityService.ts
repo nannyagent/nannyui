@@ -34,14 +34,9 @@ export interface ActivitiesResponse {
   filter: string;
 }
 
-// Get Supabase URL from environment variables
+// Get Supabase URL (hardcoded for production)
 const getSupabaseUrl = (): string => {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  if (!url) {
-    console.error('VITE_SUPABASE_URL is not defined in environment variables');
-    return 'http://127.0.0.1:54321'; // fallback for development
-  }
-  return url;
+  return 'https://gpqzsricripnvbrpsyws.supabase.co';
 };
 
 /**
