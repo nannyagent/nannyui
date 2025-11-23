@@ -159,7 +159,7 @@ const Trademarks = () => {
                   <h3 className="font-semibold mb-2">Web & UI Technologies</h3>
                   <p className="text-sm text-muted-foreground">
                     React, TypeScript, TailwindCSS, Vite, and numerous other open source projects. 
-                    Full attribution available in our <a href="https://github.com/nannyai/agent/blob/main/DEPENDENCIES.md" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">dependency list</a>.
+                    Full attribution available in our <a href="https://github.com/harshavmb/nannyapi/agent/blob/main/DEPENDENCIES.md" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">dependency list</a>.
                   </p>
                 </div>
               </div>
@@ -194,7 +194,7 @@ const Trademarks = () => {
               </div>
               <div className="mt-6 bg-secondary/50 p-4 rounded-lg">
                 <p className="text-sm text-muted-foreground">
-                  For trademark licensing inquiries, please contact: <a href="mailto:legal@nannyai.dev" className="text-primary hover:underline">legal@nannyai.dev</a>
+                  For trademark licensing inquiries, please contact: <a href="mailto:support@nannyai.dev" className="text-primary hover:underline">support@nannyai.dev</a>
                 </p>
               </div>
             </GlassMorphicCard>
@@ -218,7 +218,7 @@ const Trademarks = () => {
                 please report it to our legal team:
               </p>
               <div className="text-muted-foreground space-y-2">
-                <p><strong>Email:</strong> <a href="mailto:legal@nannyai.dev" className="text-primary hover:underline">legal@nannyai.dev</a></p>
+                <p><strong>Email:</strong> <a href="mailto:support@nannyai.dev" className="text-primary hover:underline">support@nannyai.dev</a></p>
                 <p><strong>Subject:</strong> Trademark Misuse Report</p>
               </div>
             </GlassMorphicCard>

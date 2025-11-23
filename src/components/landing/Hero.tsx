@@ -64,7 +64,7 @@ const Hero = () => {
             </div>
             <div className="bg-black p-4 font-mono text-sm text-green-400 overflow-hidden" style={{ maxHeight: "350px" }}>
               <div className="animate-typing overflow-hidden whitespace-nowrap">
-                <span className="text-white/70">$</span> nanny-agent --connect api.nannyai.cloud<br />
+                <span className="text-white/70">$</span> nannyagent --diagnose check system health<br />
                 <span className="text-yellow-400">[INFO]</span> Connecting to NannyAI API...<br />
                 <span className="text-yellow-400">[INFO]</span> Connection established<br />
                 <span className="text-yellow-400">[INFO]</span> Starting diagnostic sequence...<br />

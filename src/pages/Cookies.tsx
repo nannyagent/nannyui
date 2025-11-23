@@ -152,7 +152,7 @@ const CookiesPage = () => {
                   <h2 className="text-xl font-semibold mb-2">7. Contact Us</h2>
                   <p className="text-muted-foreground">
                     If you have any questions about our use of cookies or this Cookie Policy, please contact us at: 
-                    <a href="mailto:privacy@linuxagentsapi.com" className="text-primary hover:underline ml-1">privacy@linuxagentsapi.com</a>
+                    <a href="mailto:support@nannyai.dev" className="text-primary hover:underline ml-1">support@nannyai.dev</a>
                   </p>
                 </section>
               </CardContent>

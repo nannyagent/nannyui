@@ -140,7 +140,7 @@ const PrivacyPolicy = () => {
                 <li>Lodge a complaint with a supervisory authority</li>
               </ul>
               <p className="text-muted-foreground mt-4">
-                To exercise these rights, contact us at <a href="mailto:privacy@nannyai.dev" className="text-primary hover:underline">privacy@nannyai.dev</a>
+                To exercise these rights, contact us at <a href="mailto:support@nannyai.dev" className="text-primary hover:underline">support@nannyai.dev</a>
               </p>
             </GlassMorphicCard>
 
@@ -202,7 +202,7 @@ const PrivacyPolicy = () => {
                 If you have questions about this Privacy Policy or our data practices, please contact us:
               </p>
               <div className="text-muted-foreground space-y-2">
-                <p><strong>Email:</strong> <a href="mailto:privacy@nannyai.dev" className="text-primary hover:underline">privacy@nannyai.dev</a></p>
+                <p><strong>Email:</strong> <a href="mailto:support@nannyai.dev" className="text-primary hover:underline">support@nannyai.dev</a></p>
                 <p><strong>Data Protection Officer:</strong> <a href="mailto:dpo@nannyai.dev" className="text-primary hover:underline">dpo@nannyai.dev</a></p>
                 <p><strong>Address:</strong> NannyAI, Inc., 123 Tech Street, San Francisco, CA 94105, USA</p>
               </div>

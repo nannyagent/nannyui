@@ -68,7 +68,7 @@ const Security = () => {
                     <div>
                       <h3 className="font-semibold mb-2">How to Report</h3>
                       <div className="bg-secondary/50 p-4 rounded-lg space-y-2">
-                        <p className="text-sm"><strong>Email:</strong> <a href="mailto:security@nannyai.dev" className="text-primary hover:underline">security@nannyai.dev</a></p>
+                        <p className="text-sm"><strong>Email:</strong> <a href="mailto:support@nannyai.dev" className="text-primary hover:underline">support@nannyai.dev</a></p>
                         <p className="text-sm"><strong>PGP Key:</strong> <a href="https://nannyai.dev/pgp-key.asc" className="text-primary hover:underline">Download Public Key</a></p>
                         <p className="text-sm text-muted-foreground">For sensitive reports, please encrypt your message using our PGP key.</p>
                       </div>
@@ -273,7 +273,7 @@ const Security = () => {
                   </p>
                   <div className="space-y-2">
                     <a 
-                      href="https://github.com/nannyai/security-advisories" 
+                      href="https://github.com/harshavmb/nannyapi/security-advisories" 
                       className="text-primary hover:underline block"
                     >
                       GitHub Security Advisories
@@ -312,7 +312,7 @@ const Security = () => {
             <GlassMorphicCard>
               <h2 className="text-2xl font-semibold mb-4">Security Contact</h2>
               <div className="space-y-2 text-muted-foreground">
-                <p><strong>Email:</strong> <a href="mailto:security@nannyai.dev" className="text-primary hover:underline">security@nannyai.dev</a></p>
+                <p><strong>Email:</strong> <a href="mailto:support@nannyai.dev" className="text-primary hover:underline">support@nannyai.dev</a></p>
                 <p><strong>PGP Fingerprint:</strong> <code className="text-xs">1234 5678 9ABC DEF0 1234 5678 9ABC DEF0 1234 5678</code></p>
                 <p><strong>Response Time:</strong> Within 24 hours for critical issues</p>
               </div>

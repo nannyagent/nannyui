@@ -63,7 +63,6 @@ const Sidebar: React.FC = () => {
     { to: '/agents/register', icon: Shield, label: 'Register Agent' },
     { to: '/activities', icon: Activity, label: 'Activities' },
     { to: '/investigations', icon: Search, label: 'Investigations' },
-    { to: '/status', icon: BarChart3, label: 'API Status' },
     { to: '/pricing', icon: DollarSign, label: 'Pricing' },
     { to: '/documentation', icon: BookOpen, label: 'Documentation' },
     { to: '/contact', icon: Mail, label: 'Contact' },

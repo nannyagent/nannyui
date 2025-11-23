@@ -56,7 +56,7 @@ const AgentDemo = () => {
       </div>
       <div className="bg-black p-4 font-mono text-sm text-green-400 overflow-hidden h-[400px]">
         <div className="animate-typing-slow-2">
-          <span className="text-white/70">$</span> nanny-agent --diagnose postgresql<br />
+          <span className="text-white/70">$</span> nannyagent --diagnose postgresql is having troubles<br />
           <span className="text-yellow-400">[INFO]</span> Starting PostgreSQL diagnostic sequence<br />
           <span className="text-yellow-400">[INFO]</span> Checking PostgreSQL service status<br />
           <span className="text-white/70">$</span> systemctl status postgresql<br />

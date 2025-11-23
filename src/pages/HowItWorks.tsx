@@ -117,9 +117,9 @@ const HowItWorks = () => {
                       </p>
                       <div className="bg-secondary/50 p-4 rounded-lg font-mono text-sm">
                         <p className="text-muted-foreground mb-2"># Quick install with curl:</p>
-                        <code className="text-primary">curl -sSL https://install.nannyai.dev | sudo bash</code>
+                        <code className="text-primary">curl -sSL https://download.nannyai.dev/install.sh | sudo bash</code>
                         <p className="text-muted-foreground mt-4 mb-2"># Or with authentication token:</p>
-                        <code className="text-primary">curl -sSL https://install.nannyai.dev | sudo NANNYAI_TOKEN=your_token bash</code>
+                        <code className="text-primary">curl -sSL https://download.nannyai.dev/install.sh | sudo NANNYAI_TOKEN=your_token bash</code>
                       </div>
                       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                         <div className="flex items-start space-x-2">
@@ -391,7 +391,7 @@ const HowItWorks = () => {
                     <li>AES-256 encryption at rest</li>
                     <li>Zero-knowledge architecture option</li>
                     <li>GDPR and SOC 2 compliant</li>
-                    <li>Data residency controls</li>
+                    <li>Data residency controls (hosted in Germany)</li>
                   </ul>
                 </GlassMorphicCard>
 
@@ -399,7 +399,7 @@ const HowItWorks = () => {
                   <Shield className="h-10 w-10 text-primary mb-4" />
                   <h3 className="text-xl font-semibold mb-3">Agent Security</h3>
                   <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
-                    <li>Minimal privileges (no root required)</li>
+                    <li>No changes are made to system</li>
                     <li>Sandboxed eBPF execution</li>
                     <li>Cryptographically signed binaries</li>
                     <li>Automatic security updates</li>

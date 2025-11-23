@@ -263,9 +263,16 @@ function InvestigationEpisode() {
             </div>
           </div>
         ) : investigation.holistic_analysis && (
-          <div className="p-4 border rounded-lg mb-6">
-            <h2 className="font-semibold text-sm mb-2">Holistic Analysis</h2>
-            <p className="text-sm bg-muted/30 p-3 rounded">{investigation.holistic_analysis}</p>
+          <div className="p-6 border-2 border-primary/20 rounded-xl mb-6 bg-gradient-to-br from-primary/5 to-transparent">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-foreground">
+              <Activity className="h-6 w-6 text-primary" />
+              Resolution Plan
+            </h2>
+            <div className="prose prose-sm max-w-none">
+              <p className="text-base leading-relaxed whitespace-pre-wrap font-medium text-foreground/90">
+                {investigation.holistic_analysis}
+              </p>
+            </div>
           </div>
         )}
 
@@ -280,7 +287,9 @@ function InvestigationEpisode() {
           
           {investigation.inferences && investigation.inferences.length > 0 ? (
             <div className="space-y-3">
-              {investigation.inferences.map((inference: Inference, index: number) => (
+              {[...investigation.inferences].reverse().map((inference: Inference, index: number) => {
+                const inferenceNumber = investigation.inferences!.length - index; // Show in reverse order (latest first)
+                return (
                 <Link
                   key={inference.id}
                   to={`/investigations/${investigationId}/inference/${inference.id}`}
@@ -289,7 +298,7 @@ function InvestigationEpisode() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-medium">Inference #{index + 1}</span>
+                        <span className="text-sm font-medium">Inference #{inferenceNumber}</span>
                         {inference.model_inference?.model_name && (
                           <Badge variant="outline" className="text-xs">
                             {inference.model_inference.model_name}
@@ -326,7 +335,7 @@ function InvestigationEpisode() {
                     </div>
                   </div>
                 </Link>
-              ))}
+              )})}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">

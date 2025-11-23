@@ -107,7 +107,7 @@ const Documentation = () => {
                       </p>
                       <div className="relative">
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
-                          curl -sSL https://agent-api.example.com/install.sh | sudo bash
+                          curl -sSL https://download.nannyai.dev/install.sh | sudo bash
                         </div>
                         <button className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground">
                           <Copy className="h-4 w-4" />
@@ -122,7 +122,7 @@ const Documentation = () => {
                       </p>
                       <div className="relative">
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
-                          sudo nano /etc/agent-api/config.yaml
+                          sudo nano /etc/nannyagent/config.yaml
                         </div>
                         <button className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground">
                           <Copy className="h-4 w-4" />
@@ -137,7 +137,7 @@ const Documentation = () => {
                       </p>
                       <div className="relative">
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
-                          sudo systemctl enable --now agent-api
+                          sudo systemctl enable --now nannyagent
                         </div>
                         <button className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground">
                           <Copy className="h-4 w-4" />
@@ -152,7 +152,7 @@ const Documentation = () => {
                       </p>
                       <div className="relative">
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
-                          agent-api register
+                          nannyagent register
                         </div>
                         <button className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground">
                           <Copy className="h-4 w-4" />
@@ -170,7 +170,7 @@ const Documentation = () => {
                       </p>
                       <div className="relative">
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
-                          agent-api status
+                          nannyagent status
                         </div>
                         <button className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground">
                           <Copy className="h-4 w-4" />
