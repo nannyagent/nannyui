@@ -36,6 +36,8 @@ import NotFound from "./pages/NotFound";
 import ServerError from "./pages/ServerError";
 import CookieConsent from "./components/CookieConsent";
 
+import PatchManagement from "./pages/PatchManagement";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -61,6 +63,7 @@ const App = () => (
               <Route path="/account" element={<Account />} />
               <Route path="/tokens" element={<Tokens />} />
               <Route path="/agents" element={<Agents />} />
+              <Route path="/patch-management/:agentId" element={<PatchManagement />} />
               <Route path="/activities" element={<Activities />} />
               <Route path="/investigations" element={<Investigations />} />
               <Route path="/investigations/:investigationId" element={<InvestigationEpisode />} />

@@ -127,8 +127,8 @@ const Investigations = () => {
         <div className="flex-1 flex flex-col">
           <Navbar />
           
-          <TransitionWrapper className="flex-1 p-6">
-            <div className="container pb-8">
+          <TransitionWrapper className="flex-1 overflow-y-auto">
+            <div className="container mx-auto px-4 sm:px-6 py-6 pb-8 max-w-full overflow-x-hidden">
               {hasError && (
                 <ErrorBanner 
                   message={errorMessage}
@@ -136,9 +136,9 @@ const Investigations = () => {
                 />
               )}
               
-              <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">Investigations</h1>
-                <p className="text-muted-foreground mt-2">
+              <div className="mb-6 sm:mb-8">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Investigations</h1>
+                <p className="text-muted-foreground mt-2 text-sm">
                   View all system investigations, diagnostic reports, and analysis results.
                 </p>
               </div>
