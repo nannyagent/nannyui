@@ -4,9 +4,9 @@ import { Github, MessageCircle } from 'lucide-react';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="py-12 border-t border-sidebar-border bg-sidebar/50">
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-8">
+    <footer className="py-8 sm:py-12 border-t border-sidebar-border bg-sidebar/95 backdrop-blur-md mt-auto">
+      <div className="container mx-auto px-4 sm:px-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 sm:gap-8 mb-6 sm:mb-8">
           {/* Product Section */}
           <div>
             <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider text-sidebar-foreground">Product</h3>
@@ -181,8 +181,8 @@ const Footer: React.FC = () => {
         </div>
 
         {/* Bottom Section */}
-        <div className="pt-8 border-t border-sidebar-border">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="pt-6 sm:pt-8 border-t border-sidebar-border">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="mb-4 md:mb-0">
               <p className="text-sm text-sidebar-foreground/70">
                 © {new Date().getFullYear()} NannyAI. All rights reserved.

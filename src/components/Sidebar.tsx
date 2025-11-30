@@ -108,13 +108,15 @@ const Sidebar: React.FC = () => {
       )}
     >
       <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
-        {!collapsed && (
-          <div className="flex items-center space-x-2">
-            <Server className="h-6 w-6 text-sidebar-primary" />
-            <span className="font-bold text-sidebar-foreground">NANNYAI</span>
-          </div>
-        )}
-        {collapsed && <Server className="h-6 w-6 text-sidebar-primary mx-auto" />}
+        <a href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+          {!collapsed && (
+            <>
+              <Server className="h-6 w-6 text-sidebar-primary" />
+              <span className="font-bold text-sidebar-foreground">NANNYAI</span>
+            </>
+          )}
+          {collapsed && <Server className="h-6 w-6 text-sidebar-primary mx-auto" />}
+        </a>
         
         <button
           onClick={() => setCollapsed(!collapsed)}
