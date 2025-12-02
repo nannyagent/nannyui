@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import withAuth from '@/utils/withAuth';
@@ -11,15 +11,12 @@ import {
   Clock,
   Eye,
   RefreshCw,
-  ChevronDown,
-  ChevronUp,
-  Terminal,
-  AlertTriangle,
   Server,
   Calendar,
-  TrendingUp,
+  ChevronDown,
+  ChevronUp,
   ExternalLink,
-  ArrowUpCircle
+  Search
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
@@ -28,30 +25,33 @@ import TransitionWrapper from '@/components/TransitionWrapper';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/lib/supabase';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { listAllPatchExecutions, type PatchExecution } from '@/services/patchManagementService';
 
-interface PatchExecutionWithAgent {
-  id: string;
-  agent_id: string;
+interface PatchExecutionWithAgent extends PatchExecution {
   agent_name?: string;
-  execution_type: string;
-  status: string;
-  exit_code: number | null;
-  error_message: string | null;
-  stdout_storage_path: string | null;
-  stderr_storage_path: string | null;
-  started_at: string | null;
-  completed_at: string | null;
-  should_reboot: boolean;
-  rebooted_at: string | null;
+}
+
+interface GroupedExecutions {
+  [agentId: string]: {
+    agentName: string;
+    executions: PatchExecutionWithAgent[];
+  };
 }
 
 const PatchHistory = () => {
   const [executions, setExecutions] = useState<PatchExecutionWithAgent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [outputs, setOutputs] = useState<Map<string, { stdout?: string; stderr?: string }>>(new Map());
-  const [loadingOutputs, setLoadingOutputs] = useState<Set<string>>(new Set());
+  const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     loadExecutions();
@@ -60,45 +60,12 @@ const PatchHistory = () => {
   const loadExecutions = async () => {
     setLoading(true);
     try {
-      // Get last 50 executions with agent info
-      const { data: executionsData, error: execError } = await supabase
-        .from('patch_executions')
-        .select(`
-          id,
-          agent_id,
-          execution_type,
-          status,
-          exit_code,
-          error_message,
-          stdout_storage_path,
-          stderr_storage_path,
-          started_at,
-          completed_at,
-          should_reboot,
-          rebooted_at
-        `)
-        .order('started_at', { ascending: false })
-        .limit(50);
-
-      if (execError) throw execError;
-
-      // Get agent names
-      if (executionsData && executionsData.length > 0) {
-        const agentIds = [...new Set(executionsData.map(e => e.agent_id))];
-        const { data: agentsData } = await supabase
-          .from('agents')
-          .select('id, name')
-          .in('id', agentIds);
-
-        const agentMap = new Map(agentsData?.map(a => [a.id, a.name]) || []);
-
-        const enrichedData = executionsData.map(exec => ({
-          ...exec,
-          agent_name: agentMap.get(exec.agent_id) || `Agent ${exec.agent_id.substring(0, 8)}`
-        }));
-
-        setExecutions(enrichedData);
-      }
+      const data = await listAllPatchExecutions(100);
+      setExecutions(data);
+      
+      // Auto-expand first 3 agents
+      const agentIds: string[] = [...new Set(data.map(e => e.agent_id))].slice(0, 3);
+      setExpandedAgents(new Set(agentIds));
     } catch (error) {
       console.error('Error loading executions:', error);
     } finally {
@@ -106,64 +73,57 @@ const PatchHistory = () => {
     }
   };
 
-  const toggleExpand = async (executionId: string) => {
-    const newExpanded = new Set(expandedIds);
-    
-    if (expandedIds.has(executionId)) {
-      newExpanded.delete(executionId);
-    } else {
-      newExpanded.add(executionId);
-      
-      // Load output if not already loaded
-      if (!outputs.has(executionId)) {
-        await loadOutput(executionId);
-      }
+  // Group executions by agent
+  const groupedExecutions = useMemo(() => {
+    let filtered = executions;
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(e => e.status === statusFilter);
     }
-    
-    setExpandedIds(newExpanded);
-  };
 
-  const loadOutput = async (executionId: string) => {
-    const execution = executions.find(e => e.id === executionId);
-    if (!execution) return;
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(e => 
+        e.agent_name?.toLowerCase().includes(query) ||
+        e.agent_id.toLowerCase().includes(query) ||
+        e.id.toLowerCase().includes(query)
+      );
+    }
 
-    setLoadingOutputs(prev => new Set(prev).add(executionId));
-
-    try {
-      const output: { stdout?: string; stderr?: string } = {};
-
-      // Load stdout
-      if (execution.stdout_storage_path) {
-        const { data: stdoutData } = await supabase.storage
-          .from('patch-execution-outputs')
-          .download(execution.stdout_storage_path);
-        
-        if (stdoutData) {
-          output.stdout = await stdoutData.text();
-        }
+    // Group by agent
+    const grouped: GroupedExecutions = {};
+    filtered.forEach(exec => {
+      if (!grouped[exec.agent_id]) {
+        grouped[exec.agent_id] = {
+          agentName: exec.agent_name || `Agent ${exec.agent_id.substring(0, 8)}`,
+          executions: []
+        };
       }
+      grouped[exec.agent_id].executions.push(exec);
+    });
 
-      // Load stderr
-      if (execution.stderr_storage_path) {
-        const { data: stderrData } = await supabase.storage
-          .from('patch-execution-outputs')
-          .download(execution.stderr_storage_path);
-        
-        if (stderrData) {
-          output.stderr = await stderrData.text();
-        }
-      }
-
-      setOutputs(prev => new Map(prev).set(executionId, output));
-    } catch (error) {
-      console.error('Error loading output:', error);
-    } finally {
-      setLoadingOutputs(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(executionId);
-        return newSet;
+    // Sort each agent's executions by date
+    Object.values(grouped).forEach(group => {
+      group.executions.sort((a, b) => {
+        const dateA = a.started_at ? new Date(a.started_at).getTime() : 0;
+        const dateB = b.started_at ? new Date(b.started_at).getTime() : 0;
+        return dateB - dateA;
       });
+    });
+
+    return grouped;
+  }, [executions, statusFilter, searchQuery]);
+
+  const toggleAgent = (agentId: string) => {
+    const newExpanded = new Set(expandedAgents);
+    if (expandedAgents.has(agentId)) {
+      newExpanded.delete(agentId);
+    } else {
+      newExpanded.add(agentId);
     }
+    setExpandedAgents(newExpanded);
   };
 
   const getStatusBadge = (status: string) => {
@@ -203,20 +163,21 @@ const PatchHistory = () => {
 
   const getExecutionTypeLabel = (type: string) => {
     switch (type) {
-      case 'dry_run':
-        return 'Dry Run';
-      case 'apply':
-        return 'Apply';
-      case 'apply_with_reboot':
-        return 'Apply + Reboot';
-      default:
-        return type;
+      case 'dry_run': return 'Dry Run';
+      case 'apply': return 'Apply';
+      case 'apply_with_reboot': return 'Apply + Reboot';
+      default: return type;
     }
   };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleString();
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const getDuration = (started: string | null, completed: string | null) => {
@@ -226,21 +187,6 @@ const PatchHistory = () => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}m ${remainingSeconds}s`;
-  };
-
-  const parseJsonOutput = (stdout: string): any => {
-    try {
-      const lines = stdout.split('\n');
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('{')) {
-          return JSON.parse(trimmed);
-        }
-      }
-      return null;
-    } catch {
-      return null;
-    }
   };
 
   if (loading) {
@@ -273,15 +219,15 @@ const PatchHistory = () => {
           <TransitionWrapper className="flex-1 overflow-y-auto">
             <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-8">
               {/* Header */}
-              <div className="mb-8">
+              <div className="mb-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
                     <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-3">
                       <Shield className="h-8 w-8 text-primary" />
-                      Patch Management History
+                      Patch History
                     </h1>
                     <p className="text-muted-foreground mt-2 text-sm sm:text-base">
-                      Recent patch operations across all agents
+                      All patch operations grouped by agent
                     </p>
                   </div>
                   <Button onClick={loadExecutions} variant="outline">
@@ -291,278 +237,173 @@ const PatchHistory = () => {
                 </div>
               </div>
 
-              {/* Info Banner */}
-              {executions.length > 0 && (
-                <Card className="mb-6 border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
-                  <CardContent className="py-4">
-                    <div className="flex items-start gap-3">
-                      <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-sm text-blue-900 dark:text-blue-100">
-                          <strong>💡 Tip:</strong> Click the <strong>"Details"</strong> button on any execution to view the complete package update table with version information.
-                        </p>
+              {/* Filters */}
+              <Card className="mb-6">
+                <CardContent className="py-4">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search by agent name or ID..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-10"
+                        />
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                        <SelectItem value="running">Running</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
 
-              {/* Executions List */}
-              {executions.length === 0 ? (
+              {/* Grouped Executions */}
+              {Object.keys(groupedExecutions).length === 0 ? (
                 <Card>
                   <CardContent className="py-12">
                     <div className="text-center text-muted-foreground">
                       <Package className="h-16 w-16 mx-auto mb-4 opacity-50" />
                       <p className="text-lg font-medium">No patch executions found</p>
-                      <p className="text-sm mt-2">Patch operations will appear here once executed</p>
-                      <div className="mt-6">
-                        <p className="text-xs text-muted-foreground mb-3">To execute patches:</p>
-                        <ol className="text-xs text-left inline-block space-y-2">
-                          <li className="flex items-center gap-2">
-                            <Badge variant="outline" className="w-6 h-6 p-0 flex items-center justify-center">1</Badge>
-                            Go to an agent page from the <Link to="/agents" className="text-primary hover:underline">Agents</Link> list
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <Badge variant="outline" className="w-6 h-6 p-0 flex items-center justify-center">2</Badge>
-                            Click "Patch Management" on the agent card
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <Badge variant="outline" className="w-6 h-6 p-0 flex items-center justify-center">3</Badge>
-                            Run "Dry Run" to preview or "Apply Patches" to update
-                          </li>
-                        </ol>
-                      </div>
+                      <p className="text-sm mt-2">
+                        {searchQuery || statusFilter !== 'all' 
+                          ? 'Try adjusting your filters'
+                          : 'Patch operations will appear here once executed'}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
               ) : (
                 <div className="space-y-4">
-                  {executions.map((execution, idx) => {
-                    const isExpanded = expandedIds.has(execution.id);
-                    const output = outputs.get(execution.id);
-                    const isLoadingOutput = loadingOutputs.has(execution.id);
-                    const parsedOutput = output?.stdout ? parseJsonOutput(output.stdout) : null;
+                  {Object.entries(groupedExecutions)
+                    .sort(([, a], [, b]) => {
+                      const latestA = a.executions[0]?.started_at ? new Date(a.executions[0].started_at).getTime() : 0;
+                      const latestB = b.executions[0]?.started_at ? new Date(b.executions[0].started_at).getTime() : 0;
+                      return latestB - latestA;
+                    })
+                    .map(([agentId, group], idx) => {
+                      const isExpanded = expandedAgents.has(agentId);
+                      const latestExecution = group.executions[0];
+                      const completedCount = group.executions.filter(e => e.status === 'completed').length;
+                      const failedCount = group.executions.filter(e => e.status === 'failed').length;
 
-                    return (
-                      <motion.div
-                        key={execution.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05 }}
-                      >
-                        <Card className="hover:shadow-lg transition-shadow">
-                          <CardHeader>
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 space-y-3">
-                                {/* Status and Type Row */}
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {getStatusBadge(execution.status)}
-                                  <Badge variant="outline" className="font-medium">
-                                    {getExecutionTypeLabel(execution.execution_type)}
-                                  </Badge>
-                                  {execution.should_reboot && (
-                                    <Badge variant="secondary">
-                                      <RefreshCw className="h-3 w-3 mr-1" />
-                                      Reboot
-                                    </Badge>
-                                  )}
+                      return (
+                        <motion.div
+                          key={agentId}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.05 }}
+                        >
+                          <Card className="overflow-hidden">
+                            {/* Agent Header */}
+                            <button
+                              onClick={() => toggleAgent(agentId)}
+                              className="w-full text-left"
+                            >
+                              <CardHeader className="hover:bg-muted/50 transition-colors">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-4">
+                                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                      <Server className="h-5 w-5 text-primary" />
+                                    </div>
+                                    <div>
+                                      <CardTitle className="text-lg flex items-center gap-2">
+                                        {group.agentName}
+                                        <Link 
+                                          to={`/patch-management/${agentId}`}
+                                          className="text-primary hover:underline"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <ExternalLink className="h-4 w-4" />
+                                        </Link>
+                                      </CardTitle>
+                                      <CardDescription className="flex items-center gap-3 mt-1">
+                                        <span>{group.executions.length} execution{group.executions.length !== 1 ? 's' : ''}</span>
+                                        <span className="text-green-600">{completedCount} completed</span>
+                                        {failedCount > 0 && (
+                                          <span className="text-red-600">{failedCount} failed</span>
+                                        )}
+                                      </CardDescription>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4">
+                                    {latestExecution && (
+                                      <div className="text-right hidden sm:block">
+                                        <p className="text-xs text-muted-foreground">Latest</p>
+                                        <p className="text-sm font-medium">{formatDate(latestExecution.started_at)}</p>
+                                      </div>
+                                    )}
+                                    {isExpanded ? (
+                                      <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                                    ) : (
+                                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                                    )}
+                                  </div>
                                 </div>
+                              </CardHeader>
+                            </button>
 
-                                {/* Agent and Time Info */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                  <div className="flex items-center gap-2">
-                                    <Server className="h-4 w-4 text-blue-500" />
-                                    <div className="flex flex-col">
-                                      <span className="text-xs text-muted-foreground">Agent</span>
-                                      <Link
-                                        to={`/patch-management/${execution.agent_id}`}
-                                        className="text-sm font-medium hover:underline flex items-center gap-1"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        {execution.agent_name}
-                                        <ExternalLink className="h-3 w-3" />
+                            {/* Executions List */}
+                            {isExpanded && (
+                              <CardContent className="border-t pt-4">
+                                <div className="space-y-3">
+                                  {group.executions.map((execution) => (
+                                    <div
+                                      key={execution.id}
+                                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
+                                    >
+                                      <div className="flex items-center gap-3 flex-wrap">
+                                        {getStatusBadge(execution.status)}
+                                        <Badge variant="outline">
+                                          {getExecutionTypeLabel(execution.execution_type)}
+                                        </Badge>
+                                        {execution.should_reboot && (
+                                          <Badge variant="secondary" className="hidden sm:flex">
+                                            <RefreshCw className="h-3 w-3 mr-1" />
+                                            Reboot
+                                          </Badge>
+                                        )}
+                                        <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                          <Calendar className="h-3 w-3" />
+                                          {formatDate(execution.started_at)}
+                                        </span>
+                                        {execution.completed_at && (
+                                          <span className="text-sm text-muted-foreground hidden md:flex items-center gap-1">
+                                            <Clock className="h-3 w-3" />
+                                            {getDuration(execution.started_at, execution.completed_at)}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <Link to={`/patch-execution/${execution.id}`}>
+                                        <Button variant="ghost" size="sm">
+                                          <Eye className="h-4 w-4 mr-1" />
+                                          Details
+                                        </Button>
                                       </Link>
                                     </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-2">
-                                    <Calendar className="h-4 w-4 text-orange-500" />
-                                    <div className="flex flex-col">
-                                      <span className="text-xs text-muted-foreground">Started</span>
-                                      <span className="text-sm font-medium">{formatDate(execution.started_at)}</span>
-                                    </div>
-                                  </div>
-
-                                  {execution.completed_at && (
-                                    <div className="flex items-center gap-2">
-                                      <Clock className="h-4 w-4 text-purple-500" />
-                                      <div className="flex flex-col">
-                                        <span className="text-xs text-muted-foreground">Duration</span>
-                                        <span className="text-sm font-medium">
-                                          {getDuration(execution.started_at, execution.completed_at)}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
+                                  ))}
                                 </div>
-
-                                {/* Quick Stats if available */}
-                                {!isExpanded && output?.stdout && (() => {
-                                  const quickParsed = parseJsonOutput(output.stdout);
-                                  if (quickParsed) {
-                                    return (
-                                      <div className="flex items-center gap-4 pt-2 border-t">
-                                        <div className="flex items-center gap-2">
-                                          <Package className="h-4 w-4 text-blue-500" />
-                                          <span className="text-sm">
-                                            <span className="font-bold">{quickParsed.packages_checked || 0}</span>
-                                            <span className="text-muted-foreground ml-1">checked</span>
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <TrendingUp className="h-4 w-4 text-amber-500" />
-                                          <span className="text-sm">
-                                            <span className="font-bold">
-                                              {quickParsed.updates_available || quickParsed.packages_updated || 0}
-                                            </span>
-                                            <span className="text-muted-foreground ml-1">
-                                              {execution.execution_type === 'dry_run' ? 'available' : 'updated'}
-                                            </span>
-                                          </span>
-                                        </div>
-                                      </div>
-                                    );
-                                  }
-                                  return null;
-                                })()}
-
-                                {execution.error_message && (
-                                  <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400 p-2 bg-red-50 dark:bg-red-950/20 rounded">
-                                    <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                                    <span className="flex-1">{execution.error_message}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Action Buttons */}
-                              <div className="flex flex-col gap-2">
-                                <Button
-                                  asChild
-                                  variant="default"
-                                  size="sm"
-                                >
-                                  <Link to={`/patch-execution/${execution.id}`}>
-                                    <Eye className="h-4 w-4 mr-1" />
-                                    Details
-                                  </Link>
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => toggleExpand(execution.id)}
-                                >
-                                  {isExpanded ? (
-                                    <>
-                                      <ChevronUp className="h-4 w-4 mr-1" />
-                                      Collapse
-                                    </>
-                                  ) : (
-                                    <>
-                                      <ChevronDown className="h-4 w-4 mr-1" />
-                                      Expand
-                                    </>
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                          </CardHeader>
-
-                          {isExpanded && (
-                            <CardContent className="border-t">
-                              {isLoadingOutput ? (
-                                <div className="flex items-center justify-center py-8">
-                                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                                  <span className="ml-2 text-muted-foreground">Loading output...</span>
-                                </div>
-                              ) : (
-                                <div className="space-y-4">
-                                  {/* Parsed JSON Output */}
-                                  {parsedOutput && (
-                                    <div className="space-y-3">
-                                      <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-                                        <div>
-                                          <div className="text-sm text-muted-foreground">Packages Checked</div>
-                                          <div className="text-2xl font-bold">{parsedOutput.packages_checked || 0}</div>
-                                        </div>
-                                        <div>
-                                          <div className="text-sm text-muted-foreground">
-                                            {execution.execution_type === 'dry_run' ? 'Updates Available' : 'Packages Updated'}
-                                          </div>
-                                          <div className="text-2xl font-bold text-blue-600">
-                                            {parsedOutput.updates_available || parsedOutput.packages_updated || 0}
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      {parsedOutput.updated_packages && parsedOutput.updated_packages.length > 0 && (
-                                        <div className="space-y-2">
-                                          <div className="font-medium flex items-center gap-2">
-                                            <Package className="h-4 w-4" />
-                                            {execution.execution_type === 'dry_run' ? 'Available Updates' : 'Updated Packages'}
-                                          </div>
-                                          <div className="max-h-60 overflow-y-auto space-y-1 p-3 bg-muted/30 rounded-lg">
-                                            {parsedOutput.updated_packages.map((pkg: string, idx: number) => (
-                                              <div key={idx} className="text-sm font-mono">{pkg}</div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {/* Stdout */}
-                                  {output?.stdout && (
-                                    <div className="space-y-2">
-                                      <div className="font-medium flex items-center gap-2">
-                                        <Terminal className="h-4 w-4" />
-                                        Standard Output
-                                      </div>
-                                      <pre className="p-4 bg-slate-950 text-green-400 rounded-lg text-xs overflow-x-auto max-h-96 overflow-y-auto">
-                                        {output.stdout}
-                                      </pre>
-                                    </div>
-                                  )}
-
-                                  {/* Stderr */}
-                                  {output?.stderr && (
-                                    <div className="space-y-2">
-                                      <div className="font-medium flex items-center gap-2 text-red-600">
-                                        <AlertTriangle className="h-4 w-4" />
-                                        Error Output
-                                      </div>
-                                      <pre className="p-4 bg-red-950 text-red-200 rounded-lg text-xs overflow-x-auto max-h-96 overflow-y-auto">
-                                        {output.stderr}
-                                      </pre>
-                                    </div>
-                                  )}
-
-                                  {!output?.stdout && !output?.stderr && (
-                                    <div className="text-center py-4 text-muted-foreground">
-                                      <p className="text-sm">No output available</p>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </CardContent>
-                          )}
-                        </Card>
-                      </motion.div>
-                    );
-                  })}
+                              </CardContent>
+                            )}
+                          </Card>
+                        </motion.div>
+                      );
+                    })}
                 </div>
               )}
             </div>
           </TransitionWrapper>
+          
           <Footer />
         </div>
       </div>

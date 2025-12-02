@@ -591,6 +591,47 @@ export type Database = {
           },
         ]
       }
+      package_exceptions: {
+        Row: {
+          agent_id: string
+          created_at: string | null
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          package_name: string
+          reason: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          package_name: string
+          reason?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          package_name?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_exceptions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       package_fetch_commands: {
         Row: {
           command: string
@@ -620,6 +661,75 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      patch_executions: {
+        Row: {
+          agent_id: string
+          command: string
+          completed_at: string | null
+          error_message: string | null
+          execution_type: string
+          exit_code: number | null
+          id: string
+          rebooted_at: string | null
+          script_id: string | null
+          should_reboot: boolean | null
+          started_at: string | null
+          status: string
+          stderr_storage_path: string | null
+          stdout_storage_path: string | null
+          triggered_by: string | null
+        }
+        Insert: {
+          agent_id: string
+          command: string
+          completed_at?: string | null
+          error_message?: string | null
+          execution_type: string
+          exit_code?: number | null
+          id?: string
+          rebooted_at?: string | null
+          script_id?: string | null
+          should_reboot?: boolean | null
+          started_at?: string | null
+          status?: string
+          stderr_storage_path?: string | null
+          stdout_storage_path?: string | null
+          triggered_by?: string | null
+        }
+        Update: {
+          agent_id?: string
+          command?: string
+          completed_at?: string | null
+          error_message?: string | null
+          execution_type?: string
+          exit_code?: number | null
+          id?: string
+          rebooted_at?: string | null
+          script_id?: string | null
+          should_reboot?: boolean | null
+          started_at?: string | null
+          status?: string
+          stderr_storage_path?: string | null
+          stdout_storage_path?: string | null
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patch_executions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patch_executions_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "patch_scripts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       patch_management_schedules: {
         Row: {
@@ -664,6 +774,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      patch_scripts: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          major_version: string | null
+          minor_version: string | null
+          name: string
+          os_family: string
+          os_platform: string | null
+          package_manager: string
+          script_storage_path: string
+          script_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          major_version?: string | null
+          minor_version?: string | null
+          name: string
+          os_family: string
+          os_platform?: string | null
+          package_manager: string
+          script_storage_path: string
+          script_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          major_version?: string | null
+          minor_version?: string | null
+          name?: string
+          os_family?: string
+          os_platform?: string | null
+          package_manager?: string
+          script_storage_path?: string
+          script_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       patch_tasks: {
         Row: {
@@ -830,6 +991,60 @@ export type Database = {
           tokens_per_day?: number | null
         }
         Relationships: []
+      }
+      scheduled_patches: {
+        Row: {
+          agent_id: string
+          created_at: string | null
+          created_by: string | null
+          cron_expression: string
+          execution_type: string
+          id: string
+          is_active: boolean | null
+          last_run_at: string | null
+          next_run_at: string | null
+          script_id: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string | null
+          created_by?: string | null
+          cron_expression: string
+          execution_type: string
+          id?: string
+          is_active?: boolean | null
+          last_run_at?: string | null
+          next_run_at?: string | null
+          script_id?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          cron_expression?: string
+          execution_type?: string
+          id?: string
+          is_active?: boolean | null
+          last_run_at?: string | null
+          next_run_at?: string | null
+          script_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_patches_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_patches_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "patch_scripts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
