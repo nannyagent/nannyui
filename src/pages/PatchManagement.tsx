@@ -17,7 +17,12 @@ import {
   AlertCircle,
   ShieldAlert,
   ShieldCheck,
-  Loader2
+  Loader2,
+  Play,
+  Eye,
+  Settings,
+  History,
+  RefreshCw
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
@@ -26,6 +31,12 @@ import TransitionWrapper from '@/components/TransitionWrapper';
 import ErrorBanner from '@/components/ErrorBanner';
 import { getPatchManagementData, type PatchManagementData, type Package as PatchPackage } from '@/services/patchManagementService';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { PatchExecutionDialog } from '@/components/PatchExecutionDialog';
+import { PackageExceptionsDialog } from '@/components/PackageExceptionsDialog';
+import { PatchExecutionHistory } from '@/components/PatchExecutionHistory';
+import { CronScheduleDialog } from '@/components/CronScheduleDialog';
+import { RebootDialog } from '@/components/RebootDialog';
 
 const PatchManagement = () => {
   const { agentId } = useParams<{ agentId: string }>();
@@ -36,10 +47,37 @@ const PatchManagement = () => {
   const [severityFilter, setSeverityFilter] = useState<'all' | 'critical' | 'high' | 'medium'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  
+  // Dialog states
+  const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
+  const [executionType, setExecutionType] = useState<'dry_run' | 'apply'>('dry_run');
+  const [shouldReboot, setShouldReboot] = useState(false);
+  const [exceptionsDialogOpen, setExceptionsDialogOpen] = useState(false);
+  const [cronScheduleDialogOpen, setCronScheduleDialogOpen] = useState(false);
+  const [rebootDialogOpen, setRebootDialogOpen] = useState(false);
+  const [isAgentOnline, setIsAgentOnline] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(true);
 
   useEffect(() => {
     loadPatchData();
+    checkAgentConnection();
   }, [agentId]);
+
+  const checkAgentConnection = async () => {
+    if (!agentId) return;
+    
+    setCheckingConnection(true);
+    try {
+      const { checkAgentWebSocketConnection } = await import('@/services/patchManagementService');
+      const isOnline = await checkAgentWebSocketConnection(agentId);
+      setIsAgentOnline(isOnline);
+    } catch (error) {
+      console.error('Error checking agent connection:', error);
+      setIsAgentOnline(false);
+    } finally {
+      setCheckingConnection(false);
+    }
+  };
 
   const loadPatchData = async () => {
     if (!agentId) return;
@@ -51,9 +89,10 @@ const PatchManagement = () => {
       const patchData = await getPatchManagementData(agentId);
       setData(patchData);
     } catch (error) {
-      console.error('Error fetching patch data:', error);
-      setHasError(true);
-      setErrorMessage('Failed to load patch management data. Please try again.');
+      // Silently handle error - diagnostic data endpoint may not exist yet
+      // The page can still be useful for patch execution without this data
+      setHasError(false);
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -149,6 +188,73 @@ const PatchManagement = () => {
                     <p className="text-muted-foreground mt-2 text-sm sm:text-base">
                       Security vulnerabilities and available updates for agent {agentId?.substring(0, 8)}
                     </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      {!checkingConnection && (
+                        <Badge variant={isAgentOnline ? "default" : "secondary"} className={isAgentOnline ? "bg-green-600" : ""}>
+                          {isAgentOnline ? "Agent Online" : "Agent Offline"}
+                        </Badge>
+                      )}
+                      <Link to="/patch-history">
+                        <Badge variant="outline" className="cursor-pointer hover:bg-muted">
+                          View All History
+                        </Badge>
+                      </Link>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setExceptionsDialogOpen(true)}
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Exceptions
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCronScheduleDialogOpen(true)}
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Schedule
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!isAgentOnline || checkingConnection}
+                      onClick={() => {
+                        setExecutionType('dry_run');
+                        setShouldReboot(false);
+                        setExecutionDialogOpen(true);
+                      }}
+                      title={!isAgentOnline ? "Agent must be online to run dry run" : "Preview available updates"}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Dry Run
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={!isAgentOnline || checkingConnection}
+                      onClick={() => {
+                        setExecutionType('apply');
+                        setShouldReboot(false);
+                        setExecutionDialogOpen(true);
+                      }}
+                      title={!isAgentOnline ? "Agent must be online to apply patches" : "Apply available updates"}
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Apply Patches
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={!isAgentOnline || checkingConnection}
+                      onClick={() => setRebootDialogOpen(true)}
+                      title={!isAgentOnline ? "Agent must be online to reboot" : "Reboot agent node"}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Reboot
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -212,6 +318,18 @@ const PatchManagement = () => {
                       </p>
                     </motion.div>
                   </div>
+
+                  {/* Execution History */}
+                  {agentId && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="mb-8"
+                    >
+                      <PatchExecutionHistory agentId={agentId} />
+                    </motion.div>
+                  )}
 
                   {/* Vulnerability Summary */}
                   <motion.div 
@@ -409,6 +527,42 @@ const PatchManagement = () => {
           <Footer />
         </div>
       </div>
+
+      {/* Dialogs */}
+      {agentId && (
+        <>
+          <PatchExecutionDialog
+            open={executionDialogOpen}
+            onOpenChange={setExecutionDialogOpen}
+            agentId={agentId}
+            agentName={`Agent ${agentId.substring(0, 8)}`}
+            executionType={executionType}
+            shouldReboot={shouldReboot}
+            onComplete={() => {
+              loadPatchData();
+            }}
+          />
+
+          <PackageExceptionsDialog
+            open={exceptionsDialogOpen}
+            onOpenChange={setExceptionsDialogOpen}
+            agentId={agentId}
+            agentName={`Agent ${agentId.substring(0, 8)}`}
+          />
+
+          <CronScheduleDialog
+            open={cronScheduleDialogOpen}
+            onOpenChange={setCronScheduleDialogOpen}
+            agentId={agentId}
+          />
+
+          <RebootDialog
+            open={rebootDialogOpen}
+            onOpenChange={setRebootDialogOpen}
+            agentId={agentId}
+          />
+        </>
+      )}
     </div>
   );
 };

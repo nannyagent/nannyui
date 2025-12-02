@@ -37,6 +37,8 @@ import ServerError from "./pages/ServerError";
 import CookieConsent from "./components/CookieConsent";
 
 import PatchManagement from "./pages/PatchManagement";
+import PatchHistory from "./pages/PatchHistory";
+import PatchExecutionDetail from "./pages/PatchExecutionDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,6 +66,8 @@ const App = () => (
               <Route path="/tokens" element={<Tokens />} />
               <Route path="/agents" element={<Agents />} />
               <Route path="/patch-management/:agentId" element={<PatchManagement />} />
+              <Route path="/patch-history" element={<PatchHistory />} />
+              <Route path="/patch-execution/:executionId" element={<PatchExecutionDetail />} />
               <Route path="/activities" element={<Activities />} />
               <Route path="/investigations" element={<Investigations />} />
               <Route path="/investigations/:investigationId" element={<InvestigationEpisode />} />

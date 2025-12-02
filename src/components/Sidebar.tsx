@@ -14,7 +14,8 @@ import {
   DollarSign,
   Shield,
   BarChart3,
-  Search
+  Search,
+  PackageCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -63,6 +64,7 @@ const Sidebar: React.FC = () => {
     { to: '/agents/register', icon: Shield, label: 'Register Agent' },
     { to: '/activities', icon: Activity, label: 'Activities' },
     { to: '/investigations', icon: Search, label: 'Investigations' },
+    { to: '/patch-history', icon: PackageCheck, label: 'Patch Management' },
     { to: '/pricing', icon: DollarSign, label: 'Pricing' },
     { to: '/documentation', icon: BookOpen, label: 'Documentation' },
     { to: '/contact', icon: Mail, label: 'Contact' },
