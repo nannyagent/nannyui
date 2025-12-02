@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -16,7 +17,8 @@ import {
   Loader2,
   Eye,
   RefreshCw,
-  Calendar
+  Calendar,
+  ExternalLink
 } from 'lucide-react';
 import {
   listPatchExecutions,
@@ -26,11 +28,13 @@ import {
 interface PatchExecutionHistoryProps {
   agentId: string;
   refreshTrigger?: number;
+  limit?: number;
 }
 
 export const PatchExecutionHistory: React.FC<PatchExecutionHistoryProps> = ({
   agentId,
-  refreshTrigger = 0
+  refreshTrigger = 0,
+  limit = 5
 }) => {
   const [executions, setExecutions] = useState<PatchExecution[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +46,7 @@ export const PatchExecutionHistory: React.FC<PatchExecutionHistoryProps> = ({
   const loadExecutions = async () => {
     setLoading(true);
     try {
-      const data = await listPatchExecutions(agentId, 10);
+      const data = await listPatchExecutions(agentId, limit);
       setExecutions(data);
     } catch (error) {
       console.error('Error loading execution history:', error);
@@ -57,7 +61,7 @@ export const PatchExecutionHistory: React.FC<PatchExecutionHistoryProps> = ({
         return (
           <Badge variant="default" className="bg-green-600">
             <CheckCircle2 className="h-3 w-3 mr-1" />
-            Completed
+            Done
           </Badge>
         );
       case 'failed':
@@ -88,45 +92,41 @@ export const PatchExecutionHistory: React.FC<PatchExecutionHistoryProps> = ({
 
   const getExecutionTypeLabel = (type: string) => {
     switch (type) {
-      case 'dry_run':
-        return 'Dry Run';
-      case 'apply':
-        return 'Apply';
-      case 'apply_with_reboot':
-        return 'Apply + Reboot';
-      default:
-        return type;
+      case 'dry_run': return 'Dry Run';
+      case 'apply': return 'Apply';
+      case 'apply_with_reboot': return 'Apply + Reboot';
+      default: return type;
     }
   };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleString();
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const getDuration = (started: string | null, completed: string | null) => {
     if (!started || !completed) return '-';
-    const start = new Date(started).getTime();
-    const end = new Date(completed).getTime();
-    const seconds = Math.floor((end - start) / 1000);
+    const seconds = Math.floor((new Date(completed).getTime() - new Date(started).getTime()) / 1000);
     if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
+    return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
   };
 
   if (loading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            Execution History
+            Recent Executions
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-6">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         </CardContent>
@@ -136,96 +136,64 @@ export const PatchExecutionHistory: React.FC<PatchExecutionHistoryProps> = ({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="text-lg flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Execution History
+              Recent Executions
             </CardTitle>
-            <CardDescription>Recent patch operations for this agent</CardDescription>
+            <CardDescription>Last {limit} patch operations</CardDescription>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadExecutions}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={loadExecutions}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Link to="/patch-history">
+              <Button variant="outline" size="sm">
+                <ExternalLink className="h-4 w-4 mr-1" />
+                View All
+              </Button>
+            </Link>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         {executions.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No execution history yet</p>
-            <p className="text-sm mt-1">Run a dry run or apply patches to see history here</p>
+          <div className="text-center py-6 text-muted-foreground">
+            <Calendar className="h-10 w-10 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No execution history yet</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {executions.map((execution, idx) => (
               <motion.div
                 key={execution.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.05 }}
-                className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
+                <Link to={`/patch-execution/${execution.id}`}>
+                  <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                    <div className="flex items-center gap-3 flex-wrap">
                       {getStatusBadge(execution.status)}
-                      <Badge variant="outline">
+                      <Badge variant="outline" className="text-xs">
                         {getExecutionTypeLabel(execution.execution_type)}
                       </Badge>
-                      {execution.should_reboot && (
-                        <Badge variant="secondary">
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                          Reboot
-                        </Badge>
-                      )}
-                      {execution.exit_code !== null && (
-                        <span className="text-xs text-muted-foreground">
-                          Exit: {execution.exit_code}
-                        </span>
-                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(execution.started_at)}
+                      </span>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Started:</span>{' '}
-                        <span className="font-medium">
-                          {formatDate(execution.started_at)}
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-2">
                       {execution.completed_at && (
-                        <div>
-                          <span className="text-muted-foreground">Duration:</span>{' '}
-                          <span className="font-medium">
-                            {getDuration(execution.started_at, execution.completed_at)}
-                          </span>
-                        </div>
+                        <span className="text-xs text-muted-foreground hidden sm:inline">
+                          {getDuration(execution.started_at, execution.completed_at)}
+                        </span>
                       )}
+                      <Eye className="h-4 w-4 text-muted-foreground" />
                     </div>
-
-                    {execution.error_message && (
-                      <div className="text-sm text-red-600 dark:text-red-400">
-                        {execution.error_message}
-                      </div>
-                    )}
-
-                    {execution.rebooted_at && (
-                      <div className="text-sm text-blue-600 dark:text-blue-400">
-                        Rebooted at {formatDate(execution.rebooted_at)}
-                      </div>
-                    )}
                   </div>
-
-                  <div className="text-xs text-muted-foreground">
-                    ID: {execution.id.substring(0, 8)}
-                  </div>
-                </div>
+                </Link>
               </motion.div>
             ))}
           </div>

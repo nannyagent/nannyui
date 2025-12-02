@@ -17,7 +17,8 @@ import {
   AlertTriangle,
   Package,
   Terminal,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 import {
   triggerPatchExecution,
@@ -25,6 +26,7 @@ import {
   type PatchExecutionResponse
 } from '@/services/patchManagementService';
 import { useToast } from '@/hooks/use-toast';
+import { Link } from 'react-router-dom';
 
 interface PatchExecutionDialogProps {
   open: boolean;
@@ -46,6 +48,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
   onComplete
 }) => {
   const [status, setStatus] = useState<'checking' | 'triggering' | 'polling' | 'completed' | 'failed'>('checking');
+  const [executionId, setExecutionId] = useState<string | null>(null);
   const [executionData, setExecutionData] = useState<PatchExecutionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -73,6 +76,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
 
   const resetState = () => {
     setStatus('checking');
+    setExecutionId(null);
     setExecutionData(null);
     setError(null);
     setProgress(0);
@@ -105,6 +109,8 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
         throw new Error(response.message || 'Failed to trigger patch execution');
       }
 
+      setExecutionId(response.execution_id);
+
       // Step 3: Start polling for status (database only, no more API calls)
       setStatus('polling');
       setProgress(40);
@@ -118,7 +124,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
     }
   };
 
-  const pollExecutionStatus = async (executionId: string) => {
+  const pollExecutionStatus = async (execId: string) => {
     const maxAttempts = 60; // 5 minutes with 5-second intervals
     let attempts = 0;
 
@@ -131,7 +137,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
         const { data: dbData, error: dbError } = await supabase
           .from('patch_executions')
           .select('*')
-          .eq('id', executionId)
+          .eq('id', execId)
           .single();
 
         if (dbError) {
@@ -140,7 +146,6 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
 
         // Convert database row to PatchExecutionResponse format
         const data: PatchExecutionResponse = {
-          success: true,
           execution_id: dbData.id,
           agent_id: dbData.agent_id,
           execution_type: dbData.execution_type,
@@ -151,7 +156,11 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
           stderr_storage_path: dbData.stderr_storage_path,
           started_at: dbData.started_at,
           completed_at: dbData.completed_at,
-          message: dbData.status === 'completed' ? 'Execution completed' : 'Execution in progress'
+          should_reboot: dbData.should_reboot,
+          rebooted_at: dbData.rebooted_at,
+          output: null,
+          stdout: null,
+          stderr: null
         };
 
         setExecutionData(data);
@@ -168,14 +177,9 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
             description: `${executionType === 'dry_run' ? 'Preview' : 'Update'} completed successfully`,
           });
           
-          // Close dialog and call completion callback after a short delay
-          setTimeout(() => {
-            onOpenChange(false);
-            
-            if (onComplete) {
-              onComplete();
-            }
-          }, 2000); // Wait 2 seconds so user can see the success message
+          if (onComplete) {
+            onComplete();
+          }
           
           return;
         } else if (data.status === 'failed') {
@@ -220,10 +224,15 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
   const renderContent = () => {
     if (status === 'checking') {
       return (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 text-blue-600">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Checking agent connection...</span>
+        <div className="space-y-6 py-4">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+            <div className="text-center">
+              <p className="font-medium">Checking agent connection...</p>
+              <p className="text-sm text-muted-foreground mt-1">Verifying {agentName} is online</p>
+            </div>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
@@ -232,10 +241,15 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
 
     if (status === 'triggering') {
       return (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 text-blue-600">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Starting {executionType === 'dry_run' ? 'dry run' : 'patch application'}...</span>
+        <div className="space-y-6 py-4">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+              <Terminal className="h-8 w-8 text-blue-600" />
+            </div>
+            <div className="text-center">
+              <p className="font-medium">Starting {executionType === 'dry_run' ? 'dry run' : 'patch application'}...</p>
+              <p className="text-sm text-muted-foreground mt-1">Sending command to agent</p>
+            </div>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
@@ -244,100 +258,82 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
 
     if (status === 'polling') {
       return (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 text-blue-600">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span>
-                {executionData?.status === 'pending' ? 'Queued - waiting for agent...' : 'Executing on agent...'}
-              </span>
+        <div className="space-y-6 py-4">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+              <Package className="h-8 w-8 text-amber-600 animate-pulse" />
             </div>
-            <span className="text-sm text-muted-foreground">{formatTime(elapsedTime)}</span>
+            <div className="text-center">
+              <p className="font-medium">
+                {executionData?.status === 'pending' ? 'Queued - waiting for agent...' : 'Processing packages...'}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Elapsed: {formatTime(elapsedTime)}
+              </p>
+            </div>
           </div>
           
           <Progress value={progress} className="h-2" />
           
-          <Alert>
+          <Alert className="bg-muted/50">
             <Terminal className="h-4 w-4" />
             <AlertDescription>
               The agent is processing your request. This may take a few minutes depending on the number of packages.
             </AlertDescription>
           </Alert>
 
-          {executionData?.status === 'running' && (
-            <div className="text-sm text-muted-foreground">
-              Status: <Badge variant="secondary">{executionData.status}</Badge>
+          {executionData?.status && (
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-sm text-muted-foreground">Status:</span>
+              <Badge variant="secondary">{executionData.status}</Badge>
             </div>
           )}
         </div>
       );
     }
 
-    if (status === 'completed' && executionData) {
-      const parsedOutput = executionData.output;
-      
+    if (status === 'completed') {
       return (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 text-green-600">
-            <CheckCircle2 className="h-5 w-5" />
-            <span className="font-medium">
-              {executionType === 'dry_run' ? 'Dry Run Complete' : 'Patches Applied Successfully'}
-            </span>
+        <div className="space-y-6 py-4">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            </div>
+            <div className="text-center">
+              <p className="font-medium text-green-600">
+                {executionType === 'dry_run' ? 'Dry Run Complete' : 'Patches Applied Successfully'}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Completed in {formatTime(elapsedTime)}
+              </p>
+            </div>
           </div>
 
           <Progress value={100} className="h-2" />
 
-          {parsedOutput && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-                <div>
-                  <div className="text-sm text-muted-foreground">Packages Checked</div>
-                  <div className="text-2xl font-bold">{parsedOutput.packages_checked || 0}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">
-                    {executionType === 'dry_run' ? 'Updates Available' : 'Packages Updated'}
-                  </div>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {parsedOutput.updates_available || parsedOutput.packages_updated || 0}
-                  </div>
-                </div>
-              </div>
-
-              {parsedOutput.updated_packages && parsedOutput.updated_packages.length > 0 && (
-                <div className="space-y-2">
-                  <div className="font-medium flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    {executionType === 'dry_run' ? 'Available Updates' : 'Updated Packages'}
-                  </div>
-                  <div className="max-h-60 overflow-y-auto space-y-1 p-3 bg-muted/30 rounded-lg">
-                    {parsedOutput.updated_packages.map((pkg: string, idx: number) => (
-                      <div key={idx} className="text-sm font-mono">{pkg}</div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {executionData.should_reboot && (
-                <Alert>
-                  <RefreshCw className="h-4 w-4" />
-                  <AlertDescription>
-                    {executionData.rebooted_at 
-                      ? 'System was rebooted successfully' 
-                      : 'A system reboot is recommended to apply all changes'}
-                  </AlertDescription>
-                </Alert>
-              )}
+          {executionId && (
+            <div className="flex flex-col items-center gap-3 pt-2">
+              <p className="text-sm text-muted-foreground">
+                View detailed results including package versions and logs
+              </p>
+              <Link to={`/patch-execution/${executionId}`}>
+                <Button variant="outline" className="gap-2">
+                  <ExternalLink className="h-4 w-4" />
+                  View Execution Details
+                </Button>
+              </Link>
             </div>
           )}
 
-          {executionData.stdout && !parsedOutput && (
-            <div className="space-y-2">
-              <div className="font-medium">Output</div>
-              <pre className="p-3 bg-slate-950 text-green-400 rounded-lg text-xs overflow-x-auto max-h-60">
-                {executionData.stdout}
-              </pre>
-            </div>
+          {executionData?.should_reboot && (
+            <Alert>
+              <RefreshCw className="h-4 w-4" />
+              <AlertDescription>
+                {executionData.rebooted_at 
+                  ? 'System was rebooted successfully' 
+                  : 'A system reboot is recommended to apply all changes'}
+              </AlertDescription>
+            </Alert>
           )}
         </div>
       );
@@ -345,10 +341,17 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
 
     if (status === 'failed') {
       return (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 text-red-600">
-            <XCircle className="h-5 w-5" />
-            <span className="font-medium">Execution Failed</span>
+        <div className="space-y-6 py-4">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+              <XCircle className="h-8 w-8 text-red-600" />
+            </div>
+            <div className="text-center">
+              <p className="font-medium text-red-600">Execution Failed</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Something went wrong during the operation
+              </p>
+            </div>
           </div>
 
           <Alert variant="destructive">
@@ -356,21 +359,17 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
 
-          {executionData?.stderr && (
-            <div className="space-y-2">
-              <div className="font-medium text-sm">Error Details</div>
-              <pre className="p-3 bg-red-950 text-red-200 rounded-lg text-xs overflow-x-auto max-h-40">
-                {executionData.stderr}
-              </pre>
-            </div>
-          )}
-
-          {executionData?.stdout && (
-            <div className="space-y-2">
-              <div className="font-medium text-sm">Output</div>
-              <pre className="p-3 bg-slate-950 text-slate-200 rounded-lg text-xs overflow-x-auto max-h-40">
-                {executionData.stdout}
-              </pre>
+          {executionId && (
+            <div className="flex flex-col items-center gap-3 pt-2">
+              <p className="text-sm text-muted-foreground">
+                Check detailed logs for more information
+              </p>
+              <Link to={`/patch-execution/${executionId}`}>
+                <Button variant="outline" className="gap-2">
+                  <ExternalLink className="h-4 w-4" />
+                  View Execution Details
+                </Button>
+              </Link>
             </div>
           )}
         </div>
@@ -382,14 +381,24 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {executionType === 'dry_run' ? 'Dry Run Preview' : 'Apply Patches'}
+          <DialogTitle className="flex items-center gap-2">
+            {executionType === 'dry_run' ? (
+              <>
+                <Package className="h-5 w-5" />
+                Dry Run Preview
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-5 w-5" />
+                Apply Patches
+              </>
+            )}
           </DialogTitle>
           <DialogDescription>
             {executionType === 'dry_run' 
-              ? `Preview available updates for ${agentName} without making any changes`
+              ? `Preview available updates for ${agentName}`
               : `Applying patches to ${agentName}${shouldReboot ? ' with reboot' : ''}`
             }
           </DialogDescription>
@@ -397,12 +406,10 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
 
         {renderContent()}
 
-        <div className="flex justify-end gap-2 mt-4">
-          {(status === 'completed' || status === 'failed') && (
-            <Button onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
-          )}
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {status === 'completed' || status === 'failed' ? 'Close' : 'Cancel'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

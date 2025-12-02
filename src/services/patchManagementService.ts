@@ -89,6 +89,8 @@ export interface PatchExecutionResponse {
   completed_at: string | null;
   should_reboot: boolean;
   rebooted_at: string | null;
+  stdout_storage_path?: string | null;
+  stderr_storage_path?: string | null;
 }
 
 export interface PackageException {
@@ -293,4 +295,35 @@ export const checkAgentWebSocketConnection = async (agentId: string): Promise<bo
   }
 
   return true;
+};
+
+export const listAllPatchExecutions = async (
+  limit: number = 50
+): Promise<(PatchExecution & { agent_name?: string })[]> => {
+  const { data: executionsData, error: execError } = await supabase
+    .from('patch_executions')
+    .select('*')
+    .order('started_at', { ascending: false })
+    .limit(limit);
+
+  if (execError) {
+    throw new Error(execError.message);
+  }
+
+  if (!executionsData || executionsData.length === 0) {
+    return [];
+  }
+
+  const agentIds = [...new Set(executionsData.map(e => e.agent_id))];
+  const { data: agentsData } = await supabase
+    .from('agents')
+    .select('id, name')
+    .in('id', agentIds);
+
+  const agentMap = new Map(agentsData?.map(a => [a.id, a.name]) || []);
+
+  return executionsData.map(exec => ({
+    ...exec,
+    agent_name: agentMap.get(exec.agent_id) || `Agent ${exec.agent_id.substring(0, 8)}`
+  }));
 };

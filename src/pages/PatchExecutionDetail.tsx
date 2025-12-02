@@ -12,13 +12,15 @@ import {
   ArrowLeft,
   RefreshCw,
   Terminal,
-  AlertTriangle,
   Server,
-  Calendar,
   TrendingUp,
   ArrowUpCircle,
   CheckCircle,
-  XCircleIcon
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
@@ -27,6 +29,7 @@ import TransitionWrapper from '@/components/TransitionWrapper';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -35,6 +38,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { supabase } from '@/lib/supabase';
 
 interface PatchExecutionWithAgent {
@@ -76,9 +93,12 @@ interface ParsedOutput {
   updated_packages_detail?: PackageUpdate[];
   packages?: PackageUpdate[];
   updates?: PackageUpdate[];
-  // Allow any additional fields
   [key: string]: any;
 }
+
+const MAX_VERSION_LENGTH = 30;
+const PACKAGES_PER_PAGE = 10;
+const LOGS_PREVIEW_LINES = 20;
 
 const PatchExecutionDetail = () => {
   const { executionId } = useParams<{ executionId: string }>();
@@ -88,6 +108,14 @@ const PatchExecutionDetail = () => {
   const [stdout, setStdout] = useState<string>('');
   const [stderr, setStderr] = useState<string>('');
   const [parsedOutput, setParsedOutput] = useState<ParsedOutput | null>(null);
+  
+  // Pagination and search state
+  const [packageSearch, setPackageSearch] = useState('');
+  const [packagePage, setPackagePage] = useState(1);
+  const [showFullStdout, setShowFullStdout] = useState(false);
+  const [showFullStderr, setShowFullStderr] = useState(false);
+  const [copiedStdout, setCopiedStdout] = useState(false);
+  const [copiedStderr, setCopiedStderr] = useState(false);
 
   useEffect(() => {
     if (executionId) {
@@ -98,29 +126,14 @@ const PatchExecutionDetail = () => {
   const loadExecutionDetails = async () => {
     setLoading(true);
     try {
-      // Get execution details
       const { data: execData, error: execError } = await supabase
         .from('patch_executions')
-        .select(`
-          id,
-          agent_id,
-          execution_type,
-          status,
-          exit_code,
-          error_message,
-          stdout_storage_path,
-          stderr_storage_path,
-          started_at,
-          completed_at,
-          should_reboot,
-          rebooted_at
-        `)
+        .select('*')
         .eq('id', executionId)
         .single();
 
       if (execError) throw execError;
 
-      // Get agent name
       const { data: agentData } = await supabase
         .from('agents')
         .select('id, name')
@@ -134,7 +147,7 @@ const PatchExecutionDetail = () => {
 
       setExecution(enrichedExecution);
 
-      // Load JSON output file from storage: {agent-id}/{execution-id}-output.json
+      // Load JSON output
       const jsonFilePath = `${execData.agent_id}/${executionId}-output.json`;
       try {
         const { data: jsonData, error: jsonError } = await supabase.storage
@@ -144,10 +157,7 @@ const PatchExecutionDetail = () => {
         if (!jsonError && jsonData) {
           const text = await jsonData.text();
           const parsed = JSON.parse(text);
-          console.log('✅ Loaded package JSON:', parsed);
           setParsedOutput(parsed);
-        } else {
-          console.warn('No JSON output file found:', jsonFilePath, jsonError);
         }
       } catch (error) {
         console.error('Error loading JSON output:', error);
@@ -160,8 +170,7 @@ const PatchExecutionDetail = () => {
           .download(execData.stdout_storage_path);
 
         if (stdoutData) {
-          const text = await stdoutData.text();
-          setStdout(text);
+          setStdout(await stdoutData.text());
         }
       }
 
@@ -172,8 +181,7 @@ const PatchExecutionDetail = () => {
           .download(execData.stderr_storage_path);
 
         if (stderrData) {
-          const text = await stderrData.text();
-          setStderr(text);
+          setStderr(await stderrData.text());
         }
       }
     } catch (error) {
@@ -185,14 +193,10 @@ const PatchExecutionDetail = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
-      case 'failed':
-        return <XCircle className="h-5 w-5 text-red-500" />;
-      case 'running':
-        return <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />;
-      default:
-        return <Clock className="h-5 w-5 text-gray-500" />;
+      case 'completed': return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+      case 'failed': return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'running': return <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />;
+      default: return <Clock className="h-5 w-5 text-gray-500" />;
     }
   };
 
@@ -203,36 +207,23 @@ const PatchExecutionDetail = () => {
       running: 'outline',
       pending: 'secondary',
     };
-
-    return (
-      <Badge variant={variants[status] || 'secondary'}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </Badge>
-    );
+    return <Badge variant={variants[status] || 'secondary'}>{status.charAt(0).toUpperCase() + status.slice(1)}</Badge>;
   };
 
   const getExecutionTypeLabel = (type: string) => {
     switch (type) {
-      case 'dry_run':
-        return 'Dry Run';
-      case 'apply':
-        return 'Apply Patches';
-      case 'apply_with_reboot':
-        return 'Apply + Reboot';
-      default:
-        return type;
+      case 'dry_run': return 'Dry Run';
+      case 'apply': return 'Apply Patches';
+      case 'apply_with_reboot': return 'Apply + Reboot';
+      default: return type;
     }
   };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
     });
   };
 
@@ -241,9 +232,50 @@ const PatchExecutionDetail = () => {
     const seconds = Math.floor((new Date(completed).getTime() - new Date(started).getTime()) / 1000);
     if (seconds < 60) return `${seconds}s`;
     const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
+    return `${minutes}m ${seconds % 60}s`;
   };
+
+  const truncateVersion = (version: string) => {
+    if (version.length <= MAX_VERSION_LENGTH) return version;
+    return version.substring(0, MAX_VERSION_LENGTH) + '...';
+  };
+
+  const copyToClipboard = async (text: string, type: 'stdout' | 'stderr') => {
+    await navigator.clipboard.writeText(text);
+    if (type === 'stdout') {
+      setCopiedStdout(true);
+      setTimeout(() => setCopiedStdout(false), 2000);
+    } else {
+      setCopiedStderr(true);
+      setTimeout(() => setCopiedStderr(false), 2000);
+    }
+  };
+
+  const getPreviewLines = (text: string, lines: number) => {
+    const allLines = text.split('\n');
+    if (allLines.length <= lines) return text;
+    return allLines.slice(0, lines).join('\n');
+  };
+
+  // Get package list
+  const packageList = parsedOutput?.packages_to_update 
+    || parsedOutput?.updated_packages_detail 
+    || parsedOutput?.packages 
+    || parsedOutput?.updates
+    || (Array.isArray(parsedOutput?.updated_packages) && typeof parsedOutput?.updated_packages[0] === 'object' ? parsedOutput.updated_packages : null);
+
+  // Filter and paginate packages
+  const filteredPackages = packageList?.filter((pkg: PackageUpdate) => {
+    if (!packageSearch) return true;
+    const name = pkg.name || pkg.package || pkg.package_name || '';
+    return name.toLowerCase().includes(packageSearch.toLowerCase());
+  }) || [];
+
+  const totalPackagePages = Math.ceil(filteredPackages.length / PACKAGES_PER_PAGE);
+  const paginatedPackages = filteredPackages.slice(
+    (packagePage - 1) * PACKAGES_PER_PAGE,
+    packagePage * PACKAGES_PER_PAGE
+  );
 
   if (loading) {
     return (
@@ -291,50 +323,43 @@ const PatchExecutionDetail = () => {
       <div className="min-h-screen flex flex-col">
         <div className="flex flex-1">
           <Sidebar />
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col overflow-hidden">
             <Navbar />
             
-            <main className="flex-1 p-8">
+            <main className="flex-1 overflow-y-auto p-4 sm:p-8">
               <div className="max-w-7xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-4">
                   <div className="flex items-center gap-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(-1)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
                       <ArrowLeft className="h-4 w-4 mr-2" />
                       Back
                     </Button>
                     <div>
-                      <h1 className="text-3xl font-bold">Patch Execution Details</h1>
-                      <p className="text-muted-foreground">Execution ID: {execution.id}</p>
+                      <h1 className="text-2xl sm:text-3xl font-bold">Execution Details</h1>
+                      <p className="text-muted-foreground text-sm">ID: {execution.id.substring(0, 12)}...</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   <Card>
-                    <CardHeader className="pb-3">
+                    <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <Server className="h-4 w-4 text-blue-500" />
                         Agent
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <Link
-                        to={`/patch-management/${execution.agent_id}`}
-                        className="text-lg font-semibold hover:underline"
-                      >
+                      <Link to={`/patch-management/${execution.agent_id}`} className="text-base font-semibold hover:underline">
                         {execution.agent_name}
                       </Link>
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardHeader className="pb-3">
+                    <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
                         {getStatusIcon(execution.status)}
                         Status
@@ -343,45 +368,33 @@ const PatchExecutionDetail = () => {
                     <CardContent>
                       {getStatusBadge(execution.status)}
                       {execution.exit_code !== null && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Exit code: {execution.exit_code}
-                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">Exit: {execution.exit_code}</p>
                       )}
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardHeader className="pb-3">
+                    <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <Package className="h-4 w-4 text-purple-500" />
-                        Execution Type
+                        Type
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-lg font-semibold">{getExecutionTypeLabel(execution.execution_type)}</p>
-                      {execution.should_reboot && (
-                        <Badge variant="outline" className="mt-2">
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                          Reboot Requested
-                        </Badge>
-                      )}
+                      <p className="text-base font-semibold">{getExecutionTypeLabel(execution.execution_type)}</p>
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardHeader className="pb-3">
+                    <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <Clock className="h-4 w-4 text-orange-500" />
                         Duration
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-lg font-semibold">
-                        {getDuration(execution.started_at, execution.completed_at)}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {formatDate(execution.started_at)}
-                      </p>
+                      <p className="text-base font-semibold">{getDuration(execution.started_at, execution.completed_at)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(execution.started_at)}</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -389,242 +402,287 @@ const PatchExecutionDetail = () => {
                 {/* Package Statistics */}
                 {parsedOutput && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                    >
-                      <Card className="border-l-4 border-l-blue-500">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <Package className="h-4 w-4" />
-                            Packages Checked
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-3xl font-bold">{parsedOutput.packages_checked || 0}</p>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
+                    <Card className="border-l-4 border-l-blue-500">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          Packages Checked
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-3xl font-bold">{parsedOutput.packages_checked || 0}</p>
+                      </CardContent>
+                    </Card>
 
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
-                    >
-                      <Card className="border-l-4 border-l-amber-500">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4" />
-                            Updates Available
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-3xl font-bold">
-                            {parsedOutput.updates_available || parsedOutput.packages_updated || 0}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
+                    <Card className="border-l-4 border-l-amber-500">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4" />
+                          Updates Available
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-3xl font-bold">{parsedOutput.updates_available || parsedOutput.packages_updated || 0}</p>
+                      </CardContent>
+                    </Card>
 
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
-                    >
-                      <Card className="border-l-4 border-l-green-500">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4" />
-                            Packages Updated
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-3xl font-bold">
-                            {parsedOutput.packages_updated || parsedOutput.updated_packages?.length || 0}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
+                    <Card className="border-l-4 border-l-green-500">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4" />
+                          Packages Updated
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-3xl font-bold">{parsedOutput.packages_updated || parsedOutput.updated_packages?.length || 0}</p>
+                      </CardContent>
+                    </Card>
                   </div>
                 )}
 
-                {/* Package Details Table */}
-                {parsedOutput && (() => {
-                  // Find package array with any of these field names
-                  const packageList = parsedOutput.packages_to_update 
-                    || parsedOutput.updated_packages_detail 
-                    || parsedOutput.packages 
-                    || parsedOutput.updates
-                    || (Array.isArray(parsedOutput.updated_packages) && typeof parsedOutput.updated_packages[0] === 'object' ? parsedOutput.updated_packages : null);
-                  
-                  if (!packageList || !Array.isArray(packageList) || packageList.length === 0) {
-                    return null;
-                  }
-
-                  return (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <ArrowUpCircle className="h-5 w-5 text-primary" />
-                          {execution.execution_type === 'dry_run' ? 'Available Updates' : 'Updated Packages'}
-                        </CardTitle>
-                        <CardDescription>
-                          {execution.execution_type === 'dry_run'
-                            ? 'Packages that can be updated'
-                            : 'Packages that were updated during this execution'}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="rounded-md border">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Package Name</TableHead>
-                                <TableHead>Current Version</TableHead>
-                                <TableHead>New Version</TableHead>
-                                <TableHead className="text-right">Status</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {packageList.map((pkg: any, idx: number) => {
-                                const name = pkg.name || pkg.package || pkg.package_name || `Package ${idx + 1}`;
-                                const currentVersion = pkg.current_version || pkg.from_version || pkg.current || pkg.version || '-';
-                                const newVersion = pkg.available_version || pkg.to_version || pkg.available || pkg.new_version || '-';
-                                
-                                return (
-                                  <TableRow key={idx}>
-                                    <TableCell className="font-medium">{name}</TableCell>
-                                    <TableCell>
-                                      <Badge variant="outline">
-                                        {currentVersion}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge variant="default">
-                                        {newVersion}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      {execution.execution_type === 'dry_run' ? (
-                                        <Badge variant="secondary">
-                                          <Clock className="h-3 w-3 mr-1" />
-                                          Pending
-                                        </Badge>
-                                      ) : (
-                                        <Badge variant="default">
-                                          <CheckCircle className="h-3 w-3 mr-1" />
-                                          Updated
-                                        </Badge>
-                                      )}
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })()}
-
-                {/* Simple package list if detailed info not available */}
-                {parsedOutput && Array.isArray(parsedOutput.updated_packages) && typeof parsedOutput.updated_packages[0] === 'string' && (
+                {/* Package Table */}
+                {filteredPackages.length > 0 && (
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                        Updated Packages
-                      </CardTitle>
-                      <CardDescription>
-                        List of packages that were updated
-                      </CardDescription>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            <ArrowUpCircle className="h-5 w-5 text-primary" />
+                            {execution.execution_type === 'dry_run' ? 'Available Updates' : 'Updated Packages'}
+                          </CardTitle>
+                          <CardDescription>
+                            {filteredPackages.length} package{filteredPackages.length !== 1 ? 's' : ''}
+                          </CardDescription>
+                        </div>
+                        {packageList && packageList.length > PACKAGES_PER_PAGE && (
+                          <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Search packages..."
+                              value={packageSearch}
+                              onChange={(e) => {
+                                setPackageSearch(e.target.value);
+                                setPackagePage(1);
+                              }}
+                              className="pl-10"
+                            />
+                          </div>
+                        )}
+                      </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex flex-wrap gap-2">
-                        {parsedOutput.updated_packages.map((pkg: string, idx: number) => (
-                          <Badge key={idx} variant="secondary">
-                            {pkg}
-                          </Badge>
-                        ))}
+                      <div className="rounded-md border overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Package Name</TableHead>
+                              <TableHead>Current Version</TableHead>
+                              <TableHead>New Version</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {paginatedPackages.map((pkg: PackageUpdate, idx: number) => {
+                              const name = pkg.name || pkg.package || pkg.package_name || 'Unknown';
+                              const currentVer = pkg.current_version || pkg.from_version || pkg.current || pkg.version || '-';
+                              const newVer = pkg.available_version || pkg.to_version || pkg.available || pkg.new_version || '-';
+
+                              return (
+                                <TableRow key={idx}>
+                                  <TableCell className="font-medium">{name}</TableCell>
+                                  <TableCell>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="font-mono text-sm cursor-default">
+                                            {truncateVersion(currentVer)}
+                                          </span>
+                                        </TooltipTrigger>
+                                        {currentVer.length > MAX_VERSION_LENGTH && (
+                                          <TooltipContent>
+                                            <p className="font-mono text-xs max-w-xs break-all">{currentVer}</p>
+                                          </TooltipContent>
+                                        )}
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </TableCell>
+                                  <TableCell>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="font-mono text-sm text-green-600 cursor-default">
+                                            {truncateVersion(newVer)}
+                                          </span>
+                                        </TooltipTrigger>
+                                        {newVer.length > MAX_VERSION_LENGTH && (
+                                          <TooltipContent>
+                                            <p className="font-mono text-xs max-w-xs break-all">{newVer}</p>
+                                          </TooltipContent>
+                                        )}
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
                       </div>
+
+                      {totalPackagePages > 1 && (
+                        <div className="mt-4">
+                          <Pagination>
+                            <PaginationContent>
+                              <PaginationItem>
+                                <PaginationPrevious 
+                                  onClick={() => setPackagePage(p => Math.max(1, p - 1))}
+                                  className={packagePage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                />
+                              </PaginationItem>
+                              {Array.from({ length: Math.min(5, totalPackagePages) }, (_, i) => {
+                                let pageNum = i + 1;
+                                if (totalPackagePages > 5) {
+                                  if (packagePage > 3) {
+                                    pageNum = packagePage - 2 + i;
+                                  }
+                                  if (pageNum > totalPackagePages) {
+                                    pageNum = totalPackagePages - 4 + i;
+                                  }
+                                }
+                                return (
+                                  <PaginationItem key={pageNum}>
+                                    <PaginationLink
+                                      onClick={() => setPackagePage(pageNum)}
+                                      isActive={packagePage === pageNum}
+                                      className="cursor-pointer"
+                                    >
+                                      {pageNum}
+                                    </PaginationLink>
+                                  </PaginationItem>
+                                );
+                              })}
+                              <PaginationItem>
+                                <PaginationNext 
+                                  onClick={() => setPackagePage(p => Math.min(totalPackagePages, p + 1))}
+                                  className={packagePage === totalPackagePages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                />
+                              </PaginationItem>
+                            </PaginationContent>
+                          </Pagination>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}
 
-                {/* Show warning if no JSON was loaded at all */}
-                {!parsedOutput && (
-                  <Card className="border-amber-500">
+                {/* Stdout */}
+                {stdout && (
+                  <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-amber-600">
-                        <AlertTriangle className="h-5 w-5" />
-                        No Structured Data Found
-                      </CardTitle>
-                      <CardDescription>
-                        Could not load package data from storage. Check browser console for details.
-                      </CardDescription>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                          <Terminal className="h-5 w-5" />
+                          Standard Output
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyToClipboard(stdout, 'stdout')}
+                          >
+                            {copiedStdout ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                          {stdout.split('\n').length > LOGS_PREVIEW_LINES && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowFullStdout(!showFullStdout)}
+                            >
+                              {showFullStdout ? (
+                                <><ChevronUp className="h-4 w-4 mr-1" /> Collapse</>
+                              ) : (
+                                <><ChevronDown className="h-4 w-4 mr-1" /> Show All</>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm text-muted-foreground">
-                        Expected file: <code className="text-xs bg-muted px-1 py-0.5 rounded">patch-execution-outputs/{execution?.agent_id}/{executionId}-output.json</code>
-                      </p>
+                      <pre className="p-4 bg-slate-950 text-green-400 rounded-lg text-xs overflow-x-auto max-h-96 overflow-y-auto">
+                        {showFullStdout ? stdout : getPreviewLines(stdout, LOGS_PREVIEW_LINES)}
+                        {!showFullStdout && stdout.split('\n').length > LOGS_PREVIEW_LINES && (
+                          <span className="text-muted-foreground block mt-2">
+                            ... {stdout.split('\n').length - LOGS_PREVIEW_LINES} more lines
+                          </span>
+                        )}
+                      </pre>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Stderr */}
+                {stderr && (
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2 text-red-600">
+                          <Terminal className="h-5 w-5" />
+                          Error Output
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyToClipboard(stderr, 'stderr')}
+                          >
+                            {copiedStderr ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                          {stderr.split('\n').length > LOGS_PREVIEW_LINES && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowFullStderr(!showFullStderr)}
+                            >
+                              {showFullStderr ? (
+                                <><ChevronUp className="h-4 w-4 mr-1" /> Collapse</>
+                              ) : (
+                                <><ChevronDown className="h-4 w-4 mr-1" /> Show All</>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <pre className="p-4 bg-red-950 text-red-200 rounded-lg text-xs overflow-x-auto max-h-96 overflow-y-auto">
+                        {showFullStderr ? stderr : getPreviewLines(stderr, LOGS_PREVIEW_LINES)}
+                        {!showFullStderr && stderr.split('\n').length > LOGS_PREVIEW_LINES && (
+                          <span className="text-red-400 block mt-2">
+                            ... {stderr.split('\n').length - LOGS_PREVIEW_LINES} more lines
+                          </span>
+                        )}
+                      </pre>
                     </CardContent>
                   </Card>
                 )}
 
                 {/* Error Message */}
                 {execution.error_message && (
-                  <Card className="border-destructive">
+                  <Card className="border-red-200 dark:border-red-900">
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-destructive">
-                        <AlertTriangle className="h-5 w-5" />
-                        Error
+                      <CardTitle className="flex items-center gap-2 text-red-600">
+                        <XCircle className="h-5 w-5" />
+                        Error Message
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm font-mono bg-destructive/10 p-3 rounded">
-                        {execution.error_message}
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Terminal Output */}
-                {stdout && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Terminal className="h-5 w-5 text-green-500" />
-                        Standard Output
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <pre className="bg-black text-green-400 p-4 rounded-lg overflow-x-auto text-sm font-mono whitespace-pre-wrap max-h-96 overflow-y-auto">
-                        {stdout}
-                      </pre>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {stderr && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-destructive">
-                        <Terminal className="h-5 w-5" />
-                        Standard Error
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <pre className="bg-red-950 text-red-300 p-4 rounded-lg overflow-x-auto text-sm font-mono whitespace-pre-wrap max-h-96 overflow-y-auto">
-                        {stderr}
-                      </pre>
+                      <p className="text-red-600">{execution.error_message}</p>
                     </CardContent>
                   </Card>
                 )}
               </div>
             </main>
-
+            
             <Footer />
           </div>
         </div>
