@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { signOut } from '@/services/authService';
 import { useToast } from '@/hooks/use-toast';
+import NannyAILogo from '@/components/NannyAILogo';
 
 interface SidebarLinkProps {
   to: string;
@@ -110,15 +111,15 @@ const Sidebar: React.FC = () => {
       )}
     >
       <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
-        <a href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+        <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
           {!collapsed && (
             <>
-              <Server className="h-6 w-6 text-sidebar-primary" />
+              <NannyAILogo size="md" />
               <span className="font-bold text-sidebar-foreground">NANNYAI</span>
             </>
           )}
-          {collapsed && <Server className="h-6 w-6 text-sidebar-primary mx-auto" />}
-        </a>
+          {collapsed && <NannyAILogo size="md" />}
+        </Link>
         
         <button
           onClick={() => setCollapsed(!collapsed)}
