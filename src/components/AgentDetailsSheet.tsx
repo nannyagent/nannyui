@@ -9,10 +9,10 @@ import {
   SheetClose
 } from '@/components/ui/sheet';
 import { 
-  Server, X, Terminal, Clock, Database, Cpu, Info, Activity,
-  MemoryStick, HardDrive, Wifi, MapPin, Monitor, Zap,
-  Network, Settings, Shield, CheckCircle, AlertCircle,
-  TrendingUp, Users, Globe, Gauge
+  Server, X, Terminal, Database, Cpu, Activity,
+  MemoryStick, HardDrive, Wifi, Monitor,
+  Settings, CheckCircle, AlertCircle,
+  TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

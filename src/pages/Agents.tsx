@@ -286,8 +286,8 @@ const Agents = () => {
         <div className="flex-1 flex flex-col">
           <Navbar />
           
-          <TransitionWrapper className="flex-1 p-6">
-            <div className="container pb-8">
+          <TransitionWrapper className="flex-1 p-4 sm:p-6">
+            <div className="container pb-8 max-w-full overflow-x-hidden">
               {hasError && (
                 <ErrorBanner 
                   message="There was an issue loading your agents. Some data may not be current."
@@ -296,27 +296,27 @@ const Agents = () => {
               )}
               
               {/* Header section */}
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight">Agents</h1>
-                  <p className="text-muted-foreground mt-2">
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Agents</h1>
+                  <p className="text-muted-foreground mt-2 text-sm">
                     Manage and monitor your Linux agent deployments.
                   </p>
                 </div>
                 
                 <button 
-                  className="flex items-center py-2 px-4 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                  className="flex items-center py-2 px-4 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm sm:text-base whitespace-nowrap"
                   onClick={() => window.location.href = '/agents/register'}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                Register Agent
-              </button>
+                  Register Agent
+                </button>
             </div>
             
             {/* Status Filter and Search section */}
             <div className="flex flex-col gap-4 mb-6">
               {/* Status Filter Buttons */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium text-muted-foreground mr-2">Show:</span>
                 <div className="flex items-center bg-muted/30 rounded-lg p-1">
                   <button
@@ -358,8 +358,8 @@ const Agents = () => {
               </div>
 
               {/* Search and additional filters */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="relative max-w-md w-full">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="relative w-full lg:max-w-md">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type="text"
@@ -370,22 +370,22 @@ const Agents = () => {
                   />
                 </div>
                 
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <div className="flex items-center text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded-md">
-                    <Clock className="h-3 w-3 mr-1" />
-                    Last updated: {new Date(lastStatusUpdate).toLocaleTimeString()}
+                    <Clock className="h-3 w-3 mr-1 flex-shrink-0" />
+                    <span className="truncate">Last: {new Date(lastStatusUpdate).toLocaleTimeString()}</span>
                   </div>
                   <button 
                     onClick={handleManualRefresh}
                     disabled={isRefreshing}
-                    className="flex items-center py-2 px-3 border border-border rounded-md hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center py-2 px-3 border border-border rounded-md hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   >
                     <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    <span className="text-sm">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+                    <span className="text-sm hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
                   </button>
-                  <button className="flex items-center py-2 px-3 border border-border rounded-md hover:bg-muted/50 transition-colors">
+                  <button className="flex items-center py-2 px-3 border border-border rounded-md hover:bg-muted/50 transition-colors whitespace-nowrap">
                     <ArrowUpDown className="h-4 w-4 mr-2" />
-                    <span className="text-sm">Sort</span>
+                    <span className="text-sm hidden sm:inline">Sort</span>
                   </button>
                 </div>
               </div>
@@ -505,7 +505,7 @@ const Agents = () => {
                               <span className="capitalize">{isAgentActive ? 'Active' : 'Inactive'}</span>
                             </div>
                             
-                            <div className="flex gap-1">
+                            <div className="flex flex-wrap gap-1">
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
@@ -514,6 +514,16 @@ const Agents = () => {
                               >
                                 <Activity className="h-3 w-3 mr-1" />
                                 View
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => window.location.href = `/patch-management/${agent.id}`}
+                                className="h-8 px-2 text-xs text-green-600 hover:text-green-700"
+                                title="View patch management and vulnerabilities"
+                              >
+                                <ShieldCheck className="h-3 w-3 mr-1" />
+                                Patches
                               </Button>
                               <Button 
                                 variant="ghost" 
@@ -544,7 +554,7 @@ const Agents = () => {
                         </div>
 
                         {/* Metrics Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
                           {/* System Info */}
                           <div className="space-y-2">
                             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">System</h4>

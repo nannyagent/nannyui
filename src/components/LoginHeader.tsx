@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Terminal } from 'lucide-react';
+import NannyAILogo from '@/components/NannyAILogo';
 
 const LoginHeader: React.FC = () => {
   return (
@@ -14,7 +14,7 @@ const LoginHeader: React.FC = () => {
       >
         <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse-slight"></div>
         <div className="relative bg-primary text-white p-4 rounded-full">
-          <Terminal className="w-8 h-8" />
+          <NannyAILogo size="lg" className="w-8 h-8" />
         </div>
       </motion.div>
       
@@ -24,7 +24,7 @@ const LoginHeader: React.FC = () => {
         transition={{ delay: 0.2, duration: 0.5 }}
         className="mt-6 text-3xl font-bold tracking-tight"
       >
-        Linux Agents API
+        NannyAI
       </motion.h1>
       
       <motion.p 
@@ -33,7 +33,7 @@ const LoginHeader: React.FC = () => {
         transition={{ delay: 0.3, duration: 0.5 }}
         className="mt-2 text-muted-foreground text-center max-w-sm"
       >
-        Secure access to advanced API services for Linux agents
+        Intelligent Linux Agent Diagnostics
       </motion.p>
     </div>
   );

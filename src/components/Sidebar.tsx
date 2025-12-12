@@ -14,12 +14,14 @@ import {
   DollarSign,
   Shield,
   BarChart3,
-  Search
+  Search,
+  PackageCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { signOut } from '@/services/authService';
 import { useToast } from '@/hooks/use-toast';
+import NannyAILogo from '@/components/NannyAILogo';
 
 interface SidebarLinkProps {
   to: string;
@@ -63,6 +65,7 @@ const Sidebar: React.FC = () => {
     { to: '/agents/register', icon: Shield, label: 'Register Agent' },
     { to: '/activities', icon: Activity, label: 'Activities' },
     { to: '/investigations', icon: Search, label: 'Investigations' },
+    { to: '/patch-history', icon: PackageCheck, label: 'Patch Management' },
     { to: '/pricing', icon: DollarSign, label: 'Pricing' },
     { to: '/documentation', icon: BookOpen, label: 'Documentation' },
     { to: '/contact', icon: Mail, label: 'Contact' },
@@ -108,13 +111,15 @@ const Sidebar: React.FC = () => {
       )}
     >
       <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
-        {!collapsed && (
-          <div className="flex items-center space-x-2">
-            <Server className="h-6 w-6 text-sidebar-primary" />
-            <span className="font-bold text-sidebar-foreground">NANNYAI</span>
-          </div>
-        )}
-        {collapsed && <Server className="h-6 w-6 text-sidebar-primary mx-auto" />}
+        <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+          {!collapsed && (
+            <>
+              <NannyAILogo size="md" />
+              <span className="font-bold text-sidebar-foreground">NANNYAI</span>
+            </>
+          )}
+          {collapsed && <NannyAILogo size="md" />}
+        </Link>
         
         <button
           onClick={() => setCollapsed(!collapsed)}

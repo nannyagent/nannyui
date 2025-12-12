@@ -3,13 +3,15 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { onAuthStateChange } from '@/services/authService';
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  signOut?: () => Promise<void>;
+  signIn?: (email: string, password: string) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({
+export const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   loading: true,

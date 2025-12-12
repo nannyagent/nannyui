@@ -36,8 +36,8 @@ const Navbar: React.FC = () => {
       transition={{ duration: 0.3 }}
       className="bg-sidebar/95 backdrop-blur-md sticky top-0 z-10 border-b border-sidebar-border"
     >
-      <div className="h-16 px-6 flex items-center justify-between">
-        <div className="flex items-center w-full max-w-md">
+      <div className="h-16 px-4 sm:px-6 flex items-center justify-between gap-4">
+        <div className="hidden sm:flex items-center w-full max-w-md">
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-sidebar-foreground/60" />
             <input

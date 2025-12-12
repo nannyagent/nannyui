@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Terminal, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import NannyAILogo from '@/components/NannyAILogo';
 
 const NavigationHeader = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -42,9 +43,7 @@ const NavigationHeader = () => {
       <div className="container py-4">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
-            <div className="bg-primary text-primary-foreground p-1.5 rounded">
-              <Terminal className="h-5 w-5" />
-            </div>
+            <NannyAILogo size="md" />
             <span className="font-bold text-xl">NannyAI</span>
           </Link>
 

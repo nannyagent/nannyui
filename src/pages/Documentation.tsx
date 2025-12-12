@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   BookOpen, 
@@ -8,6 +8,7 @@ import {
   Server, 
   Shield,
   Copy,
+  Check,
   ExternalLink,
   Search,
   ChevronRight
@@ -16,8 +17,29 @@ import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
 import GlassMorphicCard from '@/components/GlassMorphicCard';
 import TransitionWrapper from '@/components/TransitionWrapper';
+import { useToast } from '@/hooks/use-toast';
 
 const Documentation = () => {
+  const { toast } = useToast();
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  const copyToClipboard = async (text: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+      toast({
+        title: 'Copied to clipboard',
+        description: 'Command copied successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to copy',
+        description: 'Could not copy to clipboard',
+        variant: 'destructive',
+      });
+    }
+  };
   const categories = [
     { title: 'Getting Started', icon: BookOpen, count: 5 },
     { title: 'API Reference', icon: Code, count: 12 },
@@ -109,8 +131,11 @@ const Documentation = () => {
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
                           curl -sSL https://download.nannyai.dev/install.sh | sudo bash
                         </div>
-                        <button className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground">
-                          <Copy className="h-4 w-4" />
+                        <button 
+                          onClick={() => copyToClipboard('curl -sSL https://download.nannyai.dev/install.sh | sudo bash', 0)}
+                          className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                        >
+                          {copiedIndex === 0 ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                         </button>
                       </div>
                     </div>
@@ -124,8 +149,11 @@ const Documentation = () => {
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
                           sudo nano /etc/nannyagent/config.yaml
                         </div>
-                        <button className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground">
-                          <Copy className="h-4 w-4" />
+                        <button 
+                          onClick={() => copyToClipboard('sudo nano /etc/nannyagent/config.yaml', 1)}
+                          className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                        >
+                          {copiedIndex === 1 ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                         </button>
                       </div>
                     </div>
@@ -139,8 +167,11 @@ const Documentation = () => {
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
                           sudo systemctl enable --now nannyagent
                         </div>
-                        <button className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground">
-                          <Copy className="h-4 w-4" />
+                        <button 
+                          onClick={() => copyToClipboard('sudo systemctl enable --now nannyagent', 2)}
+                          className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                        >
+                          {copiedIndex === 2 ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                         </button>
                       </div>
                     </div>
@@ -154,8 +185,11 @@ const Documentation = () => {
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
                           nannyagent register
                         </div>
-                        <button className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground">
-                          <Copy className="h-4 w-4" />
+                        <button 
+                          onClick={() => copyToClipboard('nannyagent register', 3)}
+                          className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                        >
+                          {copiedIndex === 3 ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                         </button>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
@@ -172,8 +206,11 @@ const Documentation = () => {
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
                           nannyagent status
                         </div>
-                        <button className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground">
-                          <Copy className="h-4 w-4" />
+                        <button 
+                          onClick={() => copyToClipboard('nannyagent status', 4)}
+                          className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                        >
+                          {copiedIndex === 4 ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                         </button>
                       </div>
                     </div>
