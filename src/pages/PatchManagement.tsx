@@ -538,9 +538,6 @@ const PatchManagement = () => {
             agentName={`Agent ${agentId.substring(0, 8)}`}
             executionType={executionType}
             shouldReboot={shouldReboot}
-            onComplete={() => {
-              loadPatchData();
-            }}
           />
 
           <PackageExceptionsDialog

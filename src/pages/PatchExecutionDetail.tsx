@@ -53,6 +53,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface PatchExecutionWithAgent {
   id: string;
@@ -103,6 +104,7 @@ const LOGS_PREVIEW_LINES = 20;
 const PatchExecutionDetail = () => {
   const { executionId } = useParams<{ executionId: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [execution, setExecution] = useState<PatchExecutionWithAgent | null>(null);
   const [loading, setLoading] = useState(true);
   const [stdout, setStdout] = useState<string>('');
@@ -241,13 +243,25 @@ const PatchExecutionDetail = () => {
   };
 
   const copyToClipboard = async (text: string, type: 'stdout' | 'stderr') => {
-    await navigator.clipboard.writeText(text);
-    if (type === 'stdout') {
-      setCopiedStdout(true);
-      setTimeout(() => setCopiedStdout(false), 2000);
-    } else {
-      setCopiedStderr(true);
-      setTimeout(() => setCopiedStderr(false), 2000);
+    try {
+      await navigator.clipboard.writeText(text);
+      if (type === 'stdout') {
+        setCopiedStdout(true);
+        setTimeout(() => setCopiedStdout(false), 2000);
+      } else {
+        setCopiedStderr(true);
+        setTimeout(() => setCopiedStderr(false), 2000);
+      }
+      toast({
+        title: 'Copied to clipboard',
+        description: `${type === 'stdout' ? 'Standard output' : 'Error output'} copied successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to copy',
+        description: 'Could not copy to clipboard',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -267,8 +281,20 @@ const PatchExecutionDetail = () => {
   // Filter and paginate packages
   const filteredPackages = packageList?.filter((pkg: PackageUpdate) => {
     if (!packageSearch) return true;
-    const name = pkg.name || pkg.package || pkg.package_name || '';
-    return name.toLowerCase().includes(packageSearch.toLowerCase());
+    
+    const searchTerm = packageSearch.toLowerCase();
+    
+    // Search in package name
+    const name = (pkg.name || pkg.package || pkg.package_name || '').toLowerCase();
+    
+    // Search in versions
+    const currentVer = (pkg.current_version || pkg.from_version || pkg.current || pkg.version || '').toLowerCase();
+    const newVer = (pkg.available_version || pkg.to_version || pkg.available || pkg.new_version || '').toLowerCase();
+    
+    // Return true if search term matches name OR any version
+    return name.includes(searchTerm) || 
+           currentVer.includes(searchTerm) || 
+           newVer.includes(searchTerm);
   }) || [];
 
   const totalPackagePages = Math.ceil(filteredPackages.length / PACKAGES_PER_PAGE);
@@ -410,7 +436,13 @@ const PatchExecutionDetail = () => {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-3xl font-bold">{parsedOutput.packages_checked || 0}</p>
+                        <p className="text-3xl font-bold">
+                          {parsedOutput.packages_checked || 
+                           parsedOutput.updates_available || 
+                           parsedOutput.packages_updated || 
+                           packageList?.length || 
+                           0}
+                        </p>
                       </CardContent>
                     </Card>
 
@@ -418,11 +450,16 @@ const PatchExecutionDetail = () => {
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                           <TrendingUp className="h-4 w-4" />
-                          Updates Available
+                          {execution.execution_type === 'dry_run' ? 'Updates Available' : 'Updates Available'}
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-3xl font-bold">{parsedOutput.updates_available || parsedOutput.packages_updated || 0}</p>
+                        <p className="text-3xl font-bold">
+                          {execution.execution_type === 'dry_run' 
+                            ? (parsedOutput.updates_available || packageList?.length || 0)
+                            : (parsedOutput.updates_available || parsedOutput.packages_updated || packageList?.length || 0)
+                          }
+                        </p>
                       </CardContent>
                     </Card>
 
@@ -434,7 +471,12 @@ const PatchExecutionDetail = () => {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-3xl font-bold">{parsedOutput.packages_updated || parsedOutput.updated_packages?.length || 0}</p>
+                        <p className="text-3xl font-bold">
+                          {execution.execution_type === 'dry_run' 
+                            ? 0
+                            : (parsedOutput.packages_updated || packageList?.length || 0)
+                          }
+                        </p>
                       </CardContent>
                     </Card>
                   </div>

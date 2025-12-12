@@ -169,8 +169,15 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
           setExecutionId(execId);
           toast({
             title: 'Taking longer than expected',
-            description: 'Check the execution details page for status.',
+            description: 'Navigating to execution details page...',
           });
+          
+          // Navigate to detail page on timeout
+          setTimeout(() => {
+            onOpenChange(false);
+            navigate(`/patch-execution/${execId}`);
+          }, 1500);
+          
           return;
         }
 
@@ -219,9 +226,13 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
             description: 'Execution completed successfully',
           });
           
-          if (onComplete) {
-            onComplete();
-          }
+          // Navigate to detail page instead of calling onComplete
+          // This prevents the infinite loop caused by parent re-renders
+          setTimeout(() => {
+            onOpenChange(false);
+            navigate(`/patch-execution/${execId}`);
+          }, 1500);
+          
           return;
         } 
         
@@ -233,6 +244,13 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
             description: data.error_message || 'An error occurred',
             variant: 'destructive'
           });
+          
+          // Navigate to detail page on failure too
+          setTimeout(() => {
+            onOpenChange(false);
+            navigate(`/patch-execution/${execId}`);
+          }, 1500);
+          
           return;
         }
 
