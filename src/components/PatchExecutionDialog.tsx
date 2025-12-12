@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +19,8 @@ import {
   Package,
   Terminal,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Clock
 } from 'lucide-react';
 import {
   triggerPatchExecution,
@@ -26,7 +28,7 @@ import {
   type PatchExecutionResponse
 } from '@/services/patchManagementService';
 import { useToast } from '@/hooks/use-toast';
-import { Link } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 
 interface PatchExecutionDialogProps {
   open: boolean;
@@ -38,6 +40,8 @@ interface PatchExecutionDialogProps {
   onComplete?: () => void;
 }
 
+type ExecutionStatus = 'idle' | 'checking' | 'triggering' | 'polling' | 'completed' | 'failed' | 'timeout';
+
 export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
   open,
   onOpenChange,
@@ -47,42 +51,67 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
   shouldReboot = false,
   onComplete
 }) => {
-  const [status, setStatus] = useState<'checking' | 'triggering' | 'polling' | 'completed' | 'failed'>('checking');
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<ExecutionStatus>('idle');
   const [executionId, setExecutionId] = useState<string | null>(null);
   const [executionData, setExecutionData] = useState<PatchExecutionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [hasTriggered, setHasTriggered] = useState(false);
+  
+  const hasTriggeredRef = useRef(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
+  // Start execution when dialog opens
   useEffect(() => {
-    if (open && !hasTriggered) {
-      setHasTriggered(true);
+    if (open && !hasTriggeredRef.current && status === 'idle') {
+      hasTriggeredRef.current = true;
       startExecution();
-    } else if (!open) {
-      resetState();
     }
   }, [open]);
 
+  // Reset state when dialog closes
   useEffect(() => {
-    if (status === 'polling') {
-      const timer = setInterval(() => {
+    if (!open) {
+      // Clear all timers
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (pollTimeoutRef.current) {
+        clearTimeout(pollTimeoutRef.current);
+        pollTimeoutRef.current = null;
+      }
+      
+      // Reset state after animation
+      setTimeout(() => {
+        setStatus('idle');
+        setExecutionId(null);
+        setExecutionData(null);
+        setError(null);
+        setProgress(0);
+        setElapsedTime(0);
+        hasTriggeredRef.current = false;
+      }, 300);
+    }
+  }, [open]);
+
+  // Elapsed time counter
+  useEffect(() => {
+    if (status === 'checking' || status === 'triggering' || status === 'polling') {
+      timerRef.current = setInterval(() => {
         setElapsedTime(prev => prev + 1);
       }, 1000);
-      return () => clearInterval(timer);
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      };
     }
   }, [status]);
-
-  const resetState = () => {
-    setStatus('checking');
-    setExecutionId(null);
-    setExecutionData(null);
-    setError(null);
-    setProgress(0);
-    setElapsedTime(0);
-    setHasTriggered(false);
-  };
 
   const startExecution = async () => {
     try {
@@ -111,7 +140,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
 
       setExecutionId(response.execution_id);
 
-      // Step 3: Start polling for status (database only, no more API calls)
+      // Step 3: Start polling for status with 60s timeout
       setStatus('polling');
       setProgress(40);
       pollExecutionStatus(response.execution_id);
@@ -125,15 +154,27 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
   };
 
   const pollExecutionStatus = async (execId: string) => {
-    const maxAttempts = 60; // 5 minutes with 5-second intervals
-    let attempts = 0;
+    const maxWaitSeconds = 60;
+    const pollIntervalMs = 3000;
+    let pollCount = 0;
+    const maxPolls = Math.ceil((maxWaitSeconds * 1000) / pollIntervalMs);
 
     const poll = async () => {
       try {
-        attempts++;
+        pollCount++;
         
-        // Query database directly instead of hitting the edge function
-        const { supabase } = await import('@/lib/supabase');
+        // Check timeout
+        if (pollCount > maxPolls) {
+          setStatus('timeout');
+          setExecutionId(execId);
+          toast({
+            title: 'Taking longer than expected',
+            description: 'Check the execution details page for status.',
+          });
+          return;
+        }
+
+        // Query database directly
         const { data: dbData, error: dbError } = await supabase
           .from('patch_executions')
           .select('*')
@@ -144,7 +185,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
           throw new Error(`Failed to query execution status: ${dbError.message}`);
         }
 
-        // Convert database row to PatchExecutionResponse format
+        // Convert database row to response format
         const data: PatchExecutionResponse = {
           execution_id: dbData.id,
           agent_id: dbData.agent_id,
@@ -165,45 +206,39 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
 
         setExecutionData(data);
 
-        // Update progress based on status
-        if (data.status === 'running') {
-          setProgress(Math.min(50 + (attempts * 2), 90));
-        } else if (data.status === 'completed') {
+        // Update progress
+        const progressValue = Math.min(40 + (pollCount * 3), 95);
+        setProgress(progressValue);
+
+        if (data.status === 'completed') {
           setProgress(100);
           setStatus('completed');
           
           toast({
             title: executionType === 'dry_run' ? 'Dry Run Complete' : 'Patches Applied',
-            description: `${executionType === 'dry_run' ? 'Preview' : 'Update'} completed successfully`,
+            description: 'Execution completed successfully',
           });
           
           if (onComplete) {
             onComplete();
           }
-          
           return;
-        } else if (data.status === 'failed') {
+        } 
+        
+        if (data.status === 'failed') {
           setStatus('failed');
           setError(data.error_message || 'Execution failed');
           toast({
             title: 'Execution Failed',
-            description: data.error_message || 'An error occurred during execution',
+            description: data.error_message || 'An error occurred',
             variant: 'destructive'
           });
           return;
         }
 
         // Continue polling if still running or pending
-        if (attempts < maxAttempts && (data.status === 'pending' || data.status === 'running')) {
-          setTimeout(() => poll(), 5000);
-        } else if (attempts >= maxAttempts) {
-          setStatus('failed');
-          setError('Execution timed out after 5 minutes');
-          toast({
-            title: 'Timeout',
-            description: 'Execution took too long. Check execution history for status.',
-            variant: 'destructive'
-          });
+        if (data.status === 'pending' || data.status === 'running') {
+          pollTimeoutRef.current = setTimeout(() => poll(), pollIntervalMs);
         }
       } catch (err) {
         console.error('Polling error:', err);
@@ -221,13 +256,28 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleViewDetails = () => {
+    if (executionId) {
+      onOpenChange(false);
+      navigate(`/patch-execution/${executionId}`);
+    }
+  };
+
+  const handleClose = () => {
+    // Only allow closing in certain states
+    if (status === 'checking' || status === 'triggering') {
+      return; // Can't close during initial phases
+    }
+    onOpenChange(false);
+  };
+
   const renderContent = () => {
-    if (status === 'checking') {
+    if (status === 'idle' || status === 'checking') {
       return (
         <div className="space-y-6 py-4">
           <div className="flex flex-col items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
             <div className="text-center">
               <p className="font-medium">Checking agent connection...</p>
@@ -243,8 +293,8 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
       return (
         <div className="space-y-6 py-4">
           <div className="flex flex-col items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-              <Terminal className="h-8 w-8 text-blue-600" />
+            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Terminal className="h-8 w-8 text-primary" />
             </div>
             <div className="text-center">
               <p className="font-medium">Starting {executionType === 'dry_run' ? 'dry run' : 'patch application'}...</p>
@@ -278,7 +328,8 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
           <Alert className="bg-muted/50">
             <Terminal className="h-4 w-4" />
             <AlertDescription>
-              The agent is processing your request. This may take a few minutes depending on the number of packages.
+              This may take a few minutes depending on the number of packages. 
+              Timeout in {60 - elapsedTime > 0 ? 60 - elapsedTime : 0}s.
             </AlertDescription>
           </Alert>
 
@@ -288,6 +339,31 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
               <Badge variant="secondary">{executionData.status}</Badge>
             </div>
           )}
+        </div>
+      );
+    }
+
+    if (status === 'timeout') {
+      return (
+        <div className="space-y-6 py-4">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+              <Clock className="h-8 w-8 text-amber-600" />
+            </div>
+            <div className="text-center">
+              <p className="font-medium text-amber-600">Taking Longer Than Expected</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                The execution is still processing. Please check the details page for status.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-3 pt-2">
+            <Button onClick={handleViewDetails} className="gap-2">
+              <ExternalLink className="h-4 w-4" />
+              View Execution Details
+            </Button>
+          </div>
         </div>
       );
     }
@@ -311,19 +387,15 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
 
           <Progress value={100} className="h-2" />
 
-          {executionId && (
-            <div className="flex flex-col items-center gap-3 pt-2">
-              <p className="text-sm text-muted-foreground">
-                View detailed results including package versions and logs
-              </p>
-              <Link to={`/patch-execution/${executionId}`}>
-                <Button variant="outline" className="gap-2">
-                  <ExternalLink className="h-4 w-4" />
-                  View Execution Details
-                </Button>
-              </Link>
-            </div>
-          )}
+          <div className="flex flex-col items-center gap-3 pt-2">
+            <p className="text-sm text-muted-foreground">
+              View detailed results including package versions and logs
+            </p>
+            <Button onClick={handleViewDetails} className="gap-2">
+              <ExternalLink className="h-4 w-4" />
+              View Execution Details
+            </Button>
+          </div>
 
           {executionData?.should_reboot && (
             <Alert>
@@ -364,12 +436,10 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
               <p className="text-sm text-muted-foreground">
                 Check detailed logs for more information
               </p>
-              <Link to={`/patch-execution/${executionId}`}>
-                <Button variant="outline" className="gap-2">
-                  <ExternalLink className="h-4 w-4" />
-                  View Execution Details
-                </Button>
-              </Link>
+              <Button variant="outline" onClick={handleViewDetails} className="gap-2">
+                <ExternalLink className="h-4 w-4" />
+                View Execution Details
+              </Button>
             </div>
           )}
         </div>
@@ -380,7 +450,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -407,8 +477,12 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
         {renderContent()}
 
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {status === 'completed' || status === 'failed' ? 'Close' : 'Cancel'}
+          <Button 
+            variant="outline" 
+            onClick={handleClose}
+            disabled={status === 'checking' || status === 'triggering'}
+          >
+            {status === 'completed' || status === 'failed' || status === 'timeout' ? 'Close' : 'Cancel'}
           </Button>
         </div>
       </DialogContent>
