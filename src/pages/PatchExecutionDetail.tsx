@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import withAuth from '@/utils/withAuth';
 import {
-  Shield,
   Package,
   Loader2,
   CheckCircle2,

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   getAgents,
-  getAgentsPaginated,
   fetchAgentMetrics,
   getAgentDetails,
   deleteAgent,
@@ -278,12 +277,6 @@ describe('agentService', () => {
 
   describe('getAgentStats', () => {
     it('should fetch agent stats successfully', async () => {
-      const mockStats = {
-        total: 10,
-        active: 8,
-        offline: 2,
-      };
-
       const mockFrom = vi.fn().mockReturnValue({
         select: vi.fn().mockResolvedValue({
           data: [mockAgent, mockAgent],
