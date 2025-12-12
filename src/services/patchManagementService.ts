@@ -1,7 +1,11 @@
 import { supabase } from '@/lib/supabase';
 
 const getSupabaseUrl = (): string => {
-  return 'https://gpqzsricripnvbrpsyws.supabase.co';
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  if (!url) {
+    throw new Error('VITE_SUPABASE_URL is not defined in environment variables');
+  }
+  return url;
 };
 
 export interface Vulnerability {
@@ -133,7 +137,7 @@ const getAuthHeaders = async () => {
 
 export const getPatchManagementData = async (agentId: string): Promise<PatchManagementData> => {
   const supabaseUrl = getSupabaseUrl();
-  const apiUrl = `${supabaseUrl.replace('supabase.co', 'supabase.co')}/functions/v1/diagnostic/packages/${agentId}`;
+  const apiUrl = `${supabaseUrl}/functions/v1/diagnostic/packages/${agentId}`;
   
   const response = await fetch(apiUrl, {
     method: 'GET',
@@ -154,9 +158,10 @@ export const triggerPatchExecution = async (
   request: TriggerPatchRequest
 ): Promise<TriggerPatchResponse> => {
   const headers = await getAuthHeaders();
+  const supabaseUrl = getSupabaseUrl();
   
   const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/patch-management`,
+    `${supabaseUrl}/functions/v1/patch-management`,
     {
       method: 'POST',
       headers,
@@ -176,9 +181,10 @@ export const getPatchExecutionStatus = async (
   executionId: string
 ): Promise<PatchExecutionResponse> => {
   const headers = await getAuthHeaders();
+  const supabaseUrl = getSupabaseUrl();
   
   const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/patch-management/${executionId}`,
+    `${supabaseUrl}/functions/v1/patch-management/${executionId}`,
     {
       method: 'GET',
       headers
@@ -321,4 +327,51 @@ export const listAllPatchExecutions = async (
     ...exec,
     agent_name: agentMap.get(exec.agent_id) || `Agent ${exec.agent_id.substring(0, 8)}`
   }));
+};
+
+export const triggerAgentReboot = async (agentId: string): Promise<void> => {
+  const headers = await getAuthHeaders();
+  const supabaseUrl = getSupabaseUrl();
+  
+  const response = await fetch(
+    `${supabaseUrl}/functions/v1/agent-management/reboot`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ agent_id: agentId })
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || error.error || 'Failed to trigger agent reboot');
+  }
+};
+
+export interface CronScheduleRequest {
+  agent_id: string;
+  cron_expression: string;
+  execution_type: 'dry_run' | 'apply';
+  with_reboot: boolean;
+}
+
+export const saveCronSchedule = async (
+  request: CronScheduleRequest
+): Promise<void> => {
+  const headers = await getAuthHeaders();
+  const supabaseUrl = getSupabaseUrl();
+  
+  const response = await fetch(
+    `${supabaseUrl}/functions/v1/patch-management/schedule`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(request)
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || error.error || 'Failed to save cron schedule');
+  }
 };

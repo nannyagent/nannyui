@@ -17,8 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Clock, Info } from 'lucide-react';
+import { Calendar, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { saveCronSchedule } from '@/services/patchManagementService';
 
 interface CronScheduleDialogProps {
   open: boolean;
@@ -65,8 +66,12 @@ export const CronScheduleDialog: React.FC<CronScheduleDialogProps> = ({
 
     setSaving(true);
     try {
-      // TODO: Call API to save cron schedule
-      // await saveCronSchedule(agentId, cronExpression, executionType, withReboot);
+      await saveCronSchedule({
+        agent_id: agentId,
+        cron_expression: cronExpression,
+        execution_type: executionType,
+        with_reboot: withReboot,
+      });
       
       toast({
         title: 'Success',

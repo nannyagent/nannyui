@@ -21,7 +21,6 @@ import {
   Play,
   Eye,
   Settings,
-  History,
   RefreshCw
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
@@ -43,7 +42,6 @@ const PatchManagement = () => {
   const [data, setData] = useState<PatchManagementData | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
   const [severityFilter, setSeverityFilter] = useState<'all' | 'critical' | 'high' | 'medium'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -168,7 +166,7 @@ const PatchManagement = () => {
             <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-8">
               {hasError && (
                 <ErrorBanner 
-                  message={errorMessage}
+                  message="An error occurred while loading patch management data"
                   onDismiss={() => setHasError(false)}
                 />
               )}

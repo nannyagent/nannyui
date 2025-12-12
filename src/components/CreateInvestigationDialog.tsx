@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, AlertCircle, CheckCircle, Search, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Search, XCircle } from 'lucide-react';
 import { createInvestigationFromAPI } from '@/services/investigationService';
 
 export interface CreateInvestigationDialogProps {
@@ -35,7 +35,7 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [investigationId, setInvestigationId] = useState<string | null>(null);
+  const [, setInvestigationId] = useState<string | null>(null);
   const hasSubmittedRef = useRef(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 

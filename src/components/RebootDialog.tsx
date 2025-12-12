@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { RefreshCw, AlertTriangle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { triggerAgentReboot, checkAgentWebSocketConnection } from '@/services/patchManagementService';
 
 interface RebootDialogProps {
   open: boolean;
@@ -69,9 +70,7 @@ export const RebootDialog: React.FC<RebootDialogProps> = ({
   const startHealthChecks = async () => {
     const checkInterval = setInterval(async () => {
       try {
-        // TODO: Call API to check agent health
-        // const isOnline = await checkAgentHealth(agentId);
-        const isOnline = false; // Placeholder
+        const isOnline = await checkAgentWebSocketConnection(agentId);
         
         if (isOnline) {
           setState('completed');
@@ -96,8 +95,7 @@ export const RebootDialog: React.FC<RebootDialogProps> = ({
     setProgress(0);
 
     try {
-      // TODO: Call API to trigger reboot
-      // await triggerAgentReboot(agentId);
+      await triggerAgentReboot(agentId);
       
       toast({
         title: 'Reboot Triggered',
