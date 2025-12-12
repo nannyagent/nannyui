@@ -1,7 +1,11 @@
 import { supabase } from '@/lib/supabase';
 
 const getSupabaseUrl = (): string => {
-  return import.meta.env.VITE_SUPABASE_URL;
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  if (!url) {
+    throw new Error('VITE_SUPABASE_URL is not defined in environment variables');
+  }
+  return url;
 };
 
 export interface Vulnerability {
@@ -154,9 +158,10 @@ export const triggerPatchExecution = async (
   request: TriggerPatchRequest
 ): Promise<TriggerPatchResponse> => {
   const headers = await getAuthHeaders();
+  const supabaseUrl = getSupabaseUrl();
   
   const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/patch-management`,
+    `${supabaseUrl}/functions/v1/patch-management`,
     {
       method: 'POST',
       headers,
@@ -176,9 +181,10 @@ export const getPatchExecutionStatus = async (
   executionId: string
 ): Promise<PatchExecutionResponse> => {
   const headers = await getAuthHeaders();
+  const supabaseUrl = getSupabaseUrl();
   
   const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/patch-management/${executionId}`,
+    `${supabaseUrl}/functions/v1/patch-management/${executionId}`,
     {
       method: 'GET',
       headers
@@ -325,9 +331,10 @@ export const listAllPatchExecutions = async (
 
 export const triggerAgentReboot = async (agentId: string): Promise<void> => {
   const headers = await getAuthHeaders();
+  const supabaseUrl = getSupabaseUrl();
   
   const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-management/reboot`,
+    `${supabaseUrl}/functions/v1/agent-management/reboot`,
     {
       method: 'POST',
       headers,
@@ -352,9 +359,10 @@ export const saveCronSchedule = async (
   request: CronScheduleRequest
 ): Promise<void> => {
   const headers = await getAuthHeaders();
+  const supabaseUrl = getSupabaseUrl();
   
   const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/patch-management/schedule`,
+    `${supabaseUrl}/functions/v1/patch-management/schedule`,
     {
       method: 'POST',
       headers,
