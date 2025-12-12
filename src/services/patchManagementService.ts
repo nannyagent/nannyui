@@ -135,24 +135,19 @@ export const getPatchManagementData = async (agentId: string): Promise<PatchMana
   const supabaseUrl = getSupabaseUrl();
   const apiUrl = `${supabaseUrl.replace('supabase.co', 'supabase.co')}/functions/v1/diagnostic/packages/${agentId}`;
   
-  try {
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+  const response = await fetch(apiUrl, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch patch management data: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    // Silently fail - diagnostic endpoint may not exist yet
-    // This is expected for new installations
-    throw error;
+  if (!response.ok) {
+    throw new Error(`Failed to fetch patch management data: ${response.statusText}`);
   }
+
+  return await response.json();
+  // Diagnostic endpoint may not exist yet - this is expected for new installations
 };
 
 export const triggerPatchExecution = async (
