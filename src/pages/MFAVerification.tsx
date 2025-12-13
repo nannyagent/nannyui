@@ -71,11 +71,10 @@ const MFAVerification = () => {
 
       if (error) {
         setTotpError('Invalid TOTP code. Please try again.');
-        console.error('TOTP verification error:', error);
         return;
       }
 
-      if (data?.success) {
+      if (data?.valid) {
         setTotpVerified(true);
         toast({
           title: 'Success',
@@ -90,7 +89,6 @@ const MFAVerification = () => {
         setTotpError(data?.error || 'Invalid TOTP code. Please try again.');
       }
     } catch (error) {
-      console.error('Error verifying TOTP:', error);
       setTotpError('Failed to verify TOTP. Please try again.');
     } finally {
       setVerifyingTotp(false);
@@ -130,7 +128,6 @@ const MFAVerification = () => {
         setBackupError(data?.error || 'Invalid backup code');
       }
     } catch (error) {
-      console.error('Error verifying backup code:', error);
       setBackupError('Failed to verify backup code. Please try again.');
     } finally {
       setVerifyingBackup(false);

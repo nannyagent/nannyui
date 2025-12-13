@@ -76,7 +76,6 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
         });
         setQRCodeUrl(qrUrl);
       } catch (qrError) {
-        console.error('Failed to generate QR code:', qrError);
         // Still proceed even if QR code generation fails
       }
     } catch (err) {
@@ -135,7 +134,11 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
 
       if (data?.valid) {
         // Now confirm the MFA setup
-        const { data: confirmData, error: confirmError } = await confirmMFASetup(totpCode);
+        const { data: confirmData, error: confirmError } = await confirmMFASetup(
+          totpCode,
+          mfaData?.secret,  // This maps to totp_secret in the handler
+          mfaData?.backupCodes  // This maps to backup_codes in the handler
+        );
         
         if (confirmError) {
           setTotpError(confirmError.message || 'Failed to confirm MFA setup. Please try again.');

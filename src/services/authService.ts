@@ -140,25 +140,55 @@ export const updatePassword = async (newPassword: string) => {
  * Setup MFA - Generate TOTP secret and backup codes
  */
 export const setupMFA = async () => {
-  const { data, error } = await supabase.functions.invoke('mfa-setup', {
-    body: {
-      email: (await getCurrentUser())?.email,
-    },
-  });
+  try {
+    const { data, error } = await supabase.functions.invoke('mfa-handler', {
+      body: {
+        action: 'setup',
+      },
+    });
 
-  if (error) {
-    return { data: null, error };
+    if (error) {
+      return { data: null, error };
+    }
+
+    // Transform response to match expected interface
+    if (data?.totp_secret && data?.backup_codes) {
+      // Get current user for email (for QR code generation)
+      let email = 'User';
+      try {
+        const user = await getCurrentUser();
+        if (user?.email) {
+          email = user.email;
+        }
+      } catch (e) {
+        // Silently ignore if getCurrentUser fails
+      }
+
+      const qrUrl = `otpauth://totp/NannyUI:${email}?secret=${data.totp_secret}&issuer=NannyUI`;
+      const result = { 
+        data: { 
+          secret: data.totp_secret,
+          backupCodes: data.backup_codes || [],
+          qrUrl,
+        }, 
+        error: null 
+      };
+      return result;
+    }
+
+    return { data, error: null };
+  } catch (err) {
+    return { data: null, error: err };
   }
-
-  return { data, error: null };
 };
 
 /**
  * Verify TOTP code - Can be used to confirm MFA setup
  */
 export const verifyTOTPCode = async (code: string, secret?: string) => {
-  const { data, error } = await supabase.functions.invoke('verify-totp', {
+  const { data, error } = await supabase.functions.invoke('mfa-handler', {
     body: {
+      action: 'verify-totp',
       code,
       secret,
     },
@@ -170,11 +200,24 @@ export const verifyTOTPCode = async (code: string, secret?: string) => {
 /**
  * Confirm MFA setup - Verify the TOTP code and enable MFA
  */
-export const confirmMFASetup = async (code: string) => {
-  const { data, error } = await supabase.functions.invoke('confirm-mfa', {
-    body: {
-      code,
-    },
+export const confirmMFASetup = async (code: string, totp_secret?: string, backup_codes?: string[]) => {
+  const body: any = {
+    action: 'confirm',
+    totp_code: code,
+  };
+
+  // Only include totp_secret if provided
+  if (totp_secret) {
+    body.totp_secret = totp_secret;
+  }
+
+  // Only include backup_codes if provided
+  if (backup_codes) {
+    body.backup_codes = backup_codes;
+  }
+
+  const { data, error } = await supabase.functions.invoke('mfa-handler', {
+    body,
   });
 
   return { data, error };
@@ -184,8 +227,10 @@ export const confirmMFASetup = async (code: string) => {
  * Disable MFA - Remove TOTP-based MFA from the account
  */
 export const disableMFA = async () => {
-  const { data, error } = await supabase.functions.invoke('disable-mfa', {
-    body: {},
+  const { data, error } = await supabase.functions.invoke('mfa-handler', {
+    body: {
+      action: 'disable',
+    },
   });
 
   return { data, error };
@@ -248,8 +293,9 @@ export const getMFABackupCodes = async (): Promise<string[] | null> => {
  * Verify backup code for MFA login
  */
 export const verifyBackupCode = async (code: string) => {
-  const { data, error } = await supabase.functions.invoke('verify-backup-code', {
+  const { data, error } = await supabase.functions.invoke('mfa-handler', {
     body: {
+      action: 'verify-backup-code',
       code,
     },
   });
@@ -301,8 +347,9 @@ export const getRemainingBackupCodes = async (): Promise<number | null> => {
  * Verify TOTP code during MFA login
  */
 export const verifyMFALogin = async (code: string) => {
-  const { data, error } = await supabase.functions.invoke('verify-mfa-login', {
+  const { data, error } = await supabase.functions.invoke('mfa-handler', {
     body: {
+      action: 'verify-totp',
       code,
     },
   });
