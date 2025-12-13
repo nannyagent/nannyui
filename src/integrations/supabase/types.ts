@@ -1046,6 +1046,75 @@ export type Database = {
           },
         ]
       }
+      user_mfa_backup_codes_used: {
+        Row: {
+          backup_code_index: number
+          code_hash: string | null
+          created_at: string
+          id: string
+          ip_address: unknown
+          used_at: string
+          used_for_login: boolean
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          backup_code_index: number
+          code_hash?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          used_at?: string
+          used_for_login?: boolean
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          backup_code_index?: number
+          code_hash?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          used_at?: string
+          used_for_login?: boolean
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_mfa_settings: {
+        Row: {
+          backup_codes: string[]
+          created_at: string
+          id: string
+          mfa_enabled: boolean
+          mfa_enabled_at: string | null
+          totp_secret: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          backup_codes: string[]
+          created_at?: string
+          id?: string
+          mfa_enabled?: boolean
+          mfa_enabled_at?: string | null
+          totp_secret: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          backup_codes?: string[]
+          created_at?: string
+          id?: string
+          mfa_enabled?: boolean
+          mfa_enabled_at?: string | null
+          totp_secret?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

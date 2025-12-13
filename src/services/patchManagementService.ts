@@ -355,6 +355,32 @@ export interface CronScheduleRequest {
   with_reboot: boolean;
 }
 
+export interface ScheduledPatch {
+  id: string;
+  agent_id: string;
+  cron_expression: string;
+  execution_type: string;
+  is_active: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  created_at: string;
+}
+
+export const getScheduledPatches = async (agentId: string): Promise<ScheduledPatch[]> => {
+  const { data, error } = await supabase
+    .from('scheduled_patches')
+    .select('*')
+    .eq('agent_id', agentId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching scheduled patches:', error);
+    return [];
+  }
+
+  return data || [];
+};
+
 export const saveCronSchedule = async (
   request: CronScheduleRequest
 ): Promise<void> => {

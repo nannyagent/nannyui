@@ -9,14 +9,14 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Eye,
   RefreshCw,
   Server,
-  Calendar,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  Search
+  ChevronRight,
+  Search,
+  TrendingUp,
+  AlertTriangle,
+  BarChart3,
+  Activity
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
@@ -34,22 +34,27 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { listAllPatchExecutions, type PatchExecution } from '@/services/patchManagementService';
+import { Progress } from '@/components/ui/progress';
 
 interface PatchExecutionWithAgent extends PatchExecution {
   agent_name?: string;
 }
 
-interface GroupedExecutions {
-  [agentId: string]: {
-    agentName: string;
-    executions: PatchExecutionWithAgent[];
-  };
+interface AgentSummary {
+  agentId: string;
+  agentName: string;
+  totalExecutions: number;
+  completedCount: number;
+  failedCount: number;
+  runningCount: number;
+  pendingCount: number;
+  lastExecutionAt: string | null;
+  successRate: number;
 }
 
 const PatchHistory = () => {
   const [executions, setExecutions] = useState<PatchExecutionWithAgent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -60,12 +65,8 @@ const PatchHistory = () => {
   const loadExecutions = async () => {
     setLoading(true);
     try {
-      const data = await listAllPatchExecutions(100);
+      const data = await listAllPatchExecutions(500);
       setExecutions(data);
-      
-      // Auto-expand first 3 agents
-      const agentIds: string[] = [...new Set(data.map(e => e.agent_id))].slice(0, 3);
-      setExpandedAgents(new Set(agentIds));
     } catch (error) {
       console.error('Error loading executions:', error);
     } finally {
@@ -73,102 +74,91 @@ const PatchHistory = () => {
     }
   };
 
-  // Group executions by agent
-  const groupedExecutions = useMemo(() => {
-    let filtered = executions;
+  // Calculate overall metrics
+  const overallMetrics = useMemo(() => {
+    const total = executions.length;
+    const completed = executions.filter(e => e.status === 'completed').length;
+    const failed = executions.filter(e => e.status === 'failed').length;
+    const running = executions.filter(e => e.status === 'running').length;
+    const pending = executions.filter(e => e.status === 'pending').length;
+    const uniqueAgents = new Set(executions.map(e => e.agent_id)).size;
+    const successRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-    // Apply status filter
+    return { total, completed, failed, running, pending, uniqueAgents, successRate };
+  }, [executions]);
+
+  // Create agent summaries
+  const agentSummaries = useMemo(() => {
+    const summaryMap = new Map<string, AgentSummary>();
+
+    executions.forEach(exec => {
+      if (!summaryMap.has(exec.agent_id)) {
+        summaryMap.set(exec.agent_id, {
+          agentId: exec.agent_id,
+          agentName: exec.agent_name || `Agent ${exec.agent_id.substring(0, 8)}`,
+          totalExecutions: 0,
+          completedCount: 0,
+          failedCount: 0,
+          runningCount: 0,
+          pendingCount: 0,
+          lastExecutionAt: null,
+          successRate: 0
+        });
+      }
+
+      const summary = summaryMap.get(exec.agent_id)!;
+      summary.totalExecutions++;
+      
+      if (exec.status === 'completed') summary.completedCount++;
+      if (exec.status === 'failed') summary.failedCount++;
+      if (exec.status === 'running') summary.runningCount++;
+      if (exec.status === 'pending') summary.pendingCount++;
+
+      const execDate = exec.started_at ? new Date(exec.started_at).getTime() : 0;
+      const lastDate = summary.lastExecutionAt ? new Date(summary.lastExecutionAt).getTime() : 0;
+      if (execDate > lastDate) {
+        summary.lastExecutionAt = exec.started_at;
+      }
+    });
+
+    // Calculate success rates
+    summaryMap.forEach(summary => {
+      const finishedCount = summary.completedCount + summary.failedCount;
+      summary.successRate = finishedCount > 0 ? Math.round((summary.completedCount / finishedCount) * 100) : 0;
+    });
+
+    let summaries = Array.from(summaryMap.values());
+
+    // Apply filters
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(e => e.status === statusFilter);
+      summaries = summaries.filter(s => {
+        switch (statusFilter) {
+          case 'completed': return s.completedCount > 0;
+          case 'failed': return s.failedCount > 0;
+          case 'running': return s.runningCount > 0;
+          case 'pending': return s.pendingCount > 0;
+          default: return true;
+        }
+      });
     }
 
-    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(e => 
-        e.agent_name?.toLowerCase().includes(query) ||
-        e.agent_id.toLowerCase().includes(query) ||
-        e.id.toLowerCase().includes(query)
+      summaries = summaries.filter(s => 
+        s.agentName.toLowerCase().includes(query) ||
+        s.agentId.toLowerCase().includes(query)
       );
     }
 
-    // Group by agent
-    const grouped: GroupedExecutions = {};
-    filtered.forEach(exec => {
-      if (!grouped[exec.agent_id]) {
-        grouped[exec.agent_id] = {
-          agentName: exec.agent_name || `Agent ${exec.agent_id.substring(0, 8)}`,
-          executions: []
-        };
-      }
-      grouped[exec.agent_id].executions.push(exec);
+    // Sort by last execution date
+    summaries.sort((a, b) => {
+      const dateA = a.lastExecutionAt ? new Date(a.lastExecutionAt).getTime() : 0;
+      const dateB = b.lastExecutionAt ? new Date(b.lastExecutionAt).getTime() : 0;
+      return dateB - dateA;
     });
 
-    // Sort each agent's executions by date
-    Object.values(grouped).forEach(group => {
-      group.executions.sort((a, b) => {
-        const dateA = a.started_at ? new Date(a.started_at).getTime() : 0;
-        const dateB = b.started_at ? new Date(b.started_at).getTime() : 0;
-        return dateB - dateA;
-      });
-    });
-
-    return grouped;
+    return summaries;
   }, [executions, statusFilter, searchQuery]);
-
-  const toggleAgent = (agentId: string) => {
-    const newExpanded = new Set(expandedAgents);
-    if (expandedAgents.has(agentId)) {
-      newExpanded.delete(agentId);
-    } else {
-      newExpanded.add(agentId);
-    }
-    setExpandedAgents(newExpanded);
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return (
-          <Badge variant="default" className="bg-green-600">
-            <CheckCircle2 className="h-3 w-3 mr-1" />
-            Completed
-          </Badge>
-        );
-      case 'failed':
-        return (
-          <Badge variant="destructive">
-            <XCircle className="h-3 w-3 mr-1" />
-            Failed
-          </Badge>
-        );
-      case 'running':
-        return (
-          <Badge variant="secondary">
-            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-            Running
-          </Badge>
-        );
-      case 'pending':
-        return (
-          <Badge variant="secondary">
-            <Clock className="h-3 w-3 mr-1" />
-            Pending
-          </Badge>
-        );
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
-  const getExecutionTypeLabel = (type: string) => {
-    switch (type) {
-      case 'dry_run': return 'Dry Run';
-      case 'apply': return 'Apply';
-      case 'apply_with_reboot': return 'Apply + Reboot';
-      default: return type;
-    }
-  };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
@@ -180,13 +170,16 @@ const PatchHistory = () => {
     });
   };
 
-  const getDuration = (started: string | null, completed: string | null) => {
-    if (!started || !completed) return '-';
-    const seconds = Math.floor((new Date(completed).getTime() - new Date(started).getTime()) / 1000);
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
+  const getSuccessRateColor = (rate: number) => {
+    if (rate >= 90) return 'text-green-600';
+    if (rate >= 70) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getSuccessRateBg = (rate: number) => {
+    if (rate >= 90) return 'bg-green-600';
+    if (rate >= 70) return 'bg-yellow-600';
+    return 'bg-red-600';
   };
 
   if (loading) {
@@ -227,7 +220,7 @@ const PatchHistory = () => {
                       Patch History
                     </h1>
                     <p className="text-muted-foreground mt-2 text-sm sm:text-base">
-                      All patch operations grouped by agent
+                      Overview of patch operations across all agents
                     </p>
                   </div>
                   <Button onClick={loadExecutions} variant="outline">
@@ -235,6 +228,107 @@ const PatchHistory = () => {
                     Refresh
                   </Button>
                 </div>
+              </div>
+
+              {/* Metrics Dashboard */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0 }}
+                >
+                  <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
+                    <CardContent className="pt-4 pb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <BarChart3 className="h-4 w-4 text-primary" />
+                      </div>
+                      <p className="text-2xl font-bold">{overallMetrics.total}</p>
+                      <p className="text-xs text-muted-foreground">Total Executions</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 }}
+                >
+                  <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5">
+                    <CardContent className="pt-4 pb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      </div>
+                      <p className="text-2xl font-bold text-green-600">{overallMetrics.completed}</p>
+                      <p className="text-xs text-muted-foreground">Completed</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  <Card className="bg-gradient-to-br from-red-500/10 to-red-500/5">
+                    <CardContent className="pt-4 pb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      </div>
+                      <p className="text-2xl font-bold text-red-600">{overallMetrics.failed}</p>
+                      <p className="text-xs text-muted-foreground">Failed</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 }}
+                >
+                  <Card className="bg-gradient-to-br from-yellow-500/10 to-yellow-500/5">
+                    <CardContent className="pt-4 pb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <Activity className="h-4 w-4 text-yellow-600" />
+                      </div>
+                      <p className="text-2xl font-bold text-yellow-600">{overallMetrics.running + overallMetrics.pending}</p>
+                      <p className="text-xs text-muted-foreground">In Progress</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5">
+                    <CardContent className="pt-4 pb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <Server className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <p className="text-2xl font-bold text-blue-600">{overallMetrics.uniqueAgents}</p>
+                      <p className="text-xs text-muted-foreground">Agents</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25 }}
+                >
+                  <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5">
+                    <CardContent className="pt-4 pb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <TrendingUp className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <p className={`text-2xl font-bold ${getSuccessRateColor(overallMetrics.successRate)}`}>
+                        {overallMetrics.successRate}%
+                      </p>
+                      <p className="text-xs text-muted-foreground">Success Rate</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               </div>
 
               {/* Filters */}
@@ -245,7 +339,7 @@ const PatchHistory = () => {
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                          placeholder="Search by agent name or ID..."
+                          placeholder="Search agents..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="pl-10"
@@ -257,19 +351,19 @@ const PatchHistory = () => {
                         <SelectValue placeholder="Filter by status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="failed">Failed</SelectItem>
-                        <SelectItem value="running">Running</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="all">All Agents</SelectItem>
+                        <SelectItem value="completed">Has Completed</SelectItem>
+                        <SelectItem value="failed">Has Failed</SelectItem>
+                        <SelectItem value="running">Has Running</SelectItem>
+                        <SelectItem value="pending">Has Pending</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Grouped Executions */}
-              {Object.keys(groupedExecutions).length === 0 ? (
+              {/* Agent Cards Grid */}
+              {agentSummaries.length === 0 ? (
                 <Card>
                   <CardContent className="py-12">
                     <div className="text-center text-muted-foreground">
@@ -284,121 +378,85 @@ const PatchHistory = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-4">
-                  {Object.entries(groupedExecutions)
-                    .sort(([, a], [, b]) => {
-                      const latestA = a.executions[0]?.started_at ? new Date(a.executions[0].started_at).getTime() : 0;
-                      const latestB = b.executions[0]?.started_at ? new Date(b.executions[0].started_at).getTime() : 0;
-                      return latestB - latestA;
-                    })
-                    .map(([agentId, group], idx) => {
-                      const isExpanded = expandedAgents.has(agentId);
-                      const latestExecution = group.executions[0];
-                      const completedCount = group.executions.filter(e => e.status === 'completed').length;
-                      const failedCount = group.executions.filter(e => e.status === 'failed').length;
-
-                      return (
-                        <motion.div
-                          key={agentId}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: idx * 0.05 }}
-                        >
-                          <Card className="overflow-hidden">
-                            {/* Agent Header */}
-                            <button
-                              onClick={() => toggleAgent(agentId)}
-                              className="w-full text-left"
-                            >
-                              <CardHeader className="hover:bg-muted/50 transition-colors">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-4">
-                                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                      <Server className="h-5 w-5 text-primary" />
-                                    </div>
-                                    <div>
-                                      <CardTitle className="text-lg flex items-center gap-2">
-                                        {group.agentName}
-                                        <Link 
-                                          to={`/patch-management/${agentId}`}
-                                          className="text-primary hover:underline"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          <ExternalLink className="h-4 w-4" />
-                                        </Link>
-                                      </CardTitle>
-                                      <CardDescription className="flex items-center gap-3 mt-1">
-                                        <span>{group.executions.length} execution{group.executions.length !== 1 ? 's' : ''}</span>
-                                        <span className="text-green-600">{completedCount} completed</span>
-                                        {failedCount > 0 && (
-                                          <span className="text-red-600">{failedCount} failed</span>
-                                        )}
-                                      </CardDescription>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-4">
-                                    {latestExecution && (
-                                      <div className="text-right hidden sm:block">
-                                        <p className="text-xs text-muted-foreground">Latest</p>
-                                        <p className="text-sm font-medium">{formatDate(latestExecution.started_at)}</p>
-                                      </div>
-                                    )}
-                                    {isExpanded ? (
-                                      <ChevronUp className="h-5 w-5 text-muted-foreground" />
-                                    ) : (
-                                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                                    )}
-                                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {agentSummaries.map((summary, idx) => (
+                    <motion.div
+                      key={summary.agentId}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.03 }}
+                    >
+                      <Link to={`/patch-management/${summary.agentId}`}>
+                        <Card className="hover:border-primary/50 transition-all cursor-pointer group h-full">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                                  <Server className="h-5 w-5 text-primary" />
                                 </div>
-                              </CardHeader>
-                            </button>
-
-                            {/* Executions List */}
-                            {isExpanded && (
-                              <CardContent className="border-t pt-4">
-                                <div className="space-y-3">
-                                  {group.executions.map((execution) => (
-                                    <div
-                                      key={execution.id}
-                                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
-                                    >
-                                      <div className="flex items-center gap-3 flex-wrap">
-                                        {getStatusBadge(execution.status)}
-                                        <Badge variant="outline">
-                                          {getExecutionTypeLabel(execution.execution_type)}
-                                        </Badge>
-                                        {execution.should_reboot && (
-                                          <Badge variant="secondary" className="hidden sm:flex">
-                                            <RefreshCw className="h-3 w-3 mr-1" />
-                                            Reboot
-                                          </Badge>
-                                        )}
-                                        <span className="text-sm text-muted-foreground flex items-center gap-1">
-                                          <Calendar className="h-3 w-3" />
-                                          {formatDate(execution.started_at)}
-                                        </span>
-                                        {execution.completed_at && (
-                                          <span className="text-sm text-muted-foreground hidden md:flex items-center gap-1">
-                                            <Clock className="h-3 w-3" />
-                                            {getDuration(execution.started_at, execution.completed_at)}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <Link to={`/patch-execution/${execution.id}`}>
-                                        <Button variant="ghost" size="sm">
-                                          <Eye className="h-4 w-4 mr-1" />
-                                          Details
-                                        </Button>
-                                      </Link>
-                                    </div>
-                                  ))}
+                                <div>
+                                  <CardTitle className="text-base">{summary.agentName}</CardTitle>
+                                  <CardDescription className="text-xs">
+                                    {summary.totalExecutions} execution{summary.totalExecutions !== 1 ? 's' : ''}
+                                  </CardDescription>
                                 </div>
-                              </CardContent>
-                            )}
-                          </Card>
-                        </motion.div>
-                      );
-                    })}
+                              </div>
+                              <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            {/* Success Rate Bar */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-muted-foreground">Success Rate</span>
+                                <span className={`text-sm font-semibold ${getSuccessRateColor(summary.successRate)}`}>
+                                  {summary.successRate}%
+                                </span>
+                              </div>
+                              <Progress 
+                                value={summary.successRate} 
+                                className="h-2"
+                              />
+                            </div>
+
+                            {/* Status Badges */}
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {summary.completedCount > 0 && (
+                                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                  {summary.completedCount}
+                                </Badge>
+                              )}
+                              {summary.failedCount > 0 && (
+                                <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/30">
+                                  <XCircle className="h-3 w-3 mr-1" />
+                                  {summary.failedCount}
+                                </Badge>
+                              )}
+                              {summary.runningCount > 0 && (
+                                <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  {summary.runningCount}
+                                </Badge>
+                              )}
+                              {summary.pendingCount > 0 && (
+                                <Badge variant="outline" className="bg-gray-500/10 text-gray-600 border-gray-500/30">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  {summary.pendingCount}
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Last Execution */}
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Last: {formatDate(summary.lastExecutionAt)}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    </motion.div>
+                  ))}
                 </div>
               )}
             </div>
