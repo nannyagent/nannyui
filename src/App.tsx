@@ -8,6 +8,7 @@ import { AnimatePresence } from "framer-motion";
 import { HelmetProvider } from "react-helmet-async";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import MFAVerification from "./pages/MFAVerification";
 import Dashboard from "./pages/Dashboard";
 import Account from "./pages/Account";
 import Tokens from "./pages/Tokens";
@@ -61,6 +62,7 @@ const App = () => (
                         <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/mfa-verification" element={<MFAVerification />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/account" element={<Account />} />
               <Route path="/tokens" element={<Tokens />} />

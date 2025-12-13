@@ -167,3 +167,146 @@ export const verifyTOTPCode = async (code: string, secret?: string) => {
   return { data, error };
 };
 
+/**
+ * Confirm MFA setup - Verify the TOTP code and enable MFA
+ */
+export const confirmMFASetup = async (code: string) => {
+  const { data, error } = await supabase.functions.invoke('confirm-mfa', {
+    body: {
+      code,
+    },
+  });
+
+  return { data, error };
+};
+
+/**
+ * Disable MFA - Remove TOTP-based MFA from the account
+ */
+export const disableMFA = async () => {
+  const { data, error } = await supabase.functions.invoke('disable-mfa', {
+    body: {},
+  });
+
+  return { data, error };
+};
+
+/**
+ * Check if MFA is enabled for the current user
+ */
+export const isMFAEnabled = async (): Promise<boolean> => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return false;
+
+    const { data, error } = await supabase
+      .from('user_mfa_settings')
+      .select('mfa_enabled')
+      .eq('user_id', user.id)
+      .eq('mfa_enabled', true)
+      .single();
+
+    if (error) {
+      // No MFA settings found or not enabled
+      return false;
+    }
+
+    return data?.mfa_enabled ?? false;
+  } catch (error) {
+    console.error('Error checking MFA status:', error);
+    return false;
+  }
+};
+
+/**
+ * Get MFA backup codes for the current user
+ */
+export const getMFABackupCodes = async (): Promise<string[] | null> => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from('user_mfa_settings')
+      .select('backup_codes')
+      .eq('user_id', user.id)
+      .eq('mfa_enabled', true)
+      .single();
+
+    if (error) {
+      return null;
+    }
+
+    return data?.backup_codes ?? null;
+  } catch (error) {
+    console.error('Error fetching backup codes:', error);
+    return null;
+  }
+};
+
+/**
+ * Verify backup code for MFA login
+ */
+export const verifyBackupCode = async (code: string) => {
+  const { data, error } = await supabase.functions.invoke('verify-backup-code', {
+    body: {
+      code,
+    },
+  });
+
+  return { data, error };
+};
+
+/**
+ * Get count of remaining backup codes
+ */
+export const getRemainingBackupCodes = async (): Promise<number | null> => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return null;
+
+    // Get total backup codes
+    const { data: mfaSettings, error: mfaError } = await supabase
+      .from('user_mfa_settings')
+      .select('backup_codes')
+      .eq('user_id', user.id)
+      .eq('mfa_enabled', true)
+      .single();
+
+    if (mfaError || !mfaSettings) {
+      return null;
+    }
+
+    const totalBackupCodes = mfaSettings.backup_codes?.length ?? 0;
+
+    // Get used backup codes count
+    const { data: usedCodes, error: usedError } = await supabase
+      .from('user_mfa_backup_codes_used')
+      .select('id')
+      .eq('user_id', user.id);
+
+    if (usedError) {
+      return null;
+    }
+
+    const usedCount = usedCodes?.length ?? 0;
+    return Math.max(0, totalBackupCodes - usedCount);
+  } catch (error) {
+    console.error('Error getting remaining backup codes:', error);
+    return null;
+  }
+};
+
+/**
+ * Verify TOTP code during MFA login
+ */
+export const verifyMFALogin = async (code: string) => {
+  const { data, error } = await supabase.functions.invoke('verify-mfa-login', {
+    body: {
+      code,
+    },
+  });
+
+  return { data, error };
+};
+

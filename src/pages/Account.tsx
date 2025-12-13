@@ -9,8 +9,9 @@ import TransitionWrapper from '@/components/TransitionWrapper';
 import ErrorBanner from '@/components/ErrorBanner';
 import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 import { MFASetupDialog } from '@/components/MFASetupDialog';
+import { DisableMFADialog } from '@/components/DisableMFADialog';
 import withAuth from '@/utils/withAuth';
-import { getCurrentUser, getCurrentSession } from '@/services/authService';
+import { getCurrentUser, getCurrentSession, isMFAEnabled } from '@/services/authService';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 const Account = () => {
@@ -20,20 +21,24 @@ const Account = () => {
   const [hasError, setHasError] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isMFASetupOpen, setIsMFASetupOpen] = useState(false);
+  const [isDisableMFAOpen, setIsDisableMFAOpen] = useState(false);
+  const [mfaEnabled, setMfaEnabled] = useState(false);
 
   useEffect(() => {
     // Fetch user and session data from Supabase
     const fetchAccountData = async () => {
       setLoading(true);
       try {
-        const [currentUser, currentSession] = await Promise.all([
+        const [currentUser, currentSession, mfaStatus] = await Promise.all([
           getCurrentUser(),
-          getCurrentSession()
+          getCurrentSession(),
+          isMFAEnabled()
         ]);
 
         if (currentUser && currentSession) {
           setUser(currentUser);
           setSession(currentSession);
+          setMfaEnabled(mfaStatus);
           setHasError(false);
         } else {
           setHasError(true);
@@ -48,6 +53,22 @@ const Account = () => {
     
     fetchAccountData();
   }, []);
+
+  const handleMFASetupSuccess = async () => {
+    // Refresh user data and MFA status to get updated status
+    try {
+      const [currentUser, mfaStatus] = await Promise.all([
+        getCurrentUser(),
+        isMFAEnabled()
+      ]);
+      if (currentUser) {
+        setUser(currentUser);
+        setMfaEnabled(mfaStatus);
+      }
+    } catch (error) {
+      console.error("Error refreshing user data:", error);
+    }
+  };
 
   // Helper functions to format data
   const formatDate = (dateString: string | undefined) => {
@@ -348,15 +369,14 @@ const Account = () => {
                           <div>
                             <h4 className="font-medium">Multi-Factor Authentication (MFA)</h4>
                             <p className="text-sm text-muted-foreground mt-1">
-                              {user?.app_metadata?.mfa_enabled ? 'MFA is enabled on your account' : 'Add an extra layer of security to your account'}
+                              {mfaEnabled ? 'MFA is enabled on your account' : 'Add an extra layer of security to your account'}
                             </p>
                           </div>
-                          <div className="ml-4">
-                            {user?.app_metadata?.mfa_enabled ? (
-                              <div className="flex items-center text-green-600">
-                                <CheckCircle className="h-5 w-5 mr-2" />
-                                <span className="text-sm font-medium">Enabled</span>
-                              </div>
+                          <div className="ml-4 flex gap-2">
+                            {mfaEnabled ? (
+                              <button onClick={() => setIsDisableMFAOpen(true)} className="py-1.5 px-4 text-sm border border-red-300 rounded-md text-red-600 hover:bg-red-50 transition-colors">
+                                Disable MFA
+                              </button>
                             ) : (
                               <button onClick={() => setIsMFASetupOpen(true)} className="py-1.5 px-4 text-sm border border-primary rounded-md text-primary hover:bg-primary/10 transition-colors">
                                 Enable MFA
@@ -466,6 +486,12 @@ const Account = () => {
         open={isMFASetupOpen} 
         onOpenChange={setIsMFASetupOpen}
         userEmail={user?.email}
+      />
+
+      <DisableMFADialog
+        open={isDisableMFAOpen}
+        onOpenChange={setIsDisableMFAOpen}
+        onSuccess={handleMFASetupSuccess}
       />
     </div>
   );

@@ -8,7 +8,7 @@ import GlassMorphicCard from '@/components/GlassMorphicCard';
 import Footer from '@/components/Footer';
 import ErrorBanner from '@/components/ErrorBanner';
 import { useToast } from '@/hooks/use-toast';
-import { signInWithGitHub, signInWithGoogle, signInWithEmail, getCurrentUser } from '@/services/authService';
+import { signInWithGitHub, signInWithGoogle, signInWithEmail, getCurrentUser, isMFAEnabled } from '@/services/authService';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
@@ -26,7 +26,13 @@ const Login = () => {
     const checkAuth = async () => {
       const user = await getCurrentUser();
       if (user) {
-        navigate('/dashboard');
+        // Check if MFA is required
+        const mfaEnabled = await isMFAEnabled();
+        if (mfaEnabled) {
+          navigate('/mfa-verification');
+        } else {
+          navigate('/dashboard');
+        }
       }
     };
     checkAuth();
@@ -113,11 +119,20 @@ const Login = () => {
       }
 
       if (user) {
+        // Check if user has MFA enabled
+        const mfaEnabled = await isMFAEnabled();
+        
         toast({
           title: "Success",
           description: "Signed in successfully!",
         });
-        navigate('/dashboard');
+        
+        // Redirect to MFA verification if enabled, otherwise to dashboard
+        if (mfaEnabled) {
+          navigate('/mfa-verification');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (error) {
       console.error("Error signing in with email:", error);
