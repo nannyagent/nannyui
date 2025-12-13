@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { User, Mail, Github, Calendar, Edit, Shield, Smartphone, Clock, CheckCircle, XCircle, Key } from 'lucide-react';
+import { User, Mail, Github, Calendar, Clock, CheckCircle, XCircle, Key, Shield, Smartphone } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
 import Footer from '@/components/Footer';
 import GlassMorphicCard from '@/components/GlassMorphicCard';
 import TransitionWrapper from '@/components/TransitionWrapper';
 import ErrorBanner from '@/components/ErrorBanner';
+import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
+import { MFASetupDialog } from '@/components/MFASetupDialog';
 import withAuth from '@/utils/withAuth';
 import { getCurrentUser, getCurrentSession } from '@/services/authService';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
@@ -17,6 +18,8 @@ const Account = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isMFASetupOpen, setIsMFASetupOpen] = useState(false);
 
   useEffect(() => {
     // Fetch user and session data from Supabase
@@ -355,7 +358,7 @@ const Account = () => {
                                 <span className="text-sm font-medium">Enabled</span>
                               </div>
                             ) : (
-                              <button className="py-1.5 px-4 text-sm border border-primary rounded-md text-primary hover:bg-primary/10 transition-colors">
+                              <button onClick={() => setIsMFASetupOpen(true)} className="py-1.5 px-4 text-sm border border-primary rounded-md text-primary hover:bg-primary/10 transition-colors">
                                 Enable MFA
                               </button>
                             )}
@@ -377,7 +380,7 @@ const Account = () => {
                                 Update your password to keep your account secure
                               </p>
                             </div>
-                            <button className="ml-4 py-1.5 px-4 text-sm border border-border rounded-md hover:bg-muted/50 transition-colors">
+                            <button onClick={() => setIsChangePasswordOpen(true)} className="ml-4 py-1.5 px-4 text-sm border border-border rounded-md hover:bg-muted/50 transition-colors">
                               Change Password
                             </button>
                           </div>
@@ -453,6 +456,17 @@ const Account = () => {
       </div>
       </div>
       <Footer />
+
+      <ChangePasswordDialog 
+        open={isChangePasswordOpen} 
+        onOpenChange={setIsChangePasswordOpen}
+      />
+
+      <MFASetupDialog 
+        open={isMFASetupOpen} 
+        onOpenChange={setIsMFASetupOpen}
+        userEmail={user?.email}
+      />
     </div>
   );
 };

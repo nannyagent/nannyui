@@ -135,3 +135,35 @@ export const updatePassword = async (newPassword: string) => {
 
   return { data, error };
 };
+
+/**
+ * Setup MFA - Generate TOTP secret and backup codes
+ */
+export const setupMFA = async () => {
+  const { data, error } = await supabase.functions.invoke('mfa-setup', {
+    body: {
+      email: (await getCurrentUser())?.email,
+    },
+  });
+
+  if (error) {
+    return { data: null, error };
+  }
+
+  return { data, error: null };
+};
+
+/**
+ * Verify TOTP code - Can be used to confirm MFA setup
+ */
+export const verifyTOTPCode = async (code: string, secret?: string) => {
+  const { data, error } = await supabase.functions.invoke('verify-totp', {
+    body: {
+      code,
+      secret,
+    },
+  });
+
+  return { data, error };
+};
+
