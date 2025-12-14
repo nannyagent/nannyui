@@ -2,17 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import withAuth from '@/utils/withAuth';
-import { 
-  Server, 
-  Plus, 
-  Activity, 
-  CheckCircle, 
-  AlertCircle, 
-  MoreVertical,
+import {
+  Server,
+  Plus,
+  Activity,
+  CheckCircle,
+  AlertCircle,
   ArrowUpDown,
   Search,
-  Filter,
-  Users,
   Clock,
   Eye,
   Cpu,
@@ -23,14 +20,11 @@ import {
   Monitor,
   Zap,
   Trash2,
-  Edit,
-  Settings,
   Key,
   Globe,
   Database,
   Folder,
   Calendar,
-  FileText,
   Network,
   ShieldCheck,
   AlertTriangle,
@@ -51,11 +45,9 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { getAgentsPaginated, getAgentDetails, getAgentRealTimeStatus, type AgentWithRelations } from '@/services/agentService';
 import { deleteAgent } from '@/services/agentManagementService';
-import AgentDetailsSheet from '@/components/AgentDetailsSheet';
 import AgentDeleteDialog from '@/components/AgentDeleteDialog';
 import CreateInvestigationDialog from '@/components/CreateInvestigationDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -112,8 +104,6 @@ const Agents = () => {
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedAgent, setSelectedAgent] = useState<AgentWithRelations | null>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<'active' | 'pending' | 'all'>('active');
@@ -263,13 +253,6 @@ const Agents = () => {
       });
     } finally {
       setDeletingAgentId(null);
-    }
-  };
-
-  const handleDeleteCancel = () => {
-    if (!deletingAgentId) { // Only allow cancel if not currently deleting
-      setIsDeleteDialogOpen(false);
-      setAgentToDelete(null);
     }
   };
 

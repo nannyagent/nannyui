@@ -1,6 +1,5 @@
 
-import Cookies from 'js-cookie';
-import { getBackendURL, createApiHeaders, fetchApi } from './config';
+import { getBackendURL, fetchApi } from './config';
 
 // Get the stored access token
 export const getAccessToken = (): string | null => {

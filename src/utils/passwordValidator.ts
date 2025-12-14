@@ -19,7 +19,7 @@ export interface PasswordValidationResult {
   };
 }
 
-const SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-={}[\];':"\\|,.<>/?]/g;
+const SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-={}[\];':"\\|,.<>/?]/;
 
 export const validatePassword = (password: string): PasswordValidationResult => {
   const errors: string[] = [];

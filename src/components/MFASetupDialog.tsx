@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Smartphone, Copy, AlertCircle, CheckCircle, Info, Eye, EyeOff } from 'lucide-react';
+import { Smartphone, Copy, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import { setupMFA, verifyTOTPCode, confirmMFASetup } from '@/services/authService';
 import QRCode from 'qrcode';
 import { Input } from '@/components/ui/input';
@@ -28,7 +28,6 @@ interface MFASetupData {
 export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
   open,
   onOpenChange,
-  userEmail,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +74,7 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
           },
         });
         setQRCodeUrl(qrUrl);
-      } catch (qrError) {
+      } catch {
         // Still proceed even if QR code generation fails
       }
     } catch (err) {
@@ -134,7 +133,7 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
 
       if (data?.valid) {
         // Now confirm the MFA setup
-        const { data: confirmData, error: confirmError } = await confirmMFASetup(
+        const { error: confirmError } = await confirmMFASetup(
           totpCode,
           mfaData?.secret,  // This maps to totp_secret in the handler
           mfaData?.backupCodes  // This maps to backup_codes in the handler

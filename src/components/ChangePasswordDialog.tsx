@@ -29,6 +29,9 @@ export const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
   const [success, setSuccess] = useState(false);
 
   const passwordValidation = validatePassword(newPassword);
+  
+  const passwordsMatch = newPassword && confirmPassword && newPassword === confirmPassword;
+  const isFormValid = passwordValidation.isValid && passwordsMatch && newPassword && confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,7 +192,7 @@ export const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
               </Button>
               <Button
                 type="submit"
-                disabled={loading || !passwordValidation.isValid}
+                disabled={loading || !isFormValid}
               >
                 {loading ? 'Changing Password...' : 'Change Password'}
               </Button>
