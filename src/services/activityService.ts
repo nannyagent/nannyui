@@ -13,7 +13,7 @@ export interface Activity {
     user_agent?: string;
     device_type?: string;
     duration_ms?: number;
-    [key: string]: any;
+    [key: string]: string | number | boolean | null;
   } | null;
   created_at: string;
   // Legacy fields for backward compatibility
@@ -189,7 +189,7 @@ export const createActivity = async (
     activity_type: string;
     summary: string;
     agent_id?: string | null;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, string | number | boolean | null>;
   }
 ): Promise<{ data: Activity | null; error: Error | null }> => {
   try {

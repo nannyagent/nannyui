@@ -20,7 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 const Tokens = () => {
   const [showTokens, setShowTokens] = React.useState(false);
   const [tokens, setTokens] = useState(placeholderTokens);
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newToken, setNewToken] = useState(null);

@@ -44,7 +44,7 @@ const AgentDeleteDialog = ({
               </div>
               <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1 ml-4">
                 <li>The agent configuration and settings</li>
-                <li>All historical metrics and performance data</li>
+                <li>All historical metrics, patches and investigation data</li>
                 <li>Authentication tokens and device codes</li>
                 <li>Rate limits and heartbeat records</li>
                 <li>All related activity logs</li>

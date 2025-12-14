@@ -17,7 +17,7 @@ export interface PricingPlan {
   advanced_security: boolean;
   priority_support: boolean;
   custom_agents: boolean;
-  features: any;
+  features: Record<string, string | number | boolean | null>;
   created_at: string;
 }
 

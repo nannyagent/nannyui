@@ -12,7 +12,7 @@ export interface Inference {
   tool_params?: string;
   inference_params?: string;
   ttft_ms?: number | null;
-  tags?: Record<string, any>;
+  tags?: Record<string, string | number | boolean | null>;
   extra_body?: string;
   model_inference?: {
     id: string;
@@ -26,7 +26,7 @@ export interface Inference {
     raw_response?: string;
     timestamp?: string;
   };
-  feedback?: any[];
+  feedback?: Record<string, string | number | boolean | null>[];
 }
 
 export interface Investigation {
@@ -300,9 +300,9 @@ export const createInvestigationFromAPI = async (params: {
       episode_id: result.episode_id || result.data?.episode_id,
       status: result.status || result.data?.status || 'pending'
     };
-  } catch (error: any) {
+  } catch (error) {
     clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('Request timeout - investigation may still be created, check Investigations page');
     }
     throw error;

@@ -85,7 +85,7 @@ export interface PatchExecutionResponse {
   status: string;
   execution_type: string;
   exit_code: number | null;
-  output: any;
+  output: Record<string, string | number | boolean | null>;
   stdout: string | null;
   stderr: string | null;
   error_message: string | null;

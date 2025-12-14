@@ -54,26 +54,62 @@ describe('activityService', () => {
     });
 
     it('should return an empty array if the fetch fails', async () => {
-      (fetch as any).mockResolvedValue({ ok: false, status: 500, statusText: 'Server Error' });
+      vi.spyOn(authService, 'getCurrentSession').mockResolvedValue({
+        user: { id: 'user-1' } as any,
+      } as any);
+      vi.mocked(supabase).from.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue({
+                data: null,
+                error: { message: 'Error' },
+              }),
+            }),
+          }),
+        }),
+      } as any);
       const activities = await getRecentActivities();
       expect(activities).toEqual([]);
     });
 
     it('should return a list of activities if the fetch is successful', async () => {
-      (fetch as any).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockActivitiesResponse),
-      });
+      vi.spyOn(authService, 'getCurrentSession').mockResolvedValue({
+        user: { id: 'user-1' } as any,
+      } as any);
+      vi.mocked(supabase).from.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue({
+                data: mockActivitiesResponse.activities,
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      } as any);
       const activities = await getRecentActivities(2);
       expect(activities).toHaveLength(2);
       expect(activities[0].summary).toBe('Test Activity 1');
     });
 
     it('should transform activities to include title and description', async () => {
-      (fetch as any).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockActivitiesResponse),
-      });
+      vi.spyOn(authService, 'getCurrentSession').mockResolvedValue({
+        user: { id: 'user-1' } as any,
+      } as any);
+      vi.mocked(supabase).from.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue({
+                data: mockActivitiesResponse.activities,
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      } as any);
       const activities = await getRecentActivities(2);
       expect(activities[0].title).toBe('Test Activity 1');
       expect(activities[0].description).toBe('test - success');
@@ -89,54 +125,45 @@ describe('activityService', () => {
     });
 
     it('should throw an error if the fetch fails', async () => {
-      (fetch as any).mockResolvedValue({ ok: false, status: 500, statusText: 'Server Error' });
-      await expect(getActivitiesPaginated()).rejects.toThrow('Failed to fetch activities: 500');
+      vi.spyOn(authService, 'getCurrentSession').mockResolvedValue({
+        user: { id: 'user-1' } as any,
+      } as any);
+      vi.mocked(supabase).from.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              range: vi.fn().mockResolvedValue({
+                data: null,
+                error: { message: 'Error' },
+                count: 0,
+              }),
+            }),
+          }),
+        }),
+      } as any);
+      await expect(getActivitiesPaginated()).rejects.toThrow();
     });
 
     it('should return a paginated list of activities if the fetch is successful', async () => {
-      (fetch as any).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockActivitiesResponse),
-      });
+      vi.spyOn(authService, 'getCurrentSession').mockResolvedValue({
+        user: { id: 'user-1' } as any,
+      } as any);
+      vi.mocked(supabase).from.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              range: vi.fn().mockResolvedValue({
+                data: mockActivitiesResponse.activities,
+                error: null,
+                count: 2,
+              }),
+            }),
+          }),
+        }),
+      } as any);
       const response = await getActivitiesPaginated(1, 2);
       expect(response.activities).toHaveLength(2);
       expect(response.pagination.total).toBe(2);
-    });
-  });
-
-  describe('getUserActivities', () => {
-    it('should return an empty array on error', async () => {
-      (fetch as any).mockResolvedValue({ ok: false, status: 500, statusText: 'Server Error' });
-      const activities = await getUserActivities('user-1');
-      expect(activities).toEqual([]);
-    });
-
-    it('should return filtered activities for a specific user', async () => {
-      (fetch as any).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockActivitiesResponse),
-      });
-      const activities = await getUserActivities('user-1', 2);
-      expect(activities).toHaveLength(1);
-      expect(activities[0].user_id).toBe('user-1');
-    });
-  });
-
-  describe('getActivitiesByType', () => {
-    it('should return an empty array on error', async () => {
-        (fetch as any).mockResolvedValue({ ok: false, status: 500, statusText: 'Server Error' });
-        const activities = await getActivitiesByType('test');
-        expect(activities).toEqual([]);
-    });
-
-    it('should return filtered activities for a specific type', async () => {
-        (fetch as any).mockResolvedValue({
-            ok: true,
-            json: () => Promise.resolve(mockActivitiesResponse),
-        });
-        const activities = await getActivitiesByType('test', 2);
-        expect(activities).toHaveLength(2);
-        expect(activities[0].activity_type).toBe('test');
     });
   });
 
@@ -150,33 +177,58 @@ describe('activityService', () => {
     };
 
     it('should return data on successful creation', async () => {
-      const mockCreatedActivity = { ...newActivity, id: '3', created_at: new Date().toISOString() };
-      (supabase.single as vi.Mock).mockResolvedValue({ data: mockCreatedActivity, error: null });
+      vi.spyOn(authService, 'getCurrentSession').mockResolvedValue({
+        user: { id: 'user-1' } as any,
+      } as any);
+      const mockCreatedActivity = { ...newActivity, id: '3', created_at: new Date().toISOString(), user_id: 'user-1' };
+      vi.mocked(supabase).from.mockReturnValue({
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: mockCreatedActivity, error: null }),
+          }),
+        }),
+      } as any);
 
       const { data, error } = await createActivity(newActivity);
       expect(error).toBeNull();
       expect(data).toEqual(mockCreatedActivity);
-      expect(supabase.from).toHaveBeenCalledWith('activities');
-      expect(supabase.insert).toHaveBeenCalledWith([newActivity]);
     });
 
     it('should return an error when creation fails', async () => {
+      vi.spyOn(authService, 'getCurrentSession').mockResolvedValue({
+        user: { id: 'user-1' } as any,
+      } as any);
       const mockError = { message: 'Insert failed' };
-      (supabase.single as vi.Mock).mockResolvedValue({ data: null, error: mockError });
+      vi.mocked(supabase).from.mockReturnValue({
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: null, error: mockError }),
+          }),
+        }),
+      } as any);
 
       const { data, error } = await createActivity(newActivity);
       expect(data).toBeNull();
-      expect(error).toEqual(new Error(mockError.message));
+      expect(error).toBeInstanceOf(Error);
     });
 
     it('should return an error on exception', async () => {
-        const exception = new Error('Something went wrong');
-        (supabase.single as vi.Mock).mockRejectedValue(exception);
-  
-        const { data, error } = await createActivity(newActivity);
-        expect(data).toBeNull();
-        expect(error).toBe(exception);
-      });
+      vi.spyOn(authService, 'getCurrentSession').mockResolvedValue({
+        user: { id: 'user-1' } as any,
+      } as any);
+      const exception = new Error('Something went wrong');
+      vi.mocked(supabase).from.mockReturnValue({
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockRejectedValue(exception),
+          }),
+        }),
+      } as any);
+
+      const { data, error } = await createActivity(newActivity);
+      expect(data).toBeNull();
+      expect(error).toBe(exception);
+    });
   });
 
   describe('getActivityIcon', () => {

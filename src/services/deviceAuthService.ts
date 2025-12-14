@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase';
-import { getCurrentSession, getCurrentUser } from '@/services/authService';
 
 interface DeviceAuthResponse {
   success: boolean;
@@ -16,15 +15,10 @@ interface AgentAuthPublicResponse {
   interval: number;
 }
 
-interface DeviceAuthRequest {
-  device_code: string;
-  user_code: string;
-}
-
-interface AgentAuthApiRequest {
-  device_code: string;
-  user_code: string;
-  access_token: string;
+interface DeviceApproveResponse {
+  success: boolean;
+  error?: string;
+  data?: Record<string, string | number>;
 }
 
 /**
@@ -39,7 +33,7 @@ class DeviceAuthService {
   /**
    * Call the device-auth approve endpoint
    */
-  private async callDeviceApprove(userCode: string, session?: any): Promise<any> {
+  private async callDeviceApprove(userCode: string, session: {access_token: string}): Promise<DeviceApproveResponse> {
     try {
       if (!session || !session.access_token) {
         return { success: false, error: 'User not authenticated' };
@@ -76,25 +70,27 @@ class DeviceAuthService {
    * Registers a device using the user code
    * This approves the device for the agent to receive tokens
    */
-  async registerDevice(userCode: string, session?: any): Promise<DeviceAuthResponse> {
+  async registerDevice(userCode: string, session?: {access_token?: string}): Promise<DeviceAuthResponse> {
     // Use provided session, fallback to direct supabase call if needed
-    let currentSession = session;
+    let currentSession = session as {access_token: string} | null;
     
     if (!currentSession?.access_token) {
       try {
         const { data } = await supabase.auth.getSession();
-        currentSession = data.session;
-      } catch (error) {
+        if (data.session?.access_token) {
+          currentSession = { access_token: data.session.access_token };
+        }
+      } catch {
         // Fallback to localStorage if direct call fails
         try {
           const storedSession = localStorage.getItem('sb-gpqzsricripnvbrpsyws-auth-token');
           if (storedSession) {
             const parsed = JSON.parse(storedSession);
             if (parsed.access_token) {
-              currentSession = parsed;
+              currentSession = { access_token: parsed.access_token };
             }
           }
-        } catch (localStorageError) {
+        } catch {
           // Silent fail
         }
       }
