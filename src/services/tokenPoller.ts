@@ -16,7 +16,7 @@ export class TokenPoller {
   /**
    * Start polling for token
    */
-  startPolling(): Promise<any> {
+  startPolling(): Promise<Record<string, string | number>> {
     return new Promise((resolve, reject) => {
       console.log(`🔄 Starting token polling for device_code: ${this.deviceCode}`);
       
@@ -104,7 +104,7 @@ export class TokenPoller {
 /**
  * Convenience function to start polling with a device code
  */
-export function pollForTokens(deviceCode: string): Promise<any> {
+export function pollForTokens(deviceCode: string): Promise<Record<string, string | number>> {
   const poller = new TokenPoller(deviceCode);
   return poller.startPolling();
 }

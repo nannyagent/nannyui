@@ -8,7 +8,7 @@ export interface AgentDeleteResponse {
 }
 
 /**
- * Delete an agent and all related data
+ * Delete an agent and all related data (metrics, investigations, patches, etc.)
  */
 export const deleteAgent = async (agentId: string): Promise<AgentDeleteResponse> => {
   try {
@@ -23,7 +23,7 @@ export const deleteAgent = async (agentId: string): Promise<AgentDeleteResponse>
       };
     }
 
-    // Call the Edge Function
+    // Call the Edge Function for comprehensive deletion
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-management`, {
       method: 'POST',
       headers: {

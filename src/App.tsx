@@ -68,6 +68,7 @@ const App = () => (
               <Route path="/tokens" element={<Tokens />} />
               <Route path="/agents" element={<Agents />} />
               <Route path="/patch-management/:agentId" element={<PatchManagement />} />
+              <Route path="/patch-history/:agentId" element={<PatchHistory />} />
               <Route path="/patch-history" element={<PatchHistory />} />
               <Route path="/patch-execution/:executionId" element={<PatchExecutionDetail />} />
               <Route path="/activities" element={<Activities />} />

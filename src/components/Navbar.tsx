@@ -1,10 +1,18 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Bell, User, Search } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Bell, User, Search, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getCurrentUser } from '@/services/authService';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const Navbar: React.FC = () => {
   const [userName, setUserName] = useState('User');
@@ -54,12 +62,33 @@ const Navbar: React.FC = () => {
             <span className="absolute top-1 right-1 w-2 h-2 bg-sidebar-primary rounded-full"></span>
           </button>
           
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary">
-              <User className="h-4 w-4" />
-            </div>
-            <span className="text-sm font-medium text-sidebar-foreground">{userName}</span>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center space-x-2 hover:bg-sidebar-accent/30 rounded-lg px-2 py-1.5 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary">
+                  <User className="h-4 w-4" />
+                </div>
+                <span className="text-sm font-medium text-sidebar-foreground">{userName}</span>
+                <ChevronDown className="h-4 w-4 text-sidebar-foreground/60" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/account" className="cursor-pointer">
+                  <User className="h-4 w-4 mr-2" />
+                  Account Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/activities" className="cursor-pointer">
+                  <Bell className="h-4 w-4 mr-2" />
+                  Activities
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </motion.header>

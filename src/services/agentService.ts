@@ -9,7 +9,7 @@ export interface Agent {
   last_seen?: string;
   created_at: string;
   updated_at?: string;
-  metadata?: any;
+  metadata?: Record<string, string | number | boolean | null>;
   oauth_client_id?: string | null;
   oauth_token_expires_at?: string | null;
   // Fields directly on agents table
@@ -20,7 +20,7 @@ export interface Agent {
   location?: string;
   registered_ip?: string;
   public_key?: string;
-  timeline?: any;
+  timeline?: Record<string, string | number | boolean | null>;
   // WebSocket status fields
   websocket_connected?: boolean;
   websocket_connected_at?: string;
@@ -36,7 +36,7 @@ export interface AgentMetric {
   disk_percent?: number;
   network_in_kbps?: number;
   network_out_kbps?: number;
-  extra?: any;
+  extra?: Record<string, string | number | boolean | null>;
   ip_address?: string;
   location?: string;
   agent_version?: string;
@@ -53,8 +53,8 @@ export interface AgentMetric {
     family?: string;
   };
   kernel_version?: string;
-  filesystem_info?: any[];
-  block_devices?: any[];
+  filesystem_info?: Record<string, string | number | boolean | null>[];
+  block_devices?: Record<string, string | number | boolean | null>[];
   device_fingerprint?: string;
   // Load averages - can be nested object or direct properties
   load_averages?: {
@@ -254,7 +254,7 @@ export const getAgentsPaginated = async (
             lastMetric: latestMetric || undefined,
             metrics: latestMetric ? [latestMetric] : undefined,
           } as AgentWithRelations;
-        } catch (error) {
+        } catch {
           // If no metrics found, just return agent without metrics
           return {
             ...agent,
@@ -365,7 +365,7 @@ export const getAgentsByStatus = async (status: 'online' | 'offline'): Promise<A
  */
 export const createAgent = async (
   agent: Omit<Agent, 'id' | 'created_at' | 'updated_at'>
-): Promise<{ data: Agent | null; error: any }> => {
+): Promise<{ data: Agent | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
       .from('agents')
@@ -391,7 +391,7 @@ export const createAgent = async (
 export const updateAgent = async (
   id: string,
   updates: Partial<Omit<Agent, 'id' | 'created_at'>>
-): Promise<{ data: Agent | null; error: any }> => {
+): Promise<{ data: Agent | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
       .from('agents')
@@ -415,7 +415,7 @@ export const updateAgent = async (
 /**
  * Delete an agent
  */
-export const deleteAgent = async (id: string): Promise<{ error: any }> => {
+export const deleteAgent = async (id: string): Promise<{ error: Error | null }> => {
   try {
     const { error } = await supabase
       .from('agents')

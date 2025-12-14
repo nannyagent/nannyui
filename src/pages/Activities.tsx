@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Server, Key, Users, Activity as ActivityIcon, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Server, Key, Users, Activity as ActivityIcon, ChevronLeft, ChevronRight, Loader2, Shield, Search, Calendar, LogIn, Lock, CheckCircle } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
 import Footer from '@/components/Footer';
@@ -8,7 +8,7 @@ import GlassMorphicCard from '@/components/GlassMorphicCard';
 import TransitionWrapper from '@/components/TransitionWrapper';
 import ErrorBanner from '@/components/ErrorBanner';
 import withAuth from '@/utils/withAuth';
-import { getActivitiesPaginated, getActivityIcon, formatActivityTime, type Activity, type ActivitiesResponse } from '@/services/activityService';
+import { getActivitiesPaginated, getActivityIcon, formatActivityTime, formatDuration, getActivityTypes, type Activity, type ActivitiesResponse } from '@/services/activityService';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -19,6 +19,7 @@ const Activities = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState('all');
+  const [availableTypes, setAvailableTypes] = useState<string[]>([]);
   const itemsPerPage = 10;
 
   const fetchActivities = async (page: number, currentFilter: string) => {
@@ -38,6 +39,7 @@ const Activities = () => {
 
   useEffect(() => {
     fetchActivities(currentPage, filter);
+    getActivityTypes().then(types => setAvailableTypes(types));
   }, [currentPage, filter]);
 
   const handlePageChange = (newPage: number) => {
@@ -46,43 +48,40 @@ const Activities = () => {
 
   const handleFilterChange = (newFilter: string) => {
     setFilter(newFilter);
-    setCurrentPage(1); // Reset to first page when filter changes
+    setCurrentPage(1);
   };
 
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeVariant = (status?: string) => {
     switch (status) {
-      case 'success':
-        return 'default';
-      case 'error':
-        return 'destructive';
-      case 'warning':
-        return 'secondary';
-      case 'info':
-        return 'outline';
-      default:
-        return 'outline';
+      case 'success': return 'default';
+      case 'error': return 'destructive';
+      case 'warning': return 'secondary';
+      case 'info': return 'outline';
+      default: return 'outline';
     }
   };
 
   const getActivityTypeIcon = (activityType: string) => {
     const iconName = getActivityIcon(activityType);
     switch (iconName) {
-      case 'Server':
-        return <Server className="h-4 w-4" />;
-      case 'Key':
-        return <Key className="h-4 w-4" />;
-      case 'Users':
-        return <Users className="h-4 w-4" />;
-      default:
-        return <ActivityIcon className="h-4 w-4" />;
+      case 'Server': return <Server className="h-4 w-4" />;
+      case 'Key': return <Key className="h-4 w-4" />;
+      case 'Users': return <Users className="h-4 w-4" />;
+      case 'Shield': case 'ShieldCheck': case 'ShieldAlert': return <Shield className="h-4 w-4" />;
+      case 'Search': return <Search className="h-4 w-4" />;
+      case 'Calendar': return <Calendar className="h-4 w-4" />;
+      case 'LogIn': case 'LogOut': return <LogIn className="h-4 w-4" />;
+      case 'Lock': case 'Unlock': return <Lock className="h-4 w-4" />;
+      case 'CheckCircle': return <CheckCircle className="h-4 w-4" />;
+      default: return <ActivityIcon className="h-4 w-4" />;
     }
   };
 
-  const formatDuration = (durationMs: number) => {
-    if (durationMs < 1000) return `${durationMs}ms`;
-    if (durationMs < 60000) return `${(durationMs / 1000).toFixed(1)}s`;
-    return `${(durationMs / 60000).toFixed(1)}m`;
+  const formatActivityType = (type: string) => {
+    return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
+
+  const filterOptions = ['all', ...availableTypes.slice(0, 5)];
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -104,23 +103,23 @@ const Activities = () => {
               <div className="mb-8">
                 <h1 className="text-3xl font-bold tracking-tight">Activities</h1>
                 <p className="text-muted-foreground mt-2">
-                  View all system activities, agent interactions, and user events.
+                  Track all system activities, agent operations, and account changes.
                 </p>
               </div>
 
               {/* Filter Buttons */}
               <div className="mb-6 flex flex-wrap gap-2">
-                {['all', 'data_sync', 'token_generated', 'session_started', 'websocket_connected'].map((filterOption) => (
+                {filterOptions.map((filterOption) => (
                   <Button
                     key={filterOption}
                     variant={filter === filterOption ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleFilterChange(filterOption)}
-                >
-                  {filterOption.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </Button>
-              ))}
-            </div>
+                    size="sm"
+                    onClick={() => handleFilterChange(filterOption)}
+                  >
+                    {formatActivityType(filterOption)}
+                  </Button>
+                ))}
+              </div>
             
             {loading ? (
               <div className="flex justify-center items-center h-64">

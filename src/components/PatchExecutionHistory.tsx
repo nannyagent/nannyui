@@ -149,7 +149,7 @@ export const PatchExecutionHistory: React.FC<PatchExecutionHistoryProps> = ({
             <Button variant="ghost" size="sm" onClick={loadExecutions}>
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <Link to="/patch-history">
+            <Link to={`/patch-history/${agentId}`}>
               <Button variant="outline" size="sm">
                 <ExternalLink className="h-4 w-4 mr-1" />
                 View All

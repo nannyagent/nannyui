@@ -9,6 +9,7 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    environment: supabase
     
     steps:
       - name: Checkout code
@@ -37,6 +38,9 @@ jobs:
         
       - name: Run tests
         run: npm run test -- --coverage
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         
       - name: Upload test coverage
         if: always()

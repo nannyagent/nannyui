@@ -4,16 +4,17 @@ import { getCurrentSession } from '@/services/authService';
 export interface Activity {
   id: string;
   user_id: string;
-  agent_id: string;
+  agent_id: string | null;
   activity_type: string;
   summary: string;
   metadata: {
-    status: 'success' | 'error' | 'warning' | 'info';
-    ip_address: string;
-    user_agent: string;
-    device_type: string;
-    duration_ms: number;
-  };
+    status?: 'success' | 'error' | 'warning' | 'info';
+    ip_address?: string;
+    user_agent?: string;
+    device_type?: string;
+    duration_ms?: number;
+    [key: string]: string | number | boolean | null;
+  } | null;
   created_at: string;
   // Legacy fields for backward compatibility
   title?: string;
@@ -34,49 +35,66 @@ export interface ActivitiesResponse {
   filter: string;
 }
 
-// Get Supabase URL from environment variables
-const getSupabaseUrl = (): string => {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  if (!url) {
-    console.error('VITE_SUPABASE_URL is not defined in environment variables');
-    return 'http://127.0.0.1:54321'; // fallback for development
-  }
-  return url;
-};
+// Activity types
+export const ACTIVITY_TYPES = {
+  // Agent activities
+  AGENT_CREATED: 'agent_created',
+  AGENT_DELETED: 'agent_deleted',
+  AGENT_CONNECTED: 'agent_connected',
+  AGENT_DISCONNECTED: 'agent_disconnected',
+  
+  // Patch activities
+  PATCH_STARTED: 'patch_started',
+  PATCH_COMPLETED: 'patch_completed',
+  PATCH_FAILED: 'patch_failed',
+  PATCH_SCHEDULED: 'patch_scheduled',
+  
+  // Investigation activities
+  INVESTIGATION_STARTED: 'investigation_started',
+  INVESTIGATION_COMPLETED: 'investigation_completed',
+  
+  // Account activities
+  MFA_ENABLED: 'mfa_enabled',
+  MFA_DISABLED: 'mfa_disabled',
+  PASSWORD_CHANGED: 'password_changed',
+  LOGIN: 'login',
+  LOGOUT: 'logout',
+  
+  // Legacy types
+  DATA_SYNC: 'data_sync',
+  TOKEN_GENERATED: 'token_generated',
+  SESSION_STARTED: 'session_started',
+  WEBSOCKET_CONNECTED: 'websocket_connected',
+} as const;
 
 /**
- * Fetch recent activities from the API
- * @param limit Number of activities to fetch (default: 5)
+ * Fetch recent activities from Supabase directly
+ * @param limit Number of activities to fetch (default: 10)
  */
-export const getRecentActivities = async (limit: number = 5): Promise<Activity[]> => {
+export const getRecentActivities = async (limit: number = 10): Promise<Activity[]> => {
   try {
     const session = await getCurrentSession();
-    if (!session?.access_token) {
-      console.error('No session found for activities API');
+    if (!session?.user?.id) {
+      console.error('No session found for activities');
       return [];
     }
 
-    const supabaseUrl = getSupabaseUrl();
-    const response = await fetch(`${supabaseUrl}/functions/v1/activities-api?page=1&limit=${limit}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
-      }
-    });
+    const { data, error } = await supabase
+      .from('activities')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
-    if (!response.ok) {
-      console.error('Failed to fetch activities:', response.status, response.statusText);
+    if (error) {
+      console.error('Error fetching activities:', error);
       return [];
     }
 
-    const data: ActivitiesResponse = await response.json();
-    
-    // Transform the data to include title and description for backward compatibility
-    return data.activities.map(activity => ({
+    return (data || []).map(activity => ({
       ...activity,
       title: activity.summary,
-      description: `${activity.activity_type} - ${activity.metadata?.status || 'unknown'}`
+      description: `${activity.activity_type} - ${activity.metadata?.status || 'info'}`
     }));
   } catch (error) {
     console.error('Exception fetching activities:', error);
@@ -97,8 +115,8 @@ export const getActivitiesPaginated = async (
 ): Promise<ActivitiesResponse> => {
   try {
     const session = await getCurrentSession();
-    if (!session?.access_token) {
-      console.error('No session found for activities API');
+    if (!session?.user?.id) {
+      console.error('No session found for activities');
       return {
         activities: [],
         pagination: {
@@ -113,32 +131,48 @@ export const getActivitiesPaginated = async (
       };
     }
 
-    const supabaseUrl = getSupabaseUrl();
-    const response = await fetch(`${supabaseUrl}/functions/v1/activities-api?page=${page}&limit=${limit}&filter=${filter}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
-      }
-    });
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
 
-    if (!response.ok) {
-      console.error('Failed to fetch activities:', response.status, response.statusText);
-      throw new Error(`Failed to fetch activities: ${response.status}`);
+    let query = supabase
+      .from('activities')
+      .select('*', { count: 'exact' })
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    // Apply filter if not 'all'
+    if (filter !== 'all') {
+      query = query.eq('activity_type', filter);
     }
 
-    const data: ActivitiesResponse = await response.json();
-    
-    // Transform activities to include backward compatibility fields
-    const transformedActivities = data.activities.map(activity => ({
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Error fetching activities:', error);
+      throw new Error(`Failed to fetch activities: ${error.message}`);
+    }
+
+    const total = count || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    const transformedActivities = (data || []).map(activity => ({
       ...activity,
       title: activity.summary,
-      description: `${activity.activity_type} - ${activity.metadata?.status || 'unknown'}`
+      description: `${activity.activity_type} - ${activity.metadata?.status || 'info'}`
     }));
 
     return {
-      ...data,
-      activities: transformedActivities
+      activities: transformedActivities,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      },
+      filter
     };
   } catch (error) {
     console.error('Exception fetching paginated activities:', error);
@@ -147,52 +181,32 @@ export const getActivitiesPaginated = async (
 };
 
 /**
- * Fetch activities for a specific user
- * @param userId User ID to filter activities
- * @param limit Number of activities to fetch (default: 10)
- */
-export const getUserActivities = async (userId: string, limit: number = 10): Promise<Activity[]> => {
-  try {
-    // Use the new API but filter by user_id
-    const result = await getActivitiesPaginated(1, limit, 'all');
-    // Filter by user_id on the client side since the API doesn't support user filtering yet
-    return result.activities.filter(activity => activity.user_id === userId);
-  } catch (error) {
-    console.error('Exception fetching user activities:', error);
-    return [];
-  }
-};
-
-/**
- * Fetch activities by type
- * @param activityType Type of activity to filter
- * @param limit Number of activities to fetch (default: 10)
- */
-export const getActivitiesByType = async (
-  activityType: string,
-  limit: number = 10
-): Promise<Activity[]> => {
-  try {
-    // Use the new API and filter by activity type
-    const result = await getActivitiesPaginated(1, limit, activityType);
-    return result.activities;
-  } catch (error) {
-    console.error('Exception fetching activities by type:', error);
-    return [];
-  }
-};
-
-/**
  * Create a new activity log
  * @param activity Activity data to insert
  */
 export const createActivity = async (
-  activity: Omit<Activity, 'id' | 'created_at'>
+  activityData: {
+    activity_type: string;
+    summary: string;
+    agent_id?: string | null;
+    metadata?: Record<string, string | number | boolean | null>;
+  }
 ): Promise<{ data: Activity | null; error: Error | null }> => {
   try {
+    const session = await getCurrentSession();
+    if (!session?.user?.id) {
+      return { data: null, error: new Error('No active session') };
+    }
+
     const { data, error } = await supabase
       .from('activities')
-      .insert([activity])
+      .insert([{
+        user_id: session.user.id,
+        agent_id: activityData.agent_id || null,
+        activity_type: activityData.activity_type,
+        summary: activityData.summary,
+        metadata: activityData.metadata || { status: 'success' }
+      }])
       .select()
       .single();
 
@@ -209,16 +223,124 @@ export const createActivity = async (
 };
 
 /**
+ * Log agent creation activity
+ */
+export const logAgentCreated = async (agentId: string, agentName: string) => {
+  return createActivity({
+    activity_type: ACTIVITY_TYPES.AGENT_CREATED,
+    summary: `Agent "${agentName}" was registered`,
+    agent_id: agentId,
+    metadata: { status: 'success', agent_name: agentName }
+  });
+};
+
+/**
+ * Log agent deletion activity
+ */
+export const logAgentDeleted = async (agentId: string, agentName: string) => {
+  return createActivity({
+    activity_type: ACTIVITY_TYPES.AGENT_DELETED,
+    summary: `Agent "${agentName}" was deleted`,
+    agent_id: agentId,
+    metadata: { status: 'info', agent_name: agentName }
+  });
+};
+
+/**
+ * Log patch execution started
+ */
+export const logPatchStarted = async (agentId: string, executionType: string) => {
+  return createActivity({
+    activity_type: ACTIVITY_TYPES.PATCH_STARTED,
+    summary: `Patch ${executionType} started`,
+    agent_id: agentId,
+    metadata: { status: 'info', execution_type: executionType }
+  });
+};
+
+/**
+ * Log patch execution completed
+ */
+export const logPatchCompleted = async (agentId: string, executionType: string, success: boolean) => {
+  return createActivity({
+    activity_type: success ? ACTIVITY_TYPES.PATCH_COMPLETED : ACTIVITY_TYPES.PATCH_FAILED,
+    summary: `Patch ${executionType} ${success ? 'completed successfully' : 'failed'}`,
+    agent_id: agentId,
+    metadata: { status: success ? 'success' : 'error', execution_type: executionType }
+  });
+};
+
+/**
+ * Log investigation started
+ */
+export const logInvestigationStarted = async (agentId: string, issue: string) => {
+  return createActivity({
+    activity_type: ACTIVITY_TYPES.INVESTIGATION_STARTED,
+    summary: `Investigation started: ${issue.substring(0, 50)}${issue.length > 50 ? '...' : ''}`,
+    agent_id: agentId,
+    metadata: { status: 'info', issue }
+  });
+};
+
+/**
+ * Log MFA enabled
+ */
+export const logMfaEnabled = async () => {
+  return createActivity({
+    activity_type: ACTIVITY_TYPES.MFA_ENABLED,
+    summary: 'Multi-factor authentication was enabled',
+    metadata: { status: 'success' }
+  });
+};
+
+/**
+ * Log password changed
+ */
+export const logPasswordChanged = async () => {
+  return createActivity({
+    activity_type: ACTIVITY_TYPES.PASSWORD_CHANGED,
+    summary: 'Account password was changed',
+    metadata: { status: 'success' }
+  });
+};
+
+/**
+ * Log user login
+ */
+export const logUserLogin = async () => {
+  return createActivity({
+    activity_type: ACTIVITY_TYPES.LOGIN,
+    summary: 'User logged in',
+    metadata: { status: 'success' }
+  });
+};
+
+/**
  * Get icon name based on activity type
  */
 export const getActivityIcon = (activityType: string): string => {
   const iconMap: Record<string, string> = {
-    // New API activity types
+    // New activity types
+    [ACTIVITY_TYPES.AGENT_CREATED]: 'Server',
+    [ACTIVITY_TYPES.AGENT_DELETED]: 'Server',
+    [ACTIVITY_TYPES.AGENT_CONNECTED]: 'Wifi',
+    [ACTIVITY_TYPES.AGENT_DISCONNECTED]: 'WifiOff',
+    [ACTIVITY_TYPES.PATCH_STARTED]: 'Shield',
+    [ACTIVITY_TYPES.PATCH_COMPLETED]: 'ShieldCheck',
+    [ACTIVITY_TYPES.PATCH_FAILED]: 'ShieldAlert',
+    [ACTIVITY_TYPES.PATCH_SCHEDULED]: 'Calendar',
+    [ACTIVITY_TYPES.INVESTIGATION_STARTED]: 'Search',
+    [ACTIVITY_TYPES.INVESTIGATION_COMPLETED]: 'CheckCircle',
+    [ACTIVITY_TYPES.MFA_ENABLED]: 'Lock',
+    [ACTIVITY_TYPES.MFA_DISABLED]: 'Unlock',
+    [ACTIVITY_TYPES.PASSWORD_CHANGED]: 'Key',
+    [ACTIVITY_TYPES.LOGIN]: 'LogIn',
+    [ACTIVITY_TYPES.LOGOUT]: 'LogOut',
+    // Legacy types
     data_sync: 'Server',
     token_generated: 'Key',
     session_started: 'Activity',
     websocket_connected: 'Activity',
-    // Legacy activity types for backward compatibility
     agent: 'Server',
     user: 'Users', 
     session: 'Activity',
@@ -251,4 +373,48 @@ export const formatActivityTime = (createdAt: string): string => {
     day: 'numeric',
     year: activityDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
   });
+};
+
+/**
+ * Get unique activity types for filtering
+ */
+export const getActivityTypes = async (): Promise<string[]> => {
+  try {
+    const session = await getCurrentSession();
+    if (!session?.user?.id) {
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from('activities')
+      .select('activity_type')
+      .eq('user_id', session.user.id);
+
+    if (error) {
+      console.error('Error fetching activity types:', error);
+      return [];
+    }
+
+    const types = [...new Set(data?.map(d => d.activity_type) || [])];
+    return types;
+  } catch (error) {
+    console.error('Exception fetching activity types:', error);
+    return [];
+  }
+};
+
+/**
+ * Format duration in milliseconds to human-readable string
+ * @param ms Duration in milliseconds
+ */
+export const formatDuration = (ms: number): string => {
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`;
+  } else if (ms < 60000) {
+    return `${(ms / 1000).toFixed(1)}s`;
+  } else if (ms < 3600000) {
+    return `${(ms / 60000).toFixed(1)}m`;
+  } else {
+    return `${(ms / 3600000).toFixed(1)}h`;
+  }
 };
