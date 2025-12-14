@@ -17,6 +17,7 @@ interface MFASetupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userEmail?: string;
+  onSuccess?: () => Promise<void>;
 }
 
 interface MFASetupData {
@@ -28,6 +29,7 @@ interface MFASetupData {
 export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
   open,
   onOpenChange,
+  onSuccess,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
   const [verifyingTotp, setVerifyingTotp] = useState(false);
   const [totpError, setTotpError] = useState<string | null>(null);
   const [totpVerified, setTotpVerified] = useState(false);
+  const [showTotpInput, setShowTotpInput] = useState(false);
 
   useEffect(() => {
     if (open && !mfaData) {
@@ -145,6 +148,11 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
 
         setTotpVerified(true);
         setTotpCode('');
+        
+        // Call onSuccess callback if provided
+        if (onSuccess) {
+          await onSuccess();
+        }
       } else {
         setTotpError('Invalid TOTP code. Please check and try again.');
       }
