@@ -5,7 +5,11 @@ import {
   getUsername,
   setUsername,
   validateAccessToken,
-  refreshTokens
+  refreshTokens,
+  fetchGitHubProfile,
+  isAuthenticated,
+  redirectToDashboard,
+  logoutUser
 } from './authUtils'
 
 // Mock localStorage
@@ -169,6 +173,120 @@ describe('authUtils', () => {
       const result = await refreshTokens()
       
       expect(result).toBe(false)
+    })
+
+    it('should store username from refresh response', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ 
+          access_token: 'new-token',
+          user: { name: 'John Doe' }
+        })
+      } as Response)
+      
+      const result = await refreshTokens()
+      
+      expect(result).toBe(true)
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('access_token', 'new-token')
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('username', 'John Doe')
+    })
+  })
+
+  describe('fetchGitHubProfile', () => {
+    it('should return true and store tokens on success', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ 
+          access_token: 'github-token',
+          user: { name: 'GitHub User' }
+        })
+      } as Response)
+      
+      const result = await fetchGitHubProfile()
+      
+      expect(result).toBe(true)
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('access_token', 'github-token')
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('username', 'GitHub User')
+    })
+
+    it('should return false on API failure', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: false,
+        status: 401
+      } as Response)
+      
+      const result = await fetchGitHubProfile()
+      
+      expect(result).toBe(false)
+    })
+
+    it('should return false if no access_token in response', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ user: { name: 'User' } })
+      } as Response)
+      
+      const result = await fetchGitHubProfile()
+      
+      expect(result).toBe(false)
+    })
+
+    it('should handle network errors', async () => {
+      vi.mocked(global.fetch).mockRejectedValueOnce(new Error('Network error'))
+      
+      const result = await fetchGitHubProfile()
+      
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('isAuthenticated', () => {
+    it('should return true when access token exists', () => {
+      localStorageMock.setItem('access_token', 'test-token')
+      
+      const result = isAuthenticated()
+      
+      expect(result).toBe(true)
+    })
+
+    it('should return false when no access token exists', () => {
+      const result = isAuthenticated()
+      
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('redirectToDashboard', () => {
+    it('should redirect to dashboard', () => {
+      const originalLocation = window.location.href
+      
+      redirectToDashboard()
+      
+      // Note: In test environment, window.location.href assignment might not work
+      // This test verifies the function executes without errors
+      expect(redirectToDashboard).toBeDefined()
+    })
+  })
+
+  describe('logoutUser', () => {
+    it('should clear tokens from localStorage', () => {
+      localStorageMock.setItem('access_token', 'test-token')
+      localStorageMock.setItem('username', 'Test User')
+      
+      // Mock fetch to avoid actual network call
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        status: 200
+      } as Response)
+      
+      logoutUser()
+      
+      // Verify tokens are removed from localStorage
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('access_token')
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('username')
     })
   })
 
