@@ -6,7 +6,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "**/*.test.ts", "**/*.test.tsx"] },
+  { ignores: ["dist", "coverage", "**/*.test.ts", "**/*.test.tsx"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -43,6 +43,14 @@ export default tseslint.config(
       react: {
         version: "detect"
       }
+    }
+  },
+  {
+    // Test file overrides
+    files: ["**/__tests__/**/*.{ts,tsx}", "**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}", "**/test-utils/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "react-refresh/only-export-components": "off",
     }
   }
 );

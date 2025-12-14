@@ -40,6 +40,10 @@ export default defineConfig(({ mode }) => {
         exclude: [
           'node_modules/',
           'src/setupTests.ts',
+          'src/components/ui/**',
+          'src/components/landing/**',
+          '**/*.config.{js,ts}',
+          '**/vite-env.d.ts',
         ],
       },
     }
