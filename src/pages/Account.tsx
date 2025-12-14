@@ -120,11 +120,11 @@ const Account = () => {
       <div className="flex flex-1">
         <Sidebar />
         
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           <Navbar />
           
-          <TransitionWrapper className="flex-1 p-6">
-            <div className="container pb-8">
+          <TransitionWrapper className="flex-1 p-4 sm:p-6">
+            <div className="container pb-8 max-w-full">
               {hasError && (
                 <ErrorBanner 
                   message="There was an issue loading your profile information. Some data may not be current."
@@ -365,20 +365,20 @@ const Account = () => {
                         <Shield className="h-5 w-5 text-muted-foreground mt-0.5" />
                       </div>
                       <div className="ml-4 flex-1">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                           <div>
                             <h4 className="font-medium">Multi-Factor Authentication (MFA)</h4>
                             <p className="text-sm text-muted-foreground mt-1">
                               {mfaEnabled ? 'MFA is enabled on your account' : 'Add an extra layer of security to your account'}
                             </p>
                           </div>
-                          <div className="ml-4 flex gap-2">
+                          <div className="flex gap-2">
                             {mfaEnabled ? (
-                              <button onClick={() => setIsDisableMFAOpen(true)} className="py-1.5 px-4 text-sm border border-red-300 rounded-md text-red-600 hover:bg-red-50 transition-colors">
+                              <button onClick={() => setIsDisableMFAOpen(true)} className="py-1.5 px-4 text-sm border border-red-300 rounded-md text-red-600 hover:bg-red-50 transition-colors whitespace-nowrap">
                                 Disable MFA
                               </button>
                             ) : (
-                              <button onClick={() => setIsMFASetupOpen(true)} className="py-1.5 px-4 text-sm border border-primary rounded-md text-primary hover:bg-primary/10 transition-colors">
+                              <button onClick={() => setIsMFASetupOpen(true)} className="py-1.5 px-4 text-sm border border-primary rounded-md text-primary hover:bg-primary/10 transition-colors whitespace-nowrap">
                                 Enable MFA
                               </button>
                             )}
@@ -393,14 +393,14 @@ const Account = () => {
                           <Key className="h-5 w-5 text-muted-foreground mt-0.5" />
                         </div>
                         <div className="ml-4 flex-1">
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div>
                               <h4 className="font-medium">Password</h4>
                               <p className="text-sm text-muted-foreground mt-1">
                                 Update your password to keep your account secure
                               </p>
                             </div>
-                            <button onClick={() => setIsChangePasswordOpen(true)} className="ml-4 py-1.5 px-4 text-sm border border-border rounded-md hover:bg-muted/50 transition-colors">
+                            <button onClick={() => setIsChangePasswordOpen(true)} className="py-1.5 px-4 text-sm border border-border rounded-md hover:bg-muted/50 transition-colors whitespace-nowrap">
                               Change Password
                             </button>
                           </div>

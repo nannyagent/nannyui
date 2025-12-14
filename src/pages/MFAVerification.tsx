@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import GlassMorphicCard from '@/components/GlassMorphicCard';
 import { useToast } from '@/hooks/use-toast';
 import { verifyMFALogin, verifyBackupCode, getCurrentUser } from '@/services/authService';
+import { setMFAVerified } from '@/utils/withAuth';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -75,6 +76,9 @@ const MFAVerification = () => {
 
       if (data?.valid) {
         setTotpVerified(true);
+        // Mark MFA as verified in session storage
+        setMFAVerified(true);
+        
         toast({
           title: 'Success',
           description: 'TOTP verified successfully!',
@@ -114,6 +118,9 @@ const MFAVerification = () => {
       if (data?.valid) {
         setBackupVerified(true);
         setRemainingCodes(data.remaining ?? 0);
+        // Mark MFA as verified in session storage
+        setMFAVerified(true);
+        
         toast({
           title: 'Success',
           description: `Backup code verified! ${data.remaining ?? 0} codes remaining.`,
@@ -155,10 +162,10 @@ const MFAVerification = () => {
         }}
       />
 
-      <main className="flex-1 flex items-center justify-center p-6 relative z-10">
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 relative z-10">
         <div className="w-full max-w-md">
           <GlassMorphicCard className="w-full mx-auto">
-            <div className="py-8 px-4 sm:px-6">
+            <div className="py-6 sm:py-8 px-4 sm:px-6">
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
@@ -175,10 +182,10 @@ const MFAVerification = () => {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.1, duration: 0.5 }}
               >
-                <h1 className="text-2xl font-bold text-center mb-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-center mb-2">
                   Two-Factor Authentication
                 </h1>
-                <p className="text-center text-muted-foreground mb-6">
+                <p className="text-center text-muted-foreground text-sm sm:text-base mb-6">
                   Enter your authenticator code or use a backup code to verify your identity
                 </p>
               </motion.div>
@@ -190,8 +197,8 @@ const MFAVerification = () => {
               >
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="grid w-full grid-cols-2 mb-6">
-                    <TabsTrigger value="totp">Authenticator</TabsTrigger>
-                    <TabsTrigger value="backup">Backup Code</TabsTrigger>
+                    <TabsTrigger value="totp" className="text-xs sm:text-sm">Authenticator</TabsTrigger>
+                    <TabsTrigger value="backup" className="text-xs sm:text-sm">Backup Code</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="totp" className="space-y-4">
@@ -207,13 +214,13 @@ const MFAVerification = () => {
                         onChange={handleTotpInputChange}
                         onKeyPress={handleTotpKeyPress}
                         maxLength={6}
-                        className="text-center text-2xl tracking-widest font-mono"
+                        className="text-center text-xl sm:text-2xl tracking-widest font-mono"
                         disabled={verifyingTotp}
                       />
                       {totpError && (
                         <div className="mt-2 flex items-center gap-2 text-sm text-red-600">
-                          <AlertCircle className="w-4 h-4" />
-                          {totpError}
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                          <span>{totpError}</span>
                         </div>
                       )}
                     </div>
@@ -229,8 +236,8 @@ const MFAVerification = () => {
 
                     {totpVerified && (
                       <div className="flex items-center gap-2 text-sm text-green-600 p-3 bg-green-50 rounded-lg">
-                        <CheckCircle className="w-4 h-4" />
-                        Authentication successful! Redirecting...
+                        <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                        <span>Authentication successful! Redirecting...</span>
                       </div>
                     )}
 
@@ -278,8 +285,8 @@ const MFAVerification = () => {
                       />
                       {backupError && (
                         <div className="mt-2 flex items-center gap-2 text-sm text-red-600">
-                          <AlertCircle className="w-4 h-4" />
-                          {backupError}
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                          <span>{backupError}</span>
                         </div>
                       )}
                     </div>
@@ -295,8 +302,8 @@ const MFAVerification = () => {
 
                     {backupVerified && (
                       <div className="flex items-center gap-2 text-sm text-green-600 p-3 bg-green-50 rounded-lg">
-                        <CheckCircle className="w-4 h-4" />
-                        Authentication successful! Redirecting...
+                        <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                        <span>Authentication successful! Redirecting...</span>
                       </div>
                     )}
 
@@ -328,10 +335,10 @@ const MFAVerification = () => {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.3, duration: 0.5 }}
-                className="mt-8 pt-6 border-t"
+                className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t"
               >
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex gap-3">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
+                  <div className="flex gap-2 sm:gap-3">
                     <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="font-medium text-sm text-red-900 mb-2">
