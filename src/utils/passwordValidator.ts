@@ -4,7 +4,7 @@
  * - At least one uppercase letter
  * - At least one lowercase letter
  * - At least one number
- * - At least one special character (!@#$%^&*)
+ * - At least one special character (!@#$%^&*()_+-={}[];':"\\|,.<>/?)
  */
 
 export interface PasswordValidationResult {
@@ -45,7 +45,7 @@ export const validatePassword = (password: string): PasswordValidationResult => 
     errors.push('Password must contain at least one number');
   }
   if (!requirements.hasSpecialChar) {
-    errors.push('Password must contain at least one special character (!@#$%^&*)');
+    errors.push('Password must contain at least one special character (!@#$%^&*()_+-={}[];\':"\\|,.<>/?)');
   }
 
   return {
@@ -60,5 +60,5 @@ export const getPasswordRequirements = () => [
   'One uppercase letter (A-Z)',
   'One lowercase letter (a-z)',
   'One number (0-9)',
-  'One special character (!@#$%^&*)',
+  'One special character (!@#$%^&*()_+-={}[];\':"\\|,.<>/?)',
 ];

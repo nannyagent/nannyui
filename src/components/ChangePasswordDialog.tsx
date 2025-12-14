@@ -60,8 +60,8 @@ export const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
 
     setLoading(true);
     try {
-      // Call the Supabase auth update password method
-      const { error } = await updatePassword(newPassword);
+      // Call the Supabase auth update password method with current password verification
+      const { error } = await updatePassword(newPassword, currentPassword);
 
       if (error) {
         setError(error.message || 'Failed to change password');

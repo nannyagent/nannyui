@@ -126,9 +126,27 @@ export const resetPassword = async (email: string) => {
 };
 
 /**
- * Update user password
+ * Update user password (with current password verification)
  */
-export const updatePassword = async (newPassword: string) => {
+export const updatePassword = async (newPassword: string, currentPassword?: string) => {
+  // If current password is provided, verify it first
+  if (currentPassword) {
+    const user = await getCurrentUser();
+    if (!user?.email) {
+      return { data: null, error: { message: 'User email not found' } as AuthError };
+    }
+
+    // Verify current password by attempting to sign in
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      return { data: null, error: { message: 'Current password is incorrect' } as AuthError };
+    }
+  }
+
   const { data, error } = await supabase.auth.updateUser({
     password: newPassword,
   });
@@ -154,14 +172,17 @@ export const setupMFA = async () => {
     // Transform response to match expected interface
     if (data?.totp_secret && data?.backup_codes) {
       // Get current user for email (for QR code generation)
-      let email = 'User';
+      let email: string;
       try {
         const user = await getCurrentUser();
-        if (user?.email) {
-          email = user.email;
+        if (!user?.email) {
+          throw new Error('User email is required for MFA setup');
         }
+        email = user.email;
       } catch (e) {
-        // Silently ignore if getCurrentUser fails
+        // Log error if getCurrentUser fails for debugging purposes
+        console.error('Failed to fetch current user during MFA setup:', e);
+        return { data: null, error: e as AuthError };
       }
 
       const qrUrl = `otpauth://totp/NannyUI:${email}?secret=${data.totp_secret}&issuer=NannyUI`;
@@ -197,11 +218,18 @@ export const verifyTOTPCode = async (code: string, secret?: string) => {
   return { data, error };
 };
 
+interface ConfirmMFASetupBody {
+  action: 'confirm';
+  totp_code: string;
+  totp_secret?: string;
+  backup_codes?: string[];
+}
+
 /**
  * Confirm MFA setup - Verify the TOTP code and enable MFA
  */
 export const confirmMFASetup = async (code: string, totp_secret?: string, backup_codes?: string[]) => {
-  const body: any = {
+  const body: ConfirmMFASetupBody = {
     action: 'confirm',
     totp_code: code,
   };

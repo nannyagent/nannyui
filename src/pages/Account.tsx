@@ -486,6 +486,7 @@ const Account = () => {
         open={isMFASetupOpen} 
         onOpenChange={setIsMFASetupOpen}
         userEmail={user?.email}
+        onSuccess={handleMFASetupSuccess}
       />
 
       <DisableMFADialog

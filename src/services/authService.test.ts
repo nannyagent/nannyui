@@ -38,6 +38,11 @@ vi.mock('@/lib/supabase', () => ({
     functions: {
       invoke: vi.fn(),
     },
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn(),
+    })),
   },
 }));
 
@@ -411,16 +416,41 @@ describe('authService', () => {
 
   describe('isMFAEnabled', () => {
     it('should return false when user is not authenticated', async () => {
+      (supabase.auth.getUser as any).mockResolvedValue({ data: { user: null }, error: null });
+      
       const result = await isMFAEnabled();
       expect(result).toBe(false);
     });
 
+    it('should return true if MFA is enabled', async () => {
+      (supabase.auth.getUser as any).mockResolvedValue({ data: { user: mockUser }, error: null });
+      const mockFrom = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: { mfa_enabled: true }, error: null }),
+      });
+      (supabase.from as any) = mockFrom;
+      
+      const result = await isMFAEnabled();
+      expect(result).toBe(true);
+    });
+
     it('should return false if MFA is disabled', async () => {
+      (supabase.auth.getUser as any).mockResolvedValue({ data: { user: mockUser }, error: null });
+      const mockFrom = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: null, error: { message: 'Not found' } }),
+      });
+      (supabase.from as any) = mockFrom;
+      
       const result = await isMFAEnabled();
       expect(result).toBe(false);
     });
 
     it('should handle errors gracefully', async () => {
+      (supabase.auth.getUser as any).mockRejectedValue(new Error('Auth error'));
+      
       const result = await isMFAEnabled();
       expect(result).toBe(false);
     });
@@ -428,20 +458,64 @@ describe('authService', () => {
 
   describe('getRemainingBackupCodes', () => {
     it('should return the count of remaining backup codes', async () => {
+      (supabase.auth.getUser as any).mockResolvedValue({ data: { user: mockUser }, error: null });
+      
+      const mockSelect = vi.fn();
+      const mockEq = vi.fn();
+      const mockSingle = vi.fn();
+      
+      // First call - get backup codes
+      mockSelect.mockReturnValueOnce({
+        eq: vi.fn().mockReturnValueOnce({
+          eq: vi.fn().mockReturnValueOnce({
+            single: vi.fn().mockResolvedValue({ 
+              data: { backup_codes: ['CODE1', 'CODE2', 'CODE3', 'CODE4', 'CODE5'] }, 
+              error: null 
+            }),
+          }),
+        }),
+      });
+      
+      // Second call - get used codes
+      mockSelect.mockReturnValueOnce({
+        eq: vi.fn().mockResolvedValue({ 
+          data: [{ id: '1' }, { id: '2' }], 
+          error: null 
+        }),
+      });
+      
+      (supabase.from as any) = vi.fn(() => ({
+        select: mockSelect,
+      }));
+      
       const result = await getRemainingBackupCodes();
-
-      expect(result).toBeNull();
+      expect(result).toBe(3); // 5 total - 2 used = 3 remaining
     });
 
     it('should return null if user has no MFA setup', async () => {
+      (supabase.auth.getUser as any).mockResolvedValue({ data: { user: mockUser }, error: null });
+      const mockFrom = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: null, error: { message: 'Not found' } }),
+      });
+      (supabase.from as any) = mockFrom;
+      
       const result = await getRemainingBackupCodes();
+      expect(result).toBeNull();
+    });
 
+    it('should return null when user is not authenticated', async () => {
+      (supabase.auth.getUser as any).mockResolvedValue({ data: { user: null }, error: null });
+      
+      const result = await getRemainingBackupCodes();
       expect(result).toBeNull();
     });
 
     it('should handle errors gracefully', async () => {
+      (supabase.auth.getUser as any).mockRejectedValue(new Error('Auth error'));
+      
       const result = await getRemainingBackupCodes();
-
       expect(result).toBeNull();
     });
   });
