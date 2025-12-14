@@ -40,7 +40,6 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
   const [verifyingTotp, setVerifyingTotp] = useState(false);
   const [totpError, setTotpError] = useState<string | null>(null);
   const [totpVerified, setTotpVerified] = useState(false);
-  const [showTotpInput, setShowTotpInput] = useState(false);
 
   useEffect(() => {
     if (open && !mfaData) {
@@ -468,7 +467,7 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
             disabled={loading || verifyingTotp}
             className="flex-1"
           >
-            {totpVerified ? 'Close' : mfaData ? 'Cancel' : 'Cancel'}
+            {totpVerified ? 'Close' : 'Cancel'}
           </Button>
           {mfaData && totpVerified && (
             <Button disabled className="flex-1">

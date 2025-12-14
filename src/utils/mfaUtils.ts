@@ -8,8 +8,11 @@
 export const generateTOTPSecret = (): string => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   let secret = '';
+  const randomValues = new Uint32Array(32);
+  crypto.getRandomValues(randomValues);
+  
   for (let i = 0; i < 32; i++) {
-    secret += chars.charAt(Math.floor(Math.random() * chars.length));
+    secret += chars.charAt(randomValues[i] % chars.length);
   }
   return secret;
 };
@@ -20,11 +23,13 @@ export const generateTOTPSecret = (): string => {
 export const generateBackupCodes = (count: number = 8): string[] => {
   const codes: string[] = [];
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const randomValues = new Uint32Array(count * 8);
+  crypto.getRandomValues(randomValues);
   
   for (let i = 0; i < count; i++) {
     let code = '';
     for (let j = 0; j < 8; j++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+      code += chars.charAt(randomValues[i * 8 + j] % chars.length);
     }
     codes.push(code);
   }
@@ -46,7 +51,7 @@ export const formatBackupCode = (code: string): string => {
 export const generateTOTPQRUrl = (
   email: string,
   secret: string,
-  appName: string = 'NannyAI'
+  appName: string = 'NannyUI'
 ): string => {
   const encodedEmail = encodeURIComponent(email);
   const encodedAppName = encodeURIComponent(appName);

@@ -119,7 +119,7 @@ describe('mfaUtils', () => {
 
     it('should include issuer parameter', () => {
       const url = generateTOTPQRUrl('user@example.com', 'SECRET123');
-      expect(url).toContain('issuer=NannyAI');
+      expect(url).toContain('issuer=NannyUI');
     });
 
     it('should use custom app name if provided', () => {

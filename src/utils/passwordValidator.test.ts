@@ -34,7 +34,7 @@ describe('passwordValidator', () => {
     it('should reject password without special character', () => {
       const result = validatePassword('Password123');
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Password must contain at least one special character (!@#$%^&*)');
+      expect(result.errors).toContain("Password must contain at least one special character (!@#$%^&*()_+-={}[];':\"\\|,.<>/?)");
       expect(result.requirements.hasSpecialChar).toBe(false);
     });
 
@@ -74,7 +74,7 @@ describe('passwordValidator', () => {
       expect(result.errors).toContain('Password must be at least 8 characters long');
       expect(result.errors).toContain('Password must contain at least one uppercase letter');
       expect(result.errors).toContain('Password must contain at least one number');
-      expect(result.errors).toContain('Password must contain at least one special character (!@#$%^&*)');
+      expect(result.errors).toContain("Password must contain at least one special character (!@#$%^&*()_+-={}[];':\"\\|,.<>/?)");
     });
 
     it('should return all requirement statuses', () => {
@@ -111,7 +111,7 @@ describe('passwordValidator', () => {
       expect(requirements).toContain('One uppercase letter (A-Z)');
       expect(requirements).toContain('One lowercase letter (a-z)');
       expect(requirements).toContain('One number (0-9)');
-      expect(requirements).toContain('One special character (!@#$%^&*)');
+      expect(requirements).toContain("One special character (!@#$%^&*()_+-={}[];':\"\\|,.<>/?)");
     });
   });
 });

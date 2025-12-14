@@ -171,7 +171,7 @@ describe('ChangePasswordDialog', () => {
     await user.click(submitButton);
 
     await waitFor(() => {
-      expect(updatePassword).toHaveBeenCalledWith('Test123!');
+      expect(updatePassword).toHaveBeenCalledWith('Test123!', 'current');
     });
   });
 
@@ -250,7 +250,7 @@ describe('ChangePasswordDialog', () => {
 
     // Wait for the close action to happen
     await waitFor(() => {
-      expect(updatePassword).toHaveBeenCalledWith('Test123!');
+      expect(updatePassword).toHaveBeenCalledWith('Test123!', 'current');
     });
   });
 
