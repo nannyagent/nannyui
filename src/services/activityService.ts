@@ -402,3 +402,19 @@ export const getActivityTypes = async (): Promise<string[]> => {
     return [];
   }
 };
+
+/**
+ * Format duration in milliseconds to human-readable string
+ * @param ms Duration in milliseconds
+ */
+export const formatDuration = (ms: number): string => {
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`;
+  } else if (ms < 60000) {
+    return `${(ms / 1000).toFixed(1)}s`;
+  } else if (ms < 3600000) {
+    return `${(ms / 60000).toFixed(1)}m`;
+  } else {
+    return `${(ms / 3600000).toFixed(1)}h`;
+  }
+};

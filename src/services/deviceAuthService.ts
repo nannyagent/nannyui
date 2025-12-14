@@ -83,11 +83,20 @@ class DeviceAuthService {
       } catch {
         // Fallback to localStorage if direct call fails
         try {
-          const storedSession = localStorage.getItem('sb-gpqzsricripnvbrpsyws-auth-token');
-          if (storedSession) {
-            const parsed = JSON.parse(storedSession);
-            if (parsed.access_token) {
-              currentSession = { access_token: parsed.access_token };
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          if (supabaseUrl) {
+            // Extract project ID from URL: https://example12345.supabase.co
+            const projectIdMatch = supabaseUrl.match(/https:\/\/([a-z0-9]+)\.supabase\.co/);
+            const projectId = projectIdMatch?.[1];
+            if (projectId) {
+              const authTokenKey = `sb-${projectId}-auth-token`;
+              const storedSession = localStorage.getItem(authTokenKey);
+              if (storedSession) {
+                const parsed = JSON.parse(storedSession);
+                if (parsed.access_token) {
+                  currentSession = { access_token: parsed.access_token };
+                }
+              }
             }
           }
         } catch {

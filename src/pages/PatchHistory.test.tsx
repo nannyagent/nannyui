@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { render } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import PatchHistory from './PatchHistory';
 

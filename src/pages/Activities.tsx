@@ -8,7 +8,7 @@ import GlassMorphicCard from '@/components/GlassMorphicCard';
 import TransitionWrapper from '@/components/TransitionWrapper';
 import ErrorBanner from '@/components/ErrorBanner';
 import withAuth from '@/utils/withAuth';
-import { getActivitiesPaginated, getActivityIcon, formatActivityTime, getActivityTypes, type Activity, type ActivitiesResponse, ACTIVITY_TYPES } from '@/services/activityService';
+import { getActivitiesPaginated, getActivityIcon, formatActivityTime, formatDuration, getActivityTypes, type Activity, type ActivitiesResponse } from '@/services/activityService';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 

@@ -105,6 +105,3 @@ export * from '@testing-library/react'
 
 // Export a version of render that doesn't have providers for testing components in isolation
 export { render as renderWithoutProviders } from '@testing-library/react'
-
-// React components and utilities from React Testing Library
-export { default as React } from 'react'

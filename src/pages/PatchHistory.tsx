@@ -71,7 +71,7 @@ const PatchHistory = () => {
   const loadExecutions = async () => {
     setLoading(true);
     try {
-      const data = await listAllPatchExecutions(500);
+      const data = await listAllPatchExecutions(100);
       setExecutions(data);
     } catch (error) {
       console.error('Error loading executions:', error);
@@ -222,12 +222,6 @@ const PatchHistory = () => {
     if (rate >= 90) return 'text-green-600';
     if (rate >= 70) return 'text-yellow-600';
     return 'text-red-600';
-  };
-
-  const getSuccessRateBg = (rate: number) => {
-    if (rate >= 90) return 'bg-green-600';
-    if (rate >= 70) return 'bg-yellow-600';
-    return 'bg-red-600';
   };
 
   if (loading) {
@@ -451,7 +445,10 @@ const PatchHistory = () => {
                                       {execution.completed_at && (
                                         <span className="text-xs text-muted-foreground hidden sm:inline">
                                           {(() => {
-                                            const seconds = Math.floor((new Date(execution.completed_at).getTime() - new Date(execution.started_at || '').getTime()) / 1000);
+                                            if (!execution.started_at || isNaN(Date.parse(execution.started_at))) {
+                                              return 'N/A';
+                                            } 
+                                            const seconds = Math.floor((new Date(execution.completed_at).getTime() - new Date(execution.started_at).getTime()) / 1000);
                                             if (seconds < 60) return `${seconds}s`;
                                             return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
                                           })()}
