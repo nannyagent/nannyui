@@ -1,12 +1,10 @@
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import {
   getActivityIcon,
   formatActivityTime,
   getRecentActivities,
   getActivitiesPaginated,
-  getUserActivities,
-  getActivitiesByType,
   createActivity,
   Activity,
   ActivitiesResponse,
@@ -26,8 +24,8 @@ vi.mock('@/lib/supabase', () => ({
 
 const mockSession = { access_token: 'test-token' };
 const mockActivities: Activity[] = [
-  { id: '1', summary: 'Test Activity 1', activity_type: 'test', created_at: new Date().toISOString(), user_id: 'user-1', metadata: { status: 'success', ip_address: '127.0.0.1', user_agent: 'test-agent', device_type: 'desktop', duration_ms: 100 } },
-  { id: '2', summary: 'Test Activity 2', activity_type: 'test', created_at: new Date().toISOString(), user_id: 'user-2', metadata: { status: 'success', ip_address: '127.0.0.1', user_agent: 'test-agent', device_type: 'desktop', duration_ms: 100 } },
+  { id: '1', summary: 'Test Activity 1', activity_type: 'test', created_at: new Date().toISOString(), user_id: 'user-1', agent_id: null, metadata: { status: 'success', ip_address: '127.0.0.1', user_agent: 'test-agent', device_type: 'desktop', duration_ms: 100 } },
+  { id: '2', summary: 'Test Activity 2', activity_type: 'test', created_at: new Date().toISOString(), user_id: 'user-2', agent_id: null, metadata: { status: 'success', ip_address: '127.0.0.1', user_agent: 'test-agent', device_type: 'desktop', duration_ms: 100 } },
 ];
 const mockActivitiesResponse: ActivitiesResponse = {
   activities: mockActivities,
@@ -168,8 +166,7 @@ describe('activityService', () => {
   });
 
   describe('createActivity', () => {
-    const newActivity: Omit<Activity, 'id' | 'created_at'> = {
-      user_id: 'user-3',
+    const newActivity = {
       agent_id: 'agent-3',
       activity_type: 'new_activity',
       summary: 'A new activity',

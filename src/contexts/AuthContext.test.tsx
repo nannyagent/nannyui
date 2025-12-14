@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { render, screen, act, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
 import { AuthProvider, useAuth } from './AuthContext';
 import { supabase } from '@/lib/supabase';
 import { onAuthStateChange } from '@/services/authService';
@@ -35,8 +35,8 @@ const TestComponent = () => {
 describe('AuthContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (supabase.auth.getSession as vi.Mock).mockResolvedValue({ data: { session: null } });
-    (onAuthStateChange as vi.Mock).mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } });
+    (supabase.auth.getSession as Mock).mockResolvedValue({ data: { session: null } });
+    (onAuthStateChange as Mock).mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } });
   });
 
   it('should provide loading state initially', async () => {
@@ -49,7 +49,7 @@ describe('AuthContext', () => {
   });
 
   it('should provide session and user after loading', async () => {
-    (supabase.auth.getSession as vi.Mock).mockResolvedValue({ data: { session: mockSession } });
+    (supabase.auth.getSession as Mock).mockResolvedValue({ data: { session: mockSession } });
 
     render(
       <AuthProvider>
@@ -65,7 +65,7 @@ describe('AuthContext', () => {
 
   it('should update the context on auth state change', async () => {
     let authCallback: (event: string, session: any) => void = () => {};
-    (onAuthStateChange as vi.Mock).mockImplementation((callback) => {
+    (onAuthStateChange as Mock).mockImplementation((callback) => {
       authCallback = callback;
       return { data: { subscription: { unsubscribe: vi.fn() } } };
     });
@@ -111,7 +111,7 @@ describe('AuthContext', () => {
 
   it('should unsubscribe from auth state changes on unmount', async () => {
     const unsubscribe = vi.fn();
-    (onAuthStateChange as vi.Mock).mockReturnValue({ data: { subscription: { unsubscribe } } });
+    (onAuthStateChange as Mock).mockReturnValue({ data: { subscription: { unsubscribe } } });
 
     const { unmount } = render(
       <AuthProvider>

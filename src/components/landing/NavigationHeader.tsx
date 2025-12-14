@@ -1,14 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import NannyAILogo from '@/components/NannyAILogo';
+import { getCurrentUser, isMFAEnabled } from '@/services/authService';
+import { isMFAVerified } from '@/utils/withAuth';
 
 const NavigationHeader = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   const navLinks = [
     { label: "Features", path: "#features" },
@@ -27,8 +32,37 @@ const NavigationHeader = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const user = await getCurrentUser();
+        setIsAuthenticated(!!user);
+      } catch (error) {
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    checkAuth();
+  }, []);
+
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const handleAuthButtonClick = async () => {
+    if (isAuthenticated) {
+      // Check if MFA is required
+      const mfaEnabled = await isMFAEnabled();
+      if (mfaEnabled && !isMFAVerified()) {
+        navigate('/mfa-verification');
+      } else {
+        navigate('/dashboard');
+      }
+    } else {
+      navigate('/login');
+    }
+    setIsMobileMenuOpen(false);
   };
 
   return (
@@ -61,12 +95,22 @@ const NavigationHeader = () => {
           </nav>
 
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="outline" asChild>
-              <Link to="/login">Sign In</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/login">Get Started</Link>
-            </Button>
+            {isLoading ? (
+              <div className="w-20 h-9 bg-muted animate-pulse rounded-md"></div>
+            ) : isAuthenticated ? (
+              <Button onClick={handleAuthButtonClick}>
+                Go to Dashboard
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" asChild>
+                  <Link to="/login">Sign In</Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/login">Get Started</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -100,12 +144,22 @@ const NavigationHeader = () => {
               </Link>
             ))}
             <div className="pt-4 border-t border-border flex flex-col space-y-3">
-              <Button variant="outline" asChild className="w-full">
-                <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
-              </Button>
-              <Button asChild className="w-full">
-                <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>Get Started</Link>
-              </Button>
+              {isLoading ? (
+                <div className="w-full h-10 bg-muted animate-pulse rounded-md"></div>
+              ) : isAuthenticated ? (
+                <Button onClick={handleAuthButtonClick} className="w-full">
+                  Go to Dashboard
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" asChild className="w-full">
+                    <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
+                  </Button>
+                  <Button asChild className="w-full">
+                    <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>Get Started</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </motion.div>
