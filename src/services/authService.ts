@@ -127,6 +127,11 @@ export const resetPassword = async (email: string) => {
 
 /**
  * Update user password (with current password verification)
+ * 
+ * Note: When verifying the current password, we use signInWithPassword which will
+ * re-authenticate the user. This is a limitation of Supabase's current API design.
+ * In production, consider implementing a custom edge function for password verification
+ * that doesn't create a new session.
  */
 export const updatePassword = async (newPassword: string, currentPassword?: string) => {
   // If current password is provided, verify it first
@@ -136,7 +141,8 @@ export const updatePassword = async (newPassword: string, currentPassword?: stri
       return { data: null, error: { message: 'User email not found' } as AuthError };
     }
 
-    // Verify current password by attempting to sign in
+    // Verify current password by re-authenticating
+    // This ensures the user knows their current password before changing it
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: user.email,
       password: currentPassword,
