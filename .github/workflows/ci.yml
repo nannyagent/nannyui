@@ -9,6 +9,7 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    environment: supabase
     
     steps:
       - name: Checkout code
