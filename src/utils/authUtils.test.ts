@@ -272,30 +272,19 @@ describe('authUtils', () => {
   })
 
   describe('logoutUser', () => {
-    it('should clear tokens and call logout endpoint', async () => {
+    it('should clear tokens from localStorage', () => {
       localStorageMock.setItem('access_token', 'test-token')
       localStorageMock.setItem('username', 'Test User')
       
+      // Mock fetch to avoid actual network call
       vi.mocked(global.fetch).mockResolvedValueOnce({
         ok: true,
         status: 200
       } as Response)
       
-      // Mock the finally callback to avoid actual redirect
-      const logoutPromise = new Promise((resolve) => {
-        vi.mocked(global.fetch).mockImplementationOnce(() => 
-          Promise.resolve({
-            ok: true,
-            status: 200
-          } as Response).finally(() => resolve(true))
-        )
-      })
-      
       logoutUser()
       
-      // Wait a bit for the async operations
-      await new Promise(resolve => setTimeout(resolve, 10))
-      
+      // Verify tokens are removed from localStorage
       expect(localStorageMock.removeItem).toHaveBeenCalledWith('access_token')
       expect(localStorageMock.removeItem).toHaveBeenCalledWith('username')
     })
