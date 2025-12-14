@@ -29,6 +29,7 @@ export class ApiError extends Error {
 /**
  * Create appropriate error object based on fetch error
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const createApiError = (error: any, defaultMessage = "An error occurred while connecting to the server"): ApiError => {
   // Network error (offline, connection refused, etc)
   if (error instanceof TypeError && error.message.includes('fetch')) {

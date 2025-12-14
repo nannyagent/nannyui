@@ -6,6 +6,7 @@ import { componentTagger } from "lovable-tagger";
 
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const env = loadEnv(mode, process.cwd(), '');
   
   return {
