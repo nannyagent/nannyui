@@ -35,7 +35,14 @@ const Investigations = () => {
       const dataPromise = getInvestigationsPaginated(page, itemsPerPage);
       
       const data = await Promise.race([dataPromise, timeoutPromise]) as InvestigationsResponse;
-      setInvestigationsData(data);
+      
+      // Filter out investigations without episode_id on client side to be safe
+      const filteredData = {
+        ...data,
+        investigations: data.investigations.filter(inv => inv.episode_id && inv.episode_id.trim() !== '')
+      };
+      
+      setInvestigationsData(filteredData);
     } catch (error: any) {
       console.error('Error fetching investigations:', error);
       const errorMsg = error?.message === 'Request timeout' 
@@ -69,6 +76,7 @@ const Investigations = () => {
   };
 
   const handleViewDetails = (investigation: Investigation) => {
+    // Always use investigation_id as that's the indexed field in the database
     navigate(`/investigations/${investigation.investigation_id}`);
   };
 
@@ -168,7 +176,7 @@ const Investigations = () => {
                               <div className="flex-1">
                                 <h3 className="font-medium text-sm">{investigation.issue}</h3>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  ID: {investigation.investigation_id}
+                                  Episode: {investigation.episode_id?.substring(0, 12)}...
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   Application Group: {investigation.application_group}

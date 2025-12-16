@@ -174,29 +174,124 @@ export const triggerPatchExecution = async (
     throw new Error(error.message || error.error || 'Failed to trigger patch execution');
   }
 
-  return await response.json();
+  const data = await response.json();
+  
+  // Handle different response formats
+  // If execution_id exists, use it directly
+  if (data.execution_id) {
+    return data;
+  }
+  
+  // If success but no execution_id, the backend may have created it async
+  // Query the database for the most recent execution for this agent
+  if (data.success || data.message) {
+    console.log('Patch execution triggered, querying for execution record...');
+    
+    // Retry logic: wait up to 5 seconds for execution record to be created
+    let retries = 0;
+    const maxRetries = 10; // 5 seconds total (10 * 500ms)
+    let executions = null;
+    let queryError = null;
+
+    while (retries < maxRetries) {
+      const query = await supabase
+        .from('patch_executions')
+        .select('*')
+        .eq('agent_id', request.agent_id)
+        .order('started_at', { ascending: false })
+        .limit(1);
+      
+      executions = query.data;
+      queryError = query.error;
+
+      if (!queryError && executions && executions.length > 0) {
+        const execution = executions[0];
+        console.log('Found execution record:', execution.id);
+        return {
+          success: true,
+          execution_id: execution.id,
+          agent_id: execution.agent_id,
+          execution_type: execution.execution_type,
+          status: execution.status,
+          message: data.message || 'Execution started'
+        };
+      }
+
+      retries++;
+      if (retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+    
+    // If we still can't find it after retries, throw error
+    console.error('Patch execution response after retries:', data);
+    console.error('Could not find execution record in database');
+    throw new Error('Patch execution triggered but execution record not found. Check execution history.');
+  }
+
+  console.error('Invalid patch execution response:', data);
+  throw new Error('Server returned invalid response: missing execution_id');
 };
 
 export const getPatchExecutionStatus = async (
   executionId: string
 ): Promise<PatchExecutionResponse> => {
-  const headers = await getAuthHeaders();
-  const supabaseUrl = getSupabaseUrl();
-  
-  const response = await fetch(
-    `${supabaseUrl}/functions/v1/patch-management/${executionId}`,
-    {
-      method: 'GET',
-      headers
-    }
-  );
+  try {
+    const headers = await getAuthHeaders();
+    const supabaseUrl = getSupabaseUrl();
+    
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/patch-management/${executionId}`,
+      {
+        method: 'GET',
+        headers
+      }
+    );
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || error.error || 'Failed to get execution status');
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.error('API endpoint error, falling back to database query:', error);
   }
 
-  return await response.json();
+  // Fallback: query database directly
+  try {
+    const { data, error } = await supabase
+      .from('patch_executions')
+      .select('*')
+      .eq('id', executionId)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('Execution not found');
+    }
+
+    return {
+      execution_id: data.id,
+      agent_id: data.agent_id,
+      execution_type: data.execution_type,
+      status: data.status,
+      exit_code: data.exit_code,
+      error_message: data.error_message,
+      stdout_storage_path: data.stdout_storage_path,
+      stderr_storage_path: data.stderr_storage_path,
+      started_at: data.started_at,
+      completed_at: data.completed_at,
+      should_reboot: data.should_reboot,
+      rebooted_at: data.rebooted_at,
+      output: null,
+      stdout: null,
+      stderr: null
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Failed to get execution status';
+    throw new Error(errorMsg);
+  }
 };
 
 export const listPatchExecutions = async (

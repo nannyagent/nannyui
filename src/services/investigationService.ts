@@ -98,11 +98,13 @@ const getSupabaseUrl = (): string => {
  * @param page Page number (default: 1)
  * @param limit Number of investigations per page (default: 5)
  * @param withEpisodes Whether to include episode data (default: true)
+ * @param onlyWithEpisodes Whether to filter only investigations with episode_id (default: true)
  */
 export const getInvestigationsPaginated = async (
   page: number = 1, 
   limit: number = 5,
-  withEpisodes: boolean = true
+  withEpisodes: boolean = true,
+  onlyWithEpisodes: boolean = true
 ): Promise<InvestigationsResponse> => {
   try {
     const session = await getCurrentSession();
@@ -128,7 +130,8 @@ export const getInvestigationsPaginated = async (
     const supabaseUrl = getSupabaseUrl();
     // Fetch with episodes by default (can be disabled by passing withEpisodes=false for better performance)
     const episodesParam = withEpisodes ? 'with_episodes=true&' : '';
-    const response = await fetch(`${supabaseUrl}/functions/v1/investigation-coordinator?${episodesParam}page=${page}&limit=${limit}`, {
+    const filterParam = onlyWithEpisodes ? 'with_episode_id_only=true&' : '';
+    const response = await fetch(`${supabaseUrl}/functions/v1/investigation-coordinator?${episodesParam}${filterParam}page=${page}&limit=${limit}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -165,32 +168,41 @@ export const getRecentInvestigationsFromAPI = async (limit: number = 5): Promise
 
 /**
  * Get investigation by ID from API with full episode and inference data
- * @param investigationId Investigation ID to fetch
+ * Tries investigation_id first (primary key), then episode_id
+ * @param investigationId Investigation ID or Episode ID to fetch
  */
 export const getInvestigationByIdFromAPI = async (investigationId: string): Promise<Investigation | null> => {
   try {
-    const session = await getCurrentSession();
-    if (!session?.access_token) {
-      console.error('No session found for investigation details API');
-      return null;
+    console.log('Fetching investigation with ID:', investigationId);
+    
+    // First try direct database query by investigation_id (the actual indexed ID)
+    const { data: invByInvestigationId, error: err1 } = await supabase
+      .from('investigations')
+      .select('*')
+      .eq('investigation_id', investigationId)
+      .limit(1);
+
+    if (!err1 && invByInvestigationId && invByInvestigationId.length > 0) {
+      console.log('Found investigation by investigation_id:', investigationId);
+      return invByInvestigationId[0] as Investigation;
     }
 
-    const supabaseUrl = getSupabaseUrl();
-    const response = await fetch(`${supabaseUrl}/functions/v1/investigation-coordinator/investigation/${investigationId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
-      }
-    });
+    console.log('Not found by investigation_id, trying episode_id:', investigationId);
 
-    if (!response.ok) {
-      console.error('Failed to fetch investigation details:', response.status, response.statusText);
-      return null;
+    // Try by episode_id (in case it's a UUID)
+    const { data: invByEpisodeId, error: err2 } = await supabase
+      .from('investigations')
+      .select('*')
+      .eq('episode_id', investigationId)
+      .limit(1);
+
+    if (!err2 && invByEpisodeId && invByEpisodeId.length > 0) {
+      console.log('Found investigation by episode_id:', investigationId);
+      return invByEpisodeId[0] as Investigation;
     }
 
-    const result = await response.json();
-    return result.investigation;
+    console.error('Investigation not found in database for ID:', investigationId, 'Errors:', err1?.message, err2?.message);
+    return null;
   } catch (error) {
     console.error('Exception fetching investigation details:', error);
     return null;
@@ -198,36 +210,82 @@ export const getInvestigationByIdFromAPI = async (investigationId: string): Prom
 };
 
 /**
- * Get inference details by ID from API
+ * Get a specific inference by ID via tensorzero-proxy
  * @param inferenceId Inference ID to fetch
  */
 export const getInferenceById = async (inferenceId: string): Promise<Inference | null> => {
   try {
     const session = await getCurrentSession();
     if (!session?.access_token) {
-      console.error('No session found for inference details API');
+      console.error('No session found for inference API');
       return null;
     }
 
     const supabaseUrl = getSupabaseUrl();
-    const response = await fetch(`${supabaseUrl}/functions/v1/investigation-coordinator/inference/${inferenceId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
+    // Extract UUID from malformed inference ID if needed (e.g., "inference-UUID-NNN" -> "UUID")
+    const uuidMatch = inferenceId.match(/([0-9a-f-]{36})/i);
+    const cleanId = uuidMatch ? uuidMatch[0] : inferenceId;
+    
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/tensorzero-proxy/api/v1/inferences/${cleanId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        }
       }
-    });
+    );
 
     if (!response.ok) {
-      console.error('Failed to fetch inference details:', response.status, response.statusText);
+      console.error('Failed to fetch inference:', response.status, response.statusText);
       return null;
     }
 
-    const result = await response.json();
-    return result.inference;
+    const data = await response.json();
+    return data || null;
   } catch (error) {
-    console.error('Exception fetching inference details:', error);
+    console.error('Exception fetching inference:', error);
     return null;
+  }
+};
+
+/**
+ * Get all inferences for an episode via investigation-coordinator
+ * @param episodeId Episode ID to fetch inferences for
+ * @param limit Number of inferences to fetch (default: 100)
+ * @param offset Pagination offset (default: 0)
+ */
+export const getEpisodeInferences = async (episodeId: string, limit: number = 100, offset: number = 0): Promise<Inference[]> => {
+  try {
+    const session = await getCurrentSession();
+    if (!session?.access_token) {
+      console.error('No session found for episode inferences API');
+      return [];
+    }
+
+    const supabaseUrl = getSupabaseUrl();
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/investigation-coordinator/episode/${episodeId}/inferences?limit=${limit}&offset=${offset}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Failed to fetch episode inferences:', response.status, response.statusText);
+      return [];
+    }
+
+    const result = await response.json();
+    return result.inferences || result || [];
+  } catch (error) {
+    console.error('Exception fetching episode inferences:', error);
+    return [];
   }
 };
 
@@ -307,6 +365,69 @@ export const createInvestigationFromAPI = async (params: {
     }
     throw error;
   }
+};
+
+/**
+ * Wait for investigation with episode_id to be created
+ * Polls for up to 60 seconds for an investigation with the same agent_id that has an episode_id
+ * @param agentId Agent ID to filter by
+ * @param timeoutSeconds Maximum seconds to wait (default: 60)
+ * @param onProgress Optional callback for progress updates
+ * @returns Investigation with episode_id or null if timeout
+ */
+export const waitForInvestigationWithEpisode = async (
+  agentId: string,
+  timeoutSeconds: number = 60,
+  onProgress?: (message: string) => void
+): Promise<Investigation | null> => {
+  const pollIntervalMs = 2000; // Poll every 2 seconds
+  const maxPolls = Math.ceil((timeoutSeconds * 1000) / pollIntervalMs);
+  let pollCount = 0;
+
+  const poll = async (): Promise<Investigation | null> => {
+    try {
+      pollCount++;
+      
+      // Check timeout
+      if (pollCount > maxPolls) {
+        onProgress?.(`Timeout waiting for investigation to be created (${timeoutSeconds}s)`);
+        return null;
+      }
+
+      // Query for most recent investigation with episode_id for this agent
+      const { data, error } = await supabase
+        .from('investigations')
+        .select('*')
+        .eq('agent_id', agentId)
+        .not('episode_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error polling for investigation with episode:', error);
+        await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+        return poll();
+      }
+
+      if (data && data.length > 0) {
+        onProgress?.('Investigation ready!');
+        return data[0] as Investigation;
+      }
+
+      // Not ready yet, continue polling
+      const elapsed = Math.round((pollCount * pollIntervalMs) / 1000);
+      onProgress?.(`Waiting for investigation to be processed... (${elapsed}s)`);
+      
+      await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+      return poll();
+    } catch (error) {
+      console.error('Error in poll loop:', error);
+      await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+      return poll();
+    }
+  };
+
+  return poll();
 };
 
 /**
@@ -567,16 +688,17 @@ export const getInvestigation = async (investigationId: string): Promise<Investi
       .from('investigations')
       .select('*')
       .eq('investigation_id', investigationId)
-      .single();
+      .limit(1);
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        return null; // Not found
-      }
       throw error;
     }
 
-    return data;
+    if (!data || data.length === 0) {
+      return null; // Not found
+    }
+
+    return data[0];
   } catch (error) {
     console.error('Error fetching investigation:', error);
     throw error;

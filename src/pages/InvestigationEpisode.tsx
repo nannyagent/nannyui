@@ -4,8 +4,7 @@ import { ArrowLeft, Code2, Activity, Clock, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { getInvestigationByIdFromAPI } from '@/services/investigationService';
-import type { Investigation, Inference } from '@/services/investigationService';
+import { getInvestigationByIdFromAPI, getEpisodeInferences, formatInvestigationTime, type Investigation, type Inference } from '@/services/investigationService';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
 import Footer from '@/components/Footer';
@@ -16,6 +15,7 @@ function InvestigationEpisode() {
   const { investigationId } = useParams<{ investigationId: string }>();
   const navigate = useNavigate();
   const [investigation, setInvestigation] = useState<Investigation | null>(null);
+  const [inferences, setInferences] = useState<Inference[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +31,12 @@ function InvestigationEpisode() {
       setError(null);
       const data = await getInvestigationByIdFromAPI(id);
       setInvestigation(data);
+      
+      // If we got investigation data with episode_id, fetch inferences
+      if (data?.episode_id) {
+        const inferenceData = await getEpisodeInferences(data.episode_id);
+        setInferences(inferenceData);
+      }
     } catch (err) {
       console.error('Error fetching investigation:', err);
       setError('Failed to load investigation details');
@@ -282,13 +288,13 @@ function InvestigationEpisode() {
         <div>
           <h2 className="font-semibold text-lg flex items-center gap-2 mb-4">
             <Code2 className="h-5 w-5" />
-            Episode Inferences ({investigation.inferences?.length || 0})
+            Episode Inferences ({inferences?.length || 0})
           </h2>
           
-          {investigation.inferences && investigation.inferences.length > 0 ? (
+          {inferences && inferences.length > 0 ? (
             <div className="space-y-3">
-              {[...investigation.inferences].reverse().map((inference: Inference, index: number) => {
-                const inferenceNumber = investigation.inferences!.length - index; // Show in reverse order (latest first)
+              {[...inferences].reverse().map((inference: Inference, index: number) => {
+                const inferenceNumber = inferences.length - index; // Show in reverse order (latest first)
                 return (
                 <Link
                   key={inference.id}
@@ -304,6 +310,11 @@ function InvestigationEpisode() {
                             {inference.model_inference.model_name}
                           </Badge>
                         )}
+                        {inference.function_name && (
+                          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200">
+                            {inference.function_name}
+                          </Badge>
+                        )}
                       </div>
                       
                       {inference.input && (
@@ -316,10 +327,10 @@ function InvestigationEpisode() {
                       )}
                       
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        {inference.model_inference?.response_time_ms && (
+                        {inference.processing_time_ms && (
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            {(inference.model_inference.response_time_ms / 1000).toFixed(2)}s
+                            {(inference.processing_time_ms / 1000).toFixed(2)}s
                           </span>
                         )}
                         {inference.model_inference && (
@@ -331,7 +342,7 @@ function InvestigationEpisode() {
                     </div>
                     
                     <div className="text-xs text-muted-foreground">
-                      {formatDate(inference.timestamp)}
+                      {inference.timestamp ? formatInvestigationTime(inference.timestamp) : 'N/A'}
                     </div>
                   </div>
                 </Link>

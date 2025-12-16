@@ -72,10 +72,18 @@ function InferenceDetail() {
       setLoading(true);
       setError(null);
       const data = await getInferenceById(id);
-      setInference(data);
+      
+      if (!data) {
+        // If inference not found from API, it might be a placeholder ID
+        // Show a message but allow returning to investigation
+        setError('Inference details not yet available. The inference data may still be processing.');
+        setInference(null);
+      } else {
+        setInference(data);
+      }
     } catch (err) {
       console.error('Error fetching inference:', err);
-      setError('Failed to load inference details');
+      setError('Failed to load inference details. The inference may not exist or the server is temporarily unavailable.');
     } finally {
       setLoading(false);
     }
