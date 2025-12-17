@@ -368,7 +368,7 @@ export const removePackageException = async (exceptionId: string): Promise<void>
 export const checkAgentWebSocketConnection = async (agentId: string): Promise<boolean> => {
   const { data, error } = await supabase
     .from('agents')
-    .select('websocket_connected, websocket_connected_at')
+    .select('websocket_connected')
     .eq('id', agentId)
     .single();
 
@@ -376,21 +376,9 @@ export const checkAgentWebSocketConnection = async (agentId: string): Promise<bo
     return false;
   }
 
-  if (!data.websocket_connected) {
-    return false;
-  }
-
-  if (data.websocket_connected_at) {
-    const connectedAt = new Date(data.websocket_connected_at);
-    const now = new Date();
-    const diffSeconds = (now.getTime() - connectedAt.getTime()) / 1000;
-    
-    if (diffSeconds > 60) {
-      return false;
-    }
-  }
-
-  return true;
+  // Simply return the current connection status
+  // Don't check when it connected - just check if it's currently connected
+  return data.websocket_connected === true;
 };
 
 export const listAllPatchExecutions = async (

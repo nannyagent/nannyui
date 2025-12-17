@@ -214,7 +214,36 @@ function InvestigationEpisode() {
         {/* Issue Description */}
         <div className="p-4 border rounded-lg mb-6">
           <h2 className="font-semibold text-sm mb-2">Issue Description</h2>
-          <p className="text-sm">{investigation.issue}</p>
+          {(() => {
+            try {
+              const parsed = JSON.parse(investigation.issue);
+              if (parsed.command_results) {
+                return (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground mb-3">System Diagnostic Investigation</p>
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {parsed.command_results.map((cmd: any, idx: number) => (
+                        <div key={idx} className="text-xs bg-muted p-3 rounded border-l-2 border-blue-500">
+                          <div className="font-mono font-semibold text-foreground mb-1">{cmd.command}</div>
+                          {cmd.description && (
+                            <div className="text-muted-foreground text-xs mb-1">{cmd.description}</div>
+                          )}
+                          {cmd.output && (
+                            <div className="text-muted-foreground whitespace-pre-wrap break-words max-h-20 overflow-y-auto text-xs font-mono bg-background p-2 rounded mt-1">
+                              {cmd.output.substring(0, 300)}{cmd.output.length > 300 ? '\n...' : ''}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+            } catch (e) {
+              // Not JSON
+            }
+            return <p className="text-sm">{investigation.issue}</p>;
+          })()}
         </div>
 
         {/* Investigation Resolution */}
@@ -299,49 +328,57 @@ function InvestigationEpisode() {
                 <Link
                   key={inference.id}
                   to={`/investigations/${investigationId}/inference/${inference.id}`}
-                  className="block p-4 border rounded-lg hover:border-primary transition-colors"
+                  className="block p-4 border rounded-lg hover:border-primary hover:bg-muted/50 transition-colors cursor-pointer"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-medium">Inference #{inferenceNumber}</span>
-                        {inference.model_inference?.model_name && (
-                          <Badge variant="outline" className="text-xs">
-                            {inference.model_inference.model_name}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      {/* Header: Inference number and badges */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-sm font-semibold text-foreground">
+                          Inference #{inferenceNumber}
+                        </span>
+                        {inference.function_name && (
+                          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200 flex-shrink-0">
+                            {inference.function_name}
                           </Badge>
                         )}
-                        {inference.function_name && (
-                          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200">
-                            {inference.function_name}
+                        {inference.model_inference?.model_name && (
+                          <Badge variant="secondary" className="text-xs flex-shrink-0">
+                            {inference.model_inference.model_name}
                           </Badge>
                         )}
                       </div>
                       
-                      {inference.input && (
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                          {typeof inference.input === 'string' 
-                            ? inference.input.slice(0, 150)
-                            : JSON.stringify(inference.input).slice(0, 150)}
-                          {(typeof inference.input === 'string' ? inference.input : JSON.stringify(inference.input)).length > 150 && '...'}
-                        </p>
-                      )}
-                      
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      {/* Metadata row: Inference ID, Response Time, Tokens */}
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                        <span className="font-mono text-foreground/70 truncate" title={inference.id}>
+                          {inference.id.substring(0, 8)}...
+                        </span>
+                        
                         {inference.processing_time_ms && (
-                          <span className="flex items-center gap-1">
+                          <span className="flex items-center gap-1 flex-shrink-0">
                             <Clock className="h-3 w-3" />
                             {(inference.processing_time_ms / 1000).toFixed(2)}s
                           </span>
                         )}
+                        
                         {inference.model_inference && (
-                          <span>
-                            {(inference.model_inference.input_tokens + inference.model_inference.output_tokens).toLocaleString()} tokens
+                          <span className="flex-shrink-0">
+                            <span className="text-blue-600 dark:text-blue-400 font-medium">
+                              {inference.model_inference.input_tokens.toLocaleString()}
+                            </span>
+                            <span> in / </span>
+                            <span className="text-green-600 dark:text-green-400 font-medium">
+                              {inference.model_inference.output_tokens.toLocaleString()}
+                            </span>
+                            <span> out</span>
                           </span>
                         )}
                       </div>
                     </div>
                     
-                    <div className="text-xs text-muted-foreground">
+                    {/* Timestamp on the right */}
+                    <div className="text-xs text-muted-foreground flex-shrink-0 text-right">
                       {inference.timestamp ? formatInvestigationTime(inference.timestamp) : 'N/A'}
                     </div>
                   </div>

@@ -138,6 +138,17 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
         throw new Error(response.message || 'Failed to trigger patch execution');
       }
 
+      // Handle dry_run response (no execution_id, just available patches)
+      if (executionType === 'dry_run' && response.available_patches) {
+        setStatus('completed');
+        setProgress(100);
+        setError(
+          `Found ${response.total_patches || response.available_patches.length} available patch(es) for ${response.os_family}\n\n` +
+          `Patches:\n${response.available_patches.map((p: any) => `- ${p.name}`).join('\n')}`
+        );
+        return;
+      }
+
       setExecutionId(response.execution_id);
 
       // Step 3: Start polling for status with 60s timeout

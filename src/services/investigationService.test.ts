@@ -12,9 +12,9 @@ import {
   isInvestigationFailed,
   getUserInvestigations,
   getInvestigationsPaginated,
-  waitForInvestigationWithEpisode,
 } from './investigationService';
 import { getCurrentSession } from '@/services/authService';
+import { supabase } from '@/lib/supabase';
 import { mockInvestigation } from '@/test-utils/mock-data';
 
 // Mock the dependencies
@@ -293,6 +293,7 @@ describe('investigationService', () => {
       );
     });
 
+    describe('getInvestigationsPaginated', () => {
     it('should handle pagination parameters correctly', async () => {
       const mockData = {
         investigations: [],
@@ -324,146 +325,4 @@ describe('investigationService', () => {
       );
     });
   });
-
-  describe('waitForInvestigationWithEpisode', () => {
-    it('should wait and return investigation with episode_id', async () => {
-      const { supabase } = await import('@/lib/supabase');
-      const investigationWithEpisode = { 
-        ...mockInvestigation, 
-        episode_id: 'episode-456',
-        agent_id: 'agent-123'
-      };
-
-      // Mock successful first call
-      (supabase.from as any).mockReturnValueOnce({
-        select: vi.fn().mockReturnValueOnce({
-          eq: vi.fn().mockReturnValueOnce({
-            not: vi.fn().mockReturnValueOnce({
-              order: vi.fn().mockReturnValueOnce({
-                limit: vi.fn().mockResolvedValueOnce({
-                  data: [investigationWithEpisode],
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        }),
-      });
-
-      const { waitForInvestigationWithEpisode } = await import('./investigationService');
-      const result = await waitForInvestigationWithEpisode('agent-123', 60);
-
-      expect(result).toBeDefined();
-      expect(result?.episode_id).toBe('episode-456');
-    });
-
-    it('should timeout if investigation never gets episode_id', async () => {
-      const { supabase } = await import('@/lib/supabase');
-
-      // Mock always returning empty (no episode_id)
-      (supabase.from as any).mockReturnValueOnce({
-        select: vi.fn().mockReturnValueOnce({
-          eq: vi.fn().mockReturnValueOnce({
-            not: vi.fn().mockReturnValueOnce({
-              order: vi.fn().mockReturnValueOnce({
-                limit: vi.fn().mockResolvedValueOnce({
-                  data: [],
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        }),
-      });
-
-      const { waitForInvestigationWithEpisode } = await import('./investigationService');
-      
-      // This should timeout quickly in tests
-      const result = await waitForInvestigationWithEpisode('agent-123', 1);
-
-      expect(result).toBeNull();
-    });
-
-    it('should call progress callback during polling', async () => {
-      const { supabase } = await import('@/lib/supabase');
-      const progressCallback = vi.fn();
-      const investigationWithEpisode = { 
-        ...mockInvestigation, 
-        episode_id: 'episode-789',
-        agent_id: 'agent-456'
-      };
-
-      // Mock successful response
-      (supabase.from as any).mockReturnValueOnce({
-        select: vi.fn().mockReturnValueOnce({
-          eq: vi.fn().mockReturnValueOnce({
-            not: vi.fn().mockReturnValueOnce({
-              order: vi.fn().mockReturnValueOnce({
-                limit: vi.fn().mockResolvedValueOnce({
-                  data: [investigationWithEpisode],
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        }),
-      });
-
-      const { waitForInvestigationWithEpisode } = await import('./investigationService');
-      await waitForInvestigationWithEpisode('agent-456', 60, progressCallback);
-
-      expect(progressCallback).toHaveBeenCalled();
-    });
-  });
-
-  describe('createInvestigationFromAPI with episode_id handling', () => {
-    it('should return episode_id when present in response', async () => {
-      const mockResponse = {
-        investigation_id: 'inv-123',
-        episode_id: 'episode-123',
-        status: 'active'
-      };
-
-      (global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
-
-      const result = await createInvestigationFromAPI({
-        agent_id: 'agent-123',
-        issue: 'Test issue',
-        priority: 'high',
-        initiated_by: 'user-123',
-        application_group: 'system'
-      });
-
-      expect(result.investigation_id).toBe('inv-123');
-      expect(result.episode_id).toBe('episode-123');
-      expect(result.status).toBe('active');
-    });
-
-    it('should handle missing episode_id gracefully', async () => {
-      const mockResponse = {
-        investigation_id: 'inv-456',
-        status: 'pending'
-      };
-
-      (global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
-
-      const result = await createInvestigationFromAPI({
-        agent_id: 'agent-456',
-        issue: 'Another test issue',
-        priority: 'medium',
-        initiated_by: 'user-456',
-        application_group: 'system'
-      });
-
-      expect(result.investigation_id).toBe('inv-456');
-      expect(result.episode_id).toBeUndefined();
-    });
-  });
 });
-

@@ -8,7 +8,7 @@ import * as investigationService from '@/services/investigationService';
 // Mock the dependencies
 vi.mock('@/services/investigationService', () => ({
   createInvestigationFromAPI: vi.fn(),
-  waitForInvestigationWithEpisode: vi.fn(),
+  waitForInvestigationInProgress: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -65,8 +65,8 @@ describe('CreateInvestigationDialog', () => {
         status: 'pending',
       });
 
-      // Wait call returns with episode_id
-      (investigationService.waitForInvestigationWithEpisode as any).mockResolvedValueOnce(
+      // Wait call returns with updated status
+      (investigationService.waitForInvestigationInProgress as any).mockResolvedValueOnce(
         mockInvestigation
       );
 
@@ -82,11 +82,12 @@ describe('CreateInvestigationDialog', () => {
       const submitButton = screen.getByRole('button', { name: /launch/i });
       await userEvent.click(submitButton);
 
-      // Should wait for episode_id
+      // Should wait for investigation status change
       await waitFor(() => {
-        expect(investigationService.waitForInvestigationWithEpisode).toHaveBeenCalledWith(
+        expect(investigationService.waitForInvestigationInProgress).toHaveBeenCalledWith(
           'agent-123',
-          60,
+          'inv-123',
+          30,
           expect.any(Function)
         );
       }, { timeout: 2000 });
@@ -112,9 +113,9 @@ describe('CreateInvestigationDialog', () => {
       const submitButton = screen.getByRole('button', { name: /launch/i });
       await userEvent.click(submitButton);
 
-      // Should NOT call waitForInvestigationWithEpisode since episode_id is already available
+      // Should still call waitForInvestigationInProgress to verify agent picked it up
       await waitFor(() => {
-        expect(investigationService.waitForInvestigationWithEpisode).not.toHaveBeenCalled();
+        expect(investigationService.waitForInvestigationInProgress).toHaveBeenCalled();
       }, { timeout: 2000 });
     });
 
@@ -124,7 +125,7 @@ describe('CreateInvestigationDialog', () => {
         status: 'pending',
       });
 
-      (investigationService.waitForInvestigationWithEpisode as any).mockResolvedValueOnce(null);
+      (investigationService.waitForInvestigationInProgress as any).mockResolvedValueOnce(null);
 
       renderWithRouter(
         <CreateInvestigationDialog {...mockProps} />

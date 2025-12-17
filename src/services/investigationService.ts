@@ -210,7 +210,7 @@ export const getInvestigationByIdFromAPI = async (investigationId: string): Prom
 };
 
 /**
- * Get a specific inference by ID via tensorzero-proxy
+ * Get a specific inference by ID via investigation-coordinator
  * @param inferenceId Inference ID to fetch
  */
 export const getInferenceById = async (inferenceId: string): Promise<Inference | null> => {
@@ -222,12 +222,9 @@ export const getInferenceById = async (inferenceId: string): Promise<Inference |
     }
 
     const supabaseUrl = getSupabaseUrl();
-    // Extract UUID from malformed inference ID if needed (e.g., "inference-UUID-NNN" -> "UUID")
-    const uuidMatch = inferenceId.match(/([0-9a-f-]{36})/i);
-    const cleanId = uuidMatch ? uuidMatch[0] : inferenceId;
     
     const response = await fetch(
-      `${supabaseUrl}/functions/v1/tensorzero-proxy/api/v1/inferences/${cleanId}`,
+      `${supabaseUrl}/functions/v1/investigation-coordinator/inference/${inferenceId}`,
       {
         method: 'GET',
         headers: {
@@ -242,8 +239,8 @@ export const getInferenceById = async (inferenceId: string): Promise<Inference |
       return null;
     }
 
-    const data = await response.json();
-    return data || null;
+    const result = await response.json();
+    return result.inference || result || null;
   } catch (error) {
     console.error('Exception fetching inference:', error);
     return null;
@@ -368,19 +365,20 @@ export const createInvestigationFromAPI = async (params: {
 };
 
 /**
- * Wait for investigation with episode_id to be created
- * Polls for up to 60 seconds for an investigation with the same agent_id that has an episode_id
+ * Wait for investigation to reach in_progress status (agent has picked it up)
+ * Polls the most recent investigation for the agent until status changes from pending
  * @param agentId Agent ID to filter by
- * @param timeoutSeconds Maximum seconds to wait (default: 60)
+ * @param timeoutSeconds Maximum seconds to wait (default: 30)
  * @param onProgress Optional callback for progress updates
- * @returns Investigation with episode_id or null if timeout
+ * @returns Investigation with updated status or null if timeout
  */
-export const waitForInvestigationWithEpisode = async (
+export const waitForInvestigationInProgress = async (
   agentId: string,
-  timeoutSeconds: number = 60,
+  investigationId?: string,
+  timeoutSeconds: number = 30,
   onProgress?: (message: string) => void
 ): Promise<Investigation | null> => {
-  const pollIntervalMs = 2000; // Poll every 2 seconds
+  const pollIntervalMs = 1000; // Poll every 1 second (faster feedback)
   const maxPolls = Math.ceil((timeoutSeconds * 1000) / pollIntervalMs);
   let pollCount = 0;
 
@@ -390,34 +388,48 @@ export const waitForInvestigationWithEpisode = async (
       
       // Check timeout
       if (pollCount > maxPolls) {
-        onProgress?.(`Timeout waiting for investigation to be created (${timeoutSeconds}s)`);
+        onProgress?.(`Timeout waiting for agent to pick up investigation (${timeoutSeconds}s)`);
         return null;
       }
 
-      // Query for most recent investigation with episode_id for this agent
-      const { data, error } = await supabase
+      // Build query - if we have a specific investigation_id, query for it; otherwise get most recent
+      let query = supabase
         .from('investigations')
         .select('*')
-        .eq('agent_id', agentId)
-        .not('episode_id', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .eq('agent_id', agentId);
+
+      if (investigationId) {
+        query = query.eq('investigation_id', investigationId);
+      } else {
+        query = query.order('created_at', { ascending: false }).limit(1);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
-        console.error('Error polling for investigation with episode:', error);
+        console.error('Error polling for investigation status:', error);
         await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
         return poll();
       }
 
       if (data && data.length > 0) {
-        onProgress?.('Investigation ready!');
-        return data[0] as Investigation;
+        const investigation = data[0] as Investigation;
+        
+        // Check if status has changed from pending (agent is processing)
+        if (investigation.status !== 'pending') {
+          onProgress?.(`Agent picked up investigation (status: ${investigation.status})`);
+          return investigation;
+        }
+
+        // Still pending, continue polling
+        const elapsed = Math.round((pollCount * pollIntervalMs) / 1000);
+        onProgress?.(`Waiting for agent to pick up (${elapsed}s)`);
+        
+        await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+        return poll();
       }
 
-      // Not ready yet, continue polling
-      const elapsed = Math.round((pollCount * pollIntervalMs) / 1000);
-      onProgress?.(`Waiting for investigation to be processed... (${elapsed}s)`);
-      
+      // Investigation not found
       await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
       return poll();
     } catch (error) {

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { AlertCircle, CheckCircle, Search, XCircle } from 'lucide-react';
-import { createInvestigationFromAPI, waitForInvestigationWithEpisode } from '@/services/investigationService';
+import { createInvestigationFromAPI, waitForInvestigationInProgress } from '@/services/investigationService';
 
 export interface CreateInvestigationDialogProps {
   open: boolean;
@@ -107,43 +107,33 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
       console.log('Investigation created:', result);
 
       if (result?.investigation_id) {
-        // Check if we already have episode_id
-        if (result?.episode_id) {
-          setInvestigationId(result.episode_id);
+        setProgress(50);
+        
+        // Wait for agent to pick up the investigation (status changes from pending)
+        // This ensures the agent has received and is processing the investigation
+        // Prevents duplicate investigations from being created
+        const investigation = await waitForInvestigationInProgress(
+          agentId,
+          result.investigation_id,
+          30,
+          (msg) => console.log('Poll update:', msg)
+        );
+
+        if (investigation) {
+          // Agent picked up the investigation
+          setInvestigationId(investigation.investigation_id);
           setStatus('success');
           setProgress(100);
 
-          // Navigate after brief success display
+          // Navigate to the investigation detail page
           setTimeout(() => {
             setIssueDescription('');
             setPriority('medium');
             onOpenChange(false);
-            navigate(`/investigations/${result.episode_id}`);
+            navigate(`/investigations/${investigation.investigation_id}`);
           }, 1500);
         } else {
-          // Wait for agent to process and create entry with episode_id
-          setProgress(60);
-          const investigation = await waitForInvestigationWithEpisode(
-            agentId,
-            60,
-            (msg) => console.log('Poll update:', msg)
-          );
-
-          if (investigation?.episode_id) {
-            setInvestigationId(investigation.episode_id);
-            setStatus('success');
-            setProgress(100);
-
-            // Navigate to the episode-based investigation detail page
-            setTimeout(() => {
-              setIssueDescription('');
-              setPriority('medium');
-              onOpenChange(false);
-              navigate(`/investigations/${investigation.episode_id}`);
-            }, 1500);
-          } else {
-            throw new Error('Investigation was created but agent response timed out. Please check the Investigations page.');
-          }
+          throw new Error('Investigation was created but agent did not pick it up within 30 seconds. Please check the Investigations page.');
         }
       } else {
         throw new Error('No investigation_id returned from API');

@@ -174,7 +174,19 @@ const Investigations = () => {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                <h3 className="font-medium text-sm">{investigation.issue}</h3>
+                                {(() => {
+                                  let displayText = investigation.issue;
+                                  try {
+                                    const parsed = JSON.parse(investigation.issue);
+                                    if (parsed.command_results && parsed.command_results.length > 0) {
+                                      const firstCmd = parsed.command_results[0];
+                                      displayText = `Diagnostic: ${firstCmd.command || 'System diagnostics'} (+${parsed.command_results.length - 1} more)`;
+                                    }
+                                  } catch {
+                                    // Failed to parse issue, use default text
+                                  }
+                                  return <h3 className="font-medium text-sm">{displayText}</h3>;
+                                })()}
                                 <p className="text-xs text-muted-foreground mt-1">
                                   Episode: {investigation.episode_id?.substring(0, 12)}...
                                 </p>
