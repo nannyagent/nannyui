@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { AlertCircle, CheckCircle, Search, XCircle } from 'lucide-react';
-import { createInvestigationFromAPI } from '@/services/investigationService';
+import { createInvestigationFromAPI, waitForInvestigationInProgress } from '@/services/investigationService';
 
 export interface CreateInvestigationDialogProps {
   open: boolean;
@@ -72,13 +72,15 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
   }, [status]);
 
   const handleSubmit = async () => {
-    if (!issueDescription.trim()) {
-      setError('Please enter an issue description');
+    if (!isAgentActive) {
+      setError('Cannot create investigation for inactive agent');
+      setStatus('error');
       return;
     }
 
-    if (!isAgentActive) {
-      setError('Cannot create investigation for inactive agent');
+    if (!issueDescription.trim()) {
+      setError('Please enter an issue description');
+      setStatus('error');
       return;
     }
 
@@ -107,17 +109,34 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
       console.log('Investigation created:', result);
 
       if (result?.investigation_id) {
-        setInvestigationId(result.investigation_id);
-        setStatus('success');
-        setProgress(100);
+        setProgress(50);
+        
+        // Wait for agent to pick up the investigation (status changes from pending)
+        // This ensures the agent has received and is processing the investigation
+        // Prevents duplicate investigations from being created
+        const investigation = await waitForInvestigationInProgress(
+          agentId,
+          result.investigation_id,
+          30,
+          (msg) => console.log('Poll update:', msg)
+        );
 
-        // Navigate after brief success display
-        setTimeout(() => {
-          setIssueDescription('');
-          setPriority('medium');
-          onOpenChange(false);
-          navigate(`/investigations/${result.investigation_id}`);
-        }, 1500);
+        if (investigation) {
+          // Agent picked up the investigation
+          setInvestigationId(investigation.investigation_id);
+          setStatus('success');
+          setProgress(100);
+
+          // Navigate to the investigation detail page
+          setTimeout(() => {
+            setIssueDescription('');
+            setPriority('medium');
+            onOpenChange(false);
+            navigate(`/investigations/${investigation.investigation_id}`);
+          }, 1500);
+        } else {
+          throw new Error('Investigation was created but agent did not pick it up within 30 seconds. Please check the Investigations page.');
+        }
       } else {
         throw new Error('No investigation_id returned from API');
       }
@@ -168,10 +187,12 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
             </div>
             <div className="text-center">
               <p className="font-medium text-lg">
-                {status === 'launching' ? 'Launching Investigation...' : 'Waiting for response...'}
+                {status === 'launching' ? 'Launching Investigation...' : 'Waiting for Agent Response...'}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                This may take up to 30 seconds as the AI analyzes your request
+                {status === 'launching' 
+                  ? 'Creating investigation request...' 
+                  : 'The agent is processing your request and generating analysis'}
               </p>
               <p className="text-sm text-muted-foreground mt-2">
                 Elapsed: {formatTime(elapsedTime)}
@@ -294,7 +315,7 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!isAgentActive || !issueDescription.trim()}
+            disabled={status !== 'idle'}
           >
             Create Investigation
           </Button>
