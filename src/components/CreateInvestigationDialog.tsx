@@ -72,13 +72,15 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
   }, [status]);
 
   const handleSubmit = async () => {
-    if (!issueDescription.trim()) {
-      setError('Please enter an issue description');
+    if (!isAgentActive) {
+      setError('Cannot create investigation for inactive agent');
+      setStatus('error');
       return;
     }
 
-    if (!isAgentActive) {
-      setError('Cannot create investigation for inactive agent');
+    if (!issueDescription.trim()) {
+      setError('Please enter an issue description');
+      setStatus('error');
       return;
     }
 
@@ -313,7 +315,7 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!isAgentActive || !issueDescription.trim()}
+            disabled={status !== 'idle'}
           >
             Create Investigation
           </Button>

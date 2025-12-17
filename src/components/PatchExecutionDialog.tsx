@@ -139,14 +139,20 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
       }
 
       // Handle dry_run response (no execution_id, just available patches)
-      if (executionType === 'dry_run' && response.available_patches) {
+      const dryRunResponse = response as any;
+      if (executionType === 'dry_run' && dryRunResponse.available_patches) {
         setStatus('completed');
         setProgress(100);
         setError(
-          `Found ${response.total_patches || response.available_patches.length} available patch(es) for ${response.os_family}\n\n` +
-          `Patches:\n${response.available_patches.map((p: any) => `- ${p.name}`).join('\n')}`
+          `Found ${dryRunResponse.total_patches || dryRunResponse.available_patches.length} available patch(es) for ${dryRunResponse.os_family}\n\n` +
+          `Patches:\n${dryRunResponse.available_patches.map((p: any) => `- ${p.name}`).join('\n')}`
         );
         return;
+      }
+
+      // Validate execution_id is present
+      if (!response.execution_id || response.execution_id.trim() === '') {
+        throw new Error('Server did not return an execution ID. Please try again.');
       }
 
       setExecutionId(response.execution_id);
