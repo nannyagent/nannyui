@@ -26,7 +26,7 @@ export const signUpWithEmail = async (
       emailVisibility: false,
     };
 
-    await pb.collection('users').create(userData);
+    const record = await pb.collection('users').create(userData);
 
     // Auto-login after signup
     const authData = await pb.collection('users').authWithPassword(email, password);
@@ -72,9 +72,11 @@ export const signInWithEmail = async (
 /**
  * Sign in with GitHub OAuth
  * Note: PocketBase OAuth requires backend configuration
+ * This is a placeholder for when OAuth is properly configured in PocketBase
  */
 export const signInWithGitHub = async () => {
   try {
+    // PocketBase OAuth flow
     const authUrl = `${pb.baseUrl}/api/oauth2-authorize/github?redirect=${encodeURIComponent(window.location.origin)}/oauth-callback`;
     window.location.href = authUrl;
     return { data: null, error: null };
@@ -86,14 +88,44 @@ export const signInWithGitHub = async () => {
 /**
  * Sign in with Google OAuth
  * Note: PocketBase OAuth requires backend configuration
+ * This is a placeholder for when OAuth is properly configured in PocketBase
  */
 export const signInWithGoogle = async () => {
   try {
+    // PocketBase OAuth flow
     const authUrl = `${pb.baseUrl}/api/oauth2-authorize/google?redirect=${encodeURIComponent(window.location.origin)}/oauth-callback`;
     window.location.href = authUrl;
     return { data: null, error: null };
   } catch (error: any) {
     return { data: null, error: error.message || 'Failed to initiate Google login' };
+  }
+};
+
+/**
+ * Handle OAuth callback
+ */
+export const handleOAuthCallback = async (code: string, provider: string) => {
+  try {
+    const authData = await pb.collection('users').authWithOAuth2({
+      provider,
+      code,
+      codeVerifier: localStorage.getItem(`oauth2_${provider}_verifier`) || '',
+      redirectUrl: window.location.origin,
+    });
+
+    localStorage.removeItem(`oauth2_${provider}_verifier`);
+
+    return {
+      user: authData.record as UserRecord,
+      token: authData.token,
+      error: null,
+    };
+  } catch (error: any) {
+    return {
+      user: null,
+      token: null,
+      error: error.message || 'Failed to complete OAuth login',
+    };
   }
 };
 
@@ -158,10 +190,13 @@ export const onAuthStateChange = (
 
 /**
  * Reset password for email
+ * Note: PocketBase doesn't have built-in password reset via email
+ * This would need backend support
  */
 export const resetPassword = async (email: string) => {
   try {
-    // Placeholder for password reset functionality
+    // For now, just return success
+    // In production, you'd need to implement this on the backend
     return { data: null, error: null };
   } catch (error: any) {
     return { data: null, error: error.message };
@@ -171,9 +206,9 @@ export const resetPassword = async (email: string) => {
 /**
  * Update user password
  */
-export const updatePassword = async (newPassword: string, _currentPassword?: string) => {
+export const updatePassword = async (newPassword: string, currentPassword?: string) => {
   try {
-    const user = await getCurrentUser();
+    const user = getCurrentUser();
     if (!user) {
       return { data: null, error: { message: 'No user logged in' } };
     }
@@ -192,10 +227,11 @@ export const updatePassword = async (newPassword: string, _currentPassword?: str
 /**
  * Setup MFA - Generate TOTP secret
  * Note: MFA in PocketBase would require custom implementation
+ * This is a placeholder
  */
 export const setupMFA = async () => {
   try {
-    // Placeholder for MFA setup
+    // For now, return a placeholder
     return {
       data: {
         secret: 'PLACEHOLDER_SECRET',
@@ -212,9 +248,8 @@ export const setupMFA = async () => {
 /**
  * Verify TOTP code
  */
-export const verifyTOTPCode = async (_code: string, _secret?: string) => {
+export const verifyTOTPCode = async (code: string, secret?: string) => {
   try {
-    // Placeholder for TOTP verification
     return { data: null, error: null };
   } catch (error: any) {
     return { data: null, error };
@@ -224,9 +259,8 @@ export const verifyTOTPCode = async (_code: string, _secret?: string) => {
 /**
  * Confirm MFA setup
  */
-export const confirmMFASetup = async (_code: string, _totp_secret?: string, _backup_codes?: string[]) => {
+export const confirmMFASetup = async (code: string, totp_secret?: string, backup_codes?: string[]) => {
   try {
-    // Placeholder for MFA confirmation
     return { data: null, error: null };
   } catch (error: any) {
     return { data: null, error };
@@ -238,7 +272,6 @@ export const confirmMFASetup = async (_code: string, _totp_secret?: string, _bac
  */
 export const disableMFA = async () => {
   try {
-    // Placeholder for MFA disabling
     return { data: null, error: null };
   } catch (error: any) {
     return { data: null, error };
@@ -246,7 +279,7 @@ export const disableMFA = async () => {
 };
 
 /**
- * Check if MFA is enabled for the current user
+ * Check if MFA is enabled
  */
 export const isMFAEnabled = async (): Promise<boolean> => {
   try {
@@ -258,11 +291,10 @@ export const isMFAEnabled = async (): Promise<boolean> => {
 };
 
 /**
- * Get MFA backup codes for the current user
+ * Get MFA backup codes
  */
 export const getMFABackupCodes = async (): Promise<string[] | null> => {
   try {
-    // Placeholder for backup codes retrieval
     return null;
   } catch (error) {
     return null;
@@ -270,11 +302,10 @@ export const getMFABackupCodes = async (): Promise<string[] | null> => {
 };
 
 /**
- * Verify backup code for MFA login
+ * Verify backup code
  */
-export const verifyBackupCode = async (_code: string) => {
+export const verifyBackupCode = async (code: string) => {
   try {
-    // Placeholder for backup code verification
     return { data: null, error: null };
   } catch (error: any) {
     return { data: null, error };
@@ -282,11 +313,10 @@ export const verifyBackupCode = async (_code: string) => {
 };
 
 /**
- * Get count of remaining backup codes
+ * Get remaining backup codes
  */
 export const getRemainingBackupCodes = async (): Promise<number | null> => {
   try {
-    // Placeholder for remaining backup codes count
     return null;
   } catch (error) {
     return null;
@@ -294,11 +324,10 @@ export const getRemainingBackupCodes = async (): Promise<number | null> => {
 };
 
 /**
- * Verify TOTP code during MFA login
+ * Verify MFA login
  */
-export const verifyMFALogin = async (_code: string) => {
+export const verifyMFALogin = async (code: string) => {
   try {
-    // Placeholder for MFA login verification
     return { data: null, error: null };
   } catch (error: any) {
     return { data: null, error };

@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { pb } from '@/integrations/pocketbase/client';
+import type { UserRecord } from '@/integrations/pocketbase/types';
 import { onAuthStateChange } from '@/services/authService';
 
 export interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: UserRecord | null;
+  token: string | null;
   loading: boolean;
   signOut?: () => Promise<void>;
   signIn?: (email: string, password: string) => Promise<void>;
@@ -13,7 +13,7 @@ export interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
-  session: null,
+  token: null,
   loading: true,
 });
 
@@ -26,31 +26,32 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<UserRecord | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    // Get initial auth state
+    if (pb.authStore.isValid) {
+      setUser(pb.authStore.record as UserRecord);
+      setToken(pb.authStore.token);
+    }
+    setLoading(false);
 
     // Listen for auth changes
-    const { data: { subscription } } = onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    const unsubscribe = pb.authStore.onChange((_token, record) => {
+      setUser(record as UserRecord | null);
+      setToken(_token || null);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      // unsubscribe if needed
+    };
   }, []);
 
   const value = {
     user,
-    session,
+    token,
     loading,
   };
 

@@ -51,7 +51,8 @@ import { deleteAgent } from '@/services/agentManagementService';
 import AgentDeleteDialog from '@/components/AgentDeleteDialog';
 import CreateInvestigationDialog from '@/components/CreateInvestigationDialog';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
+import { pb } from '@/integrations/pocketbase/client';
+import { getCurrentUser } from '@/services/authService';
 
 // Helper function to format network data
 const formatNetworkData = (kbps: number | undefined): string => {
@@ -135,11 +136,13 @@ const Agents = () => {
 
   // Get current user session
   useEffect(() => {
-    const getCurrentUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
+    const loadCurrentUser = async () => {
+      const user = await getCurrentUser();
+      if (user) {
+        setCurrentUser(user as any);
+      }
     };
-    getCurrentUser();
+    loadCurrentUser();
   }, []);
 
   // Note: Auto-refresh disabled - users can manually refresh with the refresh button
