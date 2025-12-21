@@ -77,7 +77,7 @@ export const signInWithEmail = async (
 export const signInWithGitHub = async () => {
   try {
     // PocketBase OAuth flow
-    const authUrl = `${pb.baseUrl}/api/oauth2-authorize/github?redirect=${encodeURIComponent(window.location.origin)}/oauth-callback`;
+    const authUrl = `${pb.baseURL}/api/oauth2-redirect?redirect=${encodeURIComponent(window.location.origin)}/oauth-callback`;
     window.location.href = authUrl;
     return { data: null, error: null };
   } catch (error: any) {

@@ -71,29 +71,50 @@ export const signInWithEmail = async (
 
 /**
  * Sign in with GitHub OAuth
- * Note: PocketBase OAuth requires backend configuration
+ * PocketBase handles the entire OAuth2 flow
  */
 export const signInWithGitHub = async () => {
   try {
-    const authUrl = `${pb.baseUrl}/api/oauth2-authorize/github?redirect=${encodeURIComponent(window.location.origin)}/oauth-callback`;
-    window.location.href = authUrl;
-    return { data: null, error: null };
+    // Use PocketBase SDK's authWithOAuth2 method
+    // This opens a popup or redirect to GitHub, then returns auth data
+    const authData = await pb.collection('users').authWithOAuth2({
+      provider: 'github',
+    });
+
+    // Successfully authenticated - return the auth data
+    return { 
+      data: {
+        user: authData.record as UserRecord,
+        token: authData.token,
+      }, 
+      error: null 
+    };
   } catch (error: any) {
-    return { data: null, error: error.message || 'Failed to initiate GitHub login' };
+    return { data: null, error: error.message || 'Failed to sign in with GitHub' };
   }
 };
 
 /**
  * Sign in with Google OAuth
- * Note: PocketBase OAuth requires backend configuration
+ * PocketBase handles the entire OAuth2 flow
  */
 export const signInWithGoogle = async () => {
   try {
-    const authUrl = `${pb.baseUrl}/api/oauth2-authorize/google?redirect=${encodeURIComponent(window.location.origin)}/oauth-callback`;
-    window.location.href = authUrl;
-    return { data: null, error: null };
+    // Use PocketBase SDK's authWithOAuth2 method
+    const authData = await pb.collection('users').authWithOAuth2({
+      provider: 'google',
+    });
+
+    // Successfully authenticated - return the auth data
+    return { 
+      data: {
+        user: authData.record as UserRecord,
+        token: authData.token,
+      }, 
+      error: null 
+    };
   } catch (error: any) {
-    return { data: null, error: error.message || 'Failed to initiate Google login' };
+    return { data: null, error: error.message || 'Failed to sign in with Google' };
   }
 };
 
