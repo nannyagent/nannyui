@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   getRecentInvestigationsFromAPI,
-  getInvestigationByIdFromAPI,
+  getInvestigation,
   getInferenceById,
   createInvestigationFromAPI,
   getPriorityColor,
@@ -12,237 +12,214 @@ import {
   isInvestigationFailed,
   getUserInvestigations,
   getInvestigationsPaginated,
-} from './investigationService';
-import { getCurrentSession } from '@/services/authService';
-import { supabase } from '@/lib/supabase';
-import { mockInvestigation } from '@/test-utils/mock-data';
+} from "./investigationService";
+import { pb } from "@/lib/pocketbase";
 
 // Mock the dependencies
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        order: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue({
-            data: [],
-            error: null,
-          }),
-        }),
+vi.mock("@/lib/pocketbase", () => ({
+  pb: {
+    authStore: {
+      model: { id: "user-123" },
+      isValid: true,
+    },
+    collection: vi.fn().mockReturnValue({
+      getList: vi.fn().mockResolvedValue({
+        items: [],
+        totalItems: 0,
+        page: 1,
+        perPage: 10,
+        totalPages: 0,
+      }),
+      getOne: vi.fn().mockResolvedValue({
+        id: "inv-123",
+        created: "2023-01-01",
+        updated: "2023-01-01",
+      }),
+      create: vi.fn().mockResolvedValue({
+        id: "inv-new",
+        status: "pending",
       }),
     }),
-    auth: {
-      getUser: vi.fn(),
+    files: {
+      getUrl: vi.fn().mockReturnValue("http://localhost:8090/api/files/..."),
     },
+    send: vi.fn().mockResolvedValue({
+      id: "inv-123",
+      created: "2023-01-01",
+      updated: "2023-01-01",
+    }),
   },
 }));
 
-vi.mock('@/services/authService', () => ({
-  getCurrentSession: vi.fn().mockResolvedValue({
-    user: { id: 'user-123' },
-    access_token: 'token-123',
-  }),
-}));
-
-global.fetch = vi.fn();
-
-describe('investigationService', () => {
+describe("investigationService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Re-mock getCurrentSession after clearAllMocks
-    vi.mocked(getCurrentSession).mockResolvedValue({
-      user: { id: 'user-123' },
-      access_token: 'token-123',
-    } as any);
-    // Set required env vars for tests
-    vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co');
-    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-key');
   });
 
-  describe('getRecentInvestigationsFromAPI', () => {
-    it('should handle errors gracefully', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Network error'));
-
+  describe("getRecentInvestigationsFromAPI", () => {
+    it("should return investigations", async () => {
       const result = await getRecentInvestigationsFromAPI(5);
-
       expect(result).toEqual([]);
+      expect(pb.collection).toHaveBeenCalledWith("investigations");
+      expect(pb.collection("investigations").getList).toHaveBeenCalledWith(1, 5, {
+        sort: "-id",
+        expand: "agent_id",
+        filter: 'user_id = "user-123"',
+      });
     });
 
-    it('should return empty array when response is not ok', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
-        ok: false,
-        status: 500,
+    it("should handle errors gracefully", async () => {
+      (pb.collection as any).mockReturnValueOnce({
+        getList: vi.fn().mockRejectedValue(new Error("Network error")),
       });
 
       const result = await getRecentInvestigationsFromAPI(5);
-
       expect(result).toEqual([]);
     });
   });
 
-  describe('getInvestigationByIdFromAPI', () => {
-    it('should return null on error', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Not found'));
-
-      const result = await getInvestigationByIdFromAPI('inv-123');
-
-      expect(result).toBeNull();
+  describe("getInvestigation", () => {
+    it("should return investigation when found", async () => {
+      const result = await getInvestigation("inv-123");
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe("inv-123");
+      expect(pb.send).toHaveBeenCalledWith('/api/investigations?id=inv-123', { method: 'GET' });
     });
 
-    it('should return null when response is not ok', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-      });
+    it("should return null on error", async () => {
+      (pb.send as any).mockRejectedValueOnce(new Error("Not found"));
 
-      const result = await getInvestigationByIdFromAPI('inv-123');
-
+      const result = await getInvestigation("inv-123");
       expect(result).toBeNull();
     });
   });
 
-  describe('getInferenceById', () => {
-    it('should return null when not found', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
-        ok: false,
-        status: 404,
+  describe("getInferenceById", () => {
+    it("should return inference when found", async () => {
+      (pb.collection as any).mockReturnValueOnce({
+        getOne: vi.fn().mockResolvedValue({
+          id: "inf-123",
+          function_name: "test",
+          created: "2023-01-01",
+        }),
       });
 
-      const result = await getInferenceById('inf-123');
-
-      expect(result).toBeNull();
+      const result = await getInferenceById("inf-123");
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe("inf-123");
     });
 
-    it('should handle errors gracefully', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Error'));
+    it("should return null when not found", async () => {
+      (pb.collection as any).mockReturnValueOnce({
+        getOne: vi.fn().mockRejectedValue(new Error("Not found")),
+      });
 
-      const result = await getInferenceById('inf-123');
-
+      const result = await getInferenceById("inf-123");
       expect(result).toBeNull();
     });
   });
 
-  describe('createInvestigationFromAPI', () => {
-    it('should throw error when not authenticated', async () => {
-      vi.mocked(getCurrentSession).mockResolvedValueOnce(null as any);
+  describe("createInvestigationFromAPI", () => {
+    it("should throw error when not authenticated", async () => {
+      // Mock authStore.model to be null
+      const originalModel = pb.authStore.model;
+      Object.defineProperty(pb.authStore, "model", { value: null, configurable: true });
 
       await expect(
         createInvestigationFromAPI({
-          agent_id: 'agent-123',
-          issue: 'Test',
-          priority: 'low',
-          initiated_by: 'user-123',
-          application_group: 'test-app',
+          agent_id: "agent-123",
+          issue: "Test",
+          priority: "low",
+          initiated_by: "user-123",
+          application_group: "test-app",
         })
-      ).rejects.toThrow('Authentication required');
+      ).rejects.toThrow("User not authenticated");
+
+      // Restore model
+      Object.defineProperty(pb.authStore, "model", { value: originalModel, configurable: true });
     });
 
-    it('should throw error when creation fails', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        text: async () => 'Bad request',
+    it("should create investigation successfully", async () => {
+      const result = await createInvestigationFromAPI({
+        agent_id: "agent-123",
+        issue: "Test",
+        priority: "low",
+        initiated_by: "user-123",
+        application_group: "test-app",
       });
 
-      await expect(
-        createInvestigationFromAPI({
-          agent_id: 'agent-123',
-          issue: 'Test',
-          priority: 'low',
-          initiated_by: 'user-123',
-          application_group: 'test-app',
-        })
-      ).rejects.toThrow();
+      expect(result.investigation_id).toBe("inv-new");
+      expect(pb.collection).toHaveBeenCalledWith("investigations");
     });
   });
 
-  describe('utility functions', () => {
-    describe('getPriorityColor', () => {
-      it('should return correct color classes for each priority', () => {
-        expect(getPriorityColor('critical')).toBe('bg-red-100 text-red-800');
-        expect(getPriorityColor('high')).toBe('bg-orange-100 text-orange-800');
-        expect(getPriorityColor('medium')).toBe('bg-yellow-100 text-yellow-800');
-        expect(getPriorityColor('low')).toBe('bg-blue-100 text-blue-800');
+  describe("utility functions", () => {
+    describe("getPriorityColor", () => {
+      it("should return correct color classes for each priority", () => {
+        expect(getPriorityColor("critical")).toBe("bg-red-100 text-red-800");
+        expect(getPriorityColor("high")).toBe("bg-orange-100 text-orange-800");
+        expect(getPriorityColor("medium")).toBe("bg-yellow-100 text-yellow-800");
+        expect(getPriorityColor("low")).toBe("bg-blue-100 text-blue-800");
       });
     });
 
-    describe('getStatusColor', () => {
-      it('should return correct color classes for each status', () => {
-        expect(getStatusColor('completed')).toBe('bg-green-100 text-green-800');
-        expect(getStatusColor('failed')).toBe('bg-red-100 text-red-800');
-        expect(getStatusColor('in_progress')).toBe('bg-blue-100 text-blue-800');
-        expect(getStatusColor('active')).toBe('bg-purple-100 text-purple-800');
-        expect(getStatusColor('pending')).toBe('bg-gray-100 text-gray-800');
+    describe("getStatusColor", () => {
+      it("should return correct color classes for each status", () => {
+        expect(getStatusColor("completed")).toBe("bg-green-100 text-green-800");
+        expect(getStatusColor("failed")).toBe("bg-red-100 text-red-800");
+        expect(getStatusColor("in_progress")).toBe("bg-blue-100 text-blue-800");
+        expect(getStatusColor("pending")).toBe("bg-gray-100 text-gray-800");
       });
     });
 
-    describe('formatInvestigationTime', () => {
-      it('should format time correctly', () => {
-        const time = '2024-01-01T12:00:00Z';
+    describe("formatInvestigationTime", () => {
+      it("should format time correctly", () => {
+        const time = "2024-01-01T12:00:00Z";
         const result = formatInvestigationTime(time);
         expect(result).toBeTruthy();
-        expect(typeof result).toBe('string');
+        expect(typeof result).toBe("string");
       });
 
-      it('should return formatted date for invalid time', () => {
-        const result = formatInvestigationTime('invalid-time');
-        expect(result).toBe('Invalid Date');
-      });
-    });
-
-    describe('status checkers', () => {
-      it('isInvestigationRunning should return true for active status', () => {
-        expect(isInvestigationRunning('active')).toBe(true);
-        expect(isInvestigationRunning('completed')).toBe(false);
-        expect(isInvestigationRunning('failed')).toBe(false);
-      });
-
-      it('isInvestigationCompleted should return true for completed statuses', () => {
-        expect(isInvestigationCompleted('completed')).toBe(true);
-        expect(isInvestigationCompleted('completed_with_analysis')).toBe(true);
-        expect(isInvestigationCompleted('active')).toBe(false);
-      });
-
-      it('isInvestigationFailed should return true for failed statuses', () => {
-        expect(isInvestigationFailed('failed')).toBe(true);
-        expect(isInvestigationFailed('timeout')).toBe(true);
-        expect(isInvestigationFailed('error')).toBe(true);
-        expect(isInvestigationFailed('completed')).toBe(false);
+      it("should return formatted date for invalid time", () => {
+        const result = formatInvestigationTime("invalid-time");
+        expect(result).toBe("Invalid Date");
       });
     });
-  });
 
-  describe('getUserInvestigations', () => {
-    it('should fetch user investigations from API successfully', async () => {
-      const mockData = [mockInvestigation];
-      (global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockData,
+    describe("status checkers", () => {
+      it("isInvestigationRunning should return true for active status", () => {
+        expect(isInvestigationRunning("active")).toBe(true);
+        expect(isInvestigationRunning("completed")).toBe(false);
+        expect(isInvestigationRunning("failed")).toBe(false);
       });
 
-      const result = await getUserInvestigations(10);
-
-      // The function returns data from API or falls back to supabase
-      expect(Array.isArray(result)).toBe(true);
-    });
-
-    it('should handle errors gracefully', async () => {
-      // Mock fetch to succeed with empty data
-      (global.fetch as any).mockResolvedValueOnce({
-        ok: true,
-        json: async () => [],
+      it("isInvestigationCompleted should return true for completed statuses", () => {
+        expect(isInvestigationCompleted("completed")).toBe(true);
+        expect(isInvestigationCompleted("active")).toBe(false);
       });
 
-      const result = await getUserInvestigations(10);
-
-      expect(Array.isArray(result)).toBe(true);
+      it("isInvestigationFailed should return true for failed statuses", () => {
+        expect(isInvestigationFailed("failed")).toBe(true);
+        expect(isInvestigationFailed("timeout")).toBe(true);
+        expect(isInvestigationFailed("error")).toBe(true);
+        expect(isInvestigationFailed("completed")).toBe(false);
+      });
     });
   });
 
-  describe('getInvestigationsPaginated', () => {
-    it('should handle basic function structure', async () => {
-      // Just verify the function exists and can be called
-      // Testing with mocks is causing test isolation issues
-      expect(getInvestigationsPaginated).toBeDefined();
+  describe("getUserInvestigations", () => {
+    it("should fetch user investigations successfully", async () => {
+      const result = await getUserInvestigations(10);
+      expect(Array.isArray(result)).toBe(true);
+      expect(pb.collection).toHaveBeenCalledWith("investigations");
+    });
+  });
+
+  describe("getInvestigationsPaginated", () => {
+    it("should handle basic function structure", async () => {
+      const result = await getInvestigationsPaginated(1, 10);
+      expect(result.investigations).toEqual([]);
+      expect(pb.collection).toHaveBeenCalledWith("investigations");
     });
   });
 });

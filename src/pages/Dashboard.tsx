@@ -220,14 +220,13 @@ const Dashboard = () => {
                                 <Server className="h-4 w-4 text-primary" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-medium text-sm truncate">{investigation.issue}</h4>
+                                <h4 className="font-medium text-sm truncate">{investigation.user_prompt}</h4>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  ID: {investigation.investigation_id}
+                                  ID: {investigation.id}
                                 </p>
                                 <div className="flex items-center space-x-2 mt-2">
                                   <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                    investigation.priority === 'critical' ? 'bg-red-100 text-red-800' :
-                                    investigation.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                                    investigation.priority === 'high' ? 'bg-red-100 text-red-800' :
                                     investigation.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
                                     'bg-blue-100 text-blue-800'
                                   }`}>

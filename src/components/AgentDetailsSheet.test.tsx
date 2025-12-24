@@ -1,38 +1,84 @@
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AgentDetailsSheet from './AgentDetailsSheet';
+import * as agentService from '@/services/agentService';
+
+// Mock getAgentMetrics
+vi.mock('@/services/agentService', async () => {
+  const actual = await vi.importActual('@/services/agentService');
+  return {
+    ...actual,
+    getAgentMetrics: vi.fn().mockResolvedValue([
+      {
+        id: 'metric-1',
+        agent_id: 'agent-123',
+        cpu_percent: 45.5,
+        memory_used_gb: 2,
+        memory_total_gb: 8,
+        memory_percent: 25,
+        disk_used_gb: 50,
+        disk_total_gb: 100,
+        disk_usage_percent: 50,
+        network_in_gb: 1,
+        network_out_gb: 1,
+        created_at: '2024-01-01T00:00:00Z',
+        filesystems: [],
+        load_avg_1min: 0.5,
+        load_avg_5min: 0.5,
+        load_avg_15min: 0.5,
+        cpu_cores: 4,
+      }
+    ]),
+  };
+});
 
 describe('AgentDetailsSheet component', () => {
   const mockAgent = {
     id: 'agent-123',
+    user_id: 'user-123',
     fingerprint: 'agent-123-fingerprint',
-    name: 'test-server',
+    hostname: 'test-server',
     status: 'active' as const,
     version: 'v1.5.0',
     location: 'US East',
     created_at: '2024-01-01T00:00:00Z',
-    ip_address: '10.0.0.1',
+    updated_at: '2024-01-01T00:00:00Z',
+    primary_ip: '10.0.0.1',
+    all_ips: ['10.0.0.1'],
     kernel_version: '5.4.0-42-generic',
     os_version: 'Ubuntu 20.04 LTS',
+    os_info: 'Ubuntu',
+    os_type: 'linux',
+    arch: 'x64',
+    platform_family: 'debian',
     owner: 'user-123456',
     last_seen: '2024-01-01T00:30:00Z',
+    metadata: {},
     lastMetric: {
+      id: 'metric-1',
       agent_id: 'agent-123',
-      recorded_at: '2024-01-01T00:00:00Z',
+      created_at: '2024-01-01T00:00:00Z',
       cpu_percent: 45.5,
-      memory_mb: 2048,
-      disk_percent: 65.0,
-      os_info: {
-        platform: 'Ubuntu 20.04 LTS',
-        kernel_version: '5.4.0-42-generic'
-      }
+      memory_used_gb: 2,
+      memory_total_gb: 8,
+      memory_percent: 25,
+      disk_used_gb: 50,
+      disk_total_gb: 100,
+      disk_usage_percent: 50,
+      network_in_gb: 1,
+      network_out_gb: 1,
+      filesystems: [],
+      load_avg_1min: 0.5,
+      load_avg_5min: 0.5,
+      load_avg_15min: 0.5,
+      cpu_cores: 4,
     }
   };
 
   const mockOnOpenChange = vi.fn();
 
-  it('should render correctly when open', () => {
+  it('should render correctly when open', async () => {
     render(
       <AgentDetailsSheet 
         agent={mockAgent} 
@@ -41,25 +87,40 @@ describe('AgentDetailsSheet component', () => {
       />
     );
 
-    // Verify agent name appears (may appear multiple times in sheet)
-    const nameElements = screen.getAllByText(mockAgent.name);
+    // Wait for metrics to load
+    await waitFor(() => {
+      expect(agentService.getAgentMetrics).toHaveBeenCalledWith(mockAgent.id);
+    });
+
+    // Verify agent hostname appears
+    const nameElements = screen.getAllByText(mockAgent.hostname);
     expect(nameElements.length).toBeGreaterThan(0);
     
-    // Verify status badge (appears multiple times)
+    // Verify status badge
     const statusElements = screen.getAllByText(mockAgent.status);
     expect(statusElements.length).toBeGreaterThan(0);
     
-    // Verify fingerprint is displayed (truncated in badge)
-    expect(screen.getByText(/ID: agent-123/i)).toBeInTheDocument();
+    // Verify ID is displayed
+    expect(screen.getByText(`ID: ${mockAgent.id}`)).toBeInTheDocument();
     
     // Verify system information section exists
     expect(screen.getByText('System Information')).toBeInTheDocument();
   });
 
-  it('should display "Unknown" for missing system information', () => {
+  it('should display "Unknown" for missing system information', async () => {
+    // Mock empty metrics response
+    (agentService.getAgentMetrics as any).mockResolvedValueOnce([]);
+
     const agentWithMissingInfo = {
       ...mockAgent,
-      lastMetric: undefined
+      lastMetric: undefined,
+      primary_ip: '',
+      platform_family: '',
+      arch: '',
+      kernel_version: '',
+      os_info: '',
+      os_version: '',
+      version: ''
     };
 
     render(
@@ -70,7 +131,10 @@ describe('AgentDetailsSheet component', () => {
       />
     );
 
-    // Verify "Unknown" is shown for missing metrics
+    // Wait for metrics to load (which will be empty)
+    await waitFor(() => expect(agentService.getAgentMetrics).toHaveBeenCalled());
+
+    // Verify "Unknown" is shown for missing info
     const unknownElements = screen.getAllByText('Unknown');
     expect(unknownElements.length).toBeGreaterThan(0);
     
@@ -98,7 +162,7 @@ describe('AgentDetailsSheet component', () => {
   it('should display offline status correctly', () => {
     const offlineAgent = {
       ...mockAgent,
-      status: 'offline' as const
+      status: 'inactive' as const
     };
 
     render(
@@ -114,7 +178,7 @@ describe('AgentDetailsSheet component', () => {
     expect(offlineElements.length).toBeGreaterThan(0);
   });
 
-  it('should display the timeline information correctly', () => {
+  it('should display the timeline information correctly', async () => {
     render(
       <AgentDetailsSheet 
         agent={mockAgent} 
@@ -123,14 +187,14 @@ describe('AgentDetailsSheet component', () => {
       />
     );
 
-    // Verify that last updated timestamp is shown
-    expect(screen.getByText(/Last updated:/i)).toBeInTheDocument();
+    // Wait for metrics to load and UI to update
+    await screen.findByText(/Last updated:/i);
     
     // Verify System Information section exists (which shows OS info)
     expect(screen.getByText('System Information')).toBeInTheDocument();
   });
 
-  it('should render the Performance Details section', () => {
+  it('should render the Performance Details section', async () => {
     render(
       <AgentDetailsSheet 
         agent={mockAgent} 
@@ -139,15 +203,10 @@ describe('AgentDetailsSheet component', () => {
       />
     );
 
-    // Verify Performance Details section is present
-    expect(screen.getByText('Performance Details')).toBeInTheDocument();
+    // Wait for metrics to load and UI to update
+    await screen.findByText('Detailed Metrics');
     
     // Verify metrics are displayed
-    expect(screen.getByText('CPU Usage')).toBeInTheDocument();
-    expect(screen.getByText('Memory Usage')).toBeInTheDocument();
-    
-    // Disk Usage appears multiple times (in overview and details)
-    const diskUsageElements = screen.getAllByText('Disk Usage');
-    expect(diskUsageElements.length).toBeGreaterThan(0);
+    expect(screen.getByText('Load Average')).toBeInTheDocument();
   });
 });

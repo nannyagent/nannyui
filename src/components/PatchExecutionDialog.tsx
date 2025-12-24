@@ -23,12 +23,12 @@ import {
   Clock
 } from 'lucide-react';
 import {
-  triggerPatchExecution,
-  checkAgentWebSocketConnection,
-  type PatchExecutionResponse
+  runPatchCheck,
+  applyPatches,
+  waitForPatchOperation,
+  type PatchOperation
 } from '@/services/patchManagementService';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
 
 interface PatchExecutionDialogProps {
   open: boolean;
@@ -54,7 +54,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
   const navigate = useNavigate();
   const [status, setStatus] = useState<ExecutionStatus>('idle');
   const [executionId, setExecutionId] = useState<string | null>(null);
-  const [executionData, setExecutionData] = useState<PatchExecutionResponse | null>(null);
+  const [executionData, setExecutionData] = useState<PatchOperation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -115,52 +115,65 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
 
   const startExecution = async () => {
     try {
-      // Step 1: Check agent connection
-      setStatus('checking');
-      setProgress(10);
-      
-      const isConnected = await checkAgentWebSocketConnection(agentId);
-      if (!isConnected) {
-        throw new Error('Agent is not connected. Please ensure the agent is online and try again.');
-      }
-
-      // Step 2: Trigger execution ONCE via POST
+      // Step 1: Trigger execution
       setStatus('triggering');
       setProgress(25);
       
-      const response = await triggerPatchExecution({
-        agent_id: agentId,
-        execution_type: executionType,
-        reboot: shouldReboot
-      });
-
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to trigger patch execution');
+      let id: string;
+      if (executionType === 'dry_run') {
+        id = await runPatchCheck(agentId);
+      } else {
+        // Assuming apply means update all if no packages specified
+        id = await applyPatches(agentId, []); 
       }
 
-      // Handle dry_run response (no execution_id, just available patches)
-      const dryRunResponse = response as any;
-      if (executionType === 'dry_run' && dryRunResponse.available_patches) {
-        setStatus('completed');
-        setProgress(100);
-        setError(
-          `Found ${dryRunResponse.total_patches || dryRunResponse.available_patches.length} available patch(es) for ${dryRunResponse.os_family}\n\n` +
-          `Patches:\n${dryRunResponse.available_patches.map((p: any) => `- ${p.name}`).join('\n')}`
-        );
-        return;
-      }
+      setExecutionId(id);
 
-      // Validate execution_id is present
-      if (!response.execution_id || response.execution_id.trim() === '') {
-        throw new Error('Server did not return an execution ID. Please try again.');
-      }
-
-      setExecutionId(response.execution_id);
-
-      // Step 3: Start polling for status with 60s timeout
+      // Step 2: Start polling for status
       setStatus('polling');
       setProgress(40);
-      pollExecutionStatus(response.execution_id);
+      
+      const result = await waitForPatchOperation(id, (currentStatus) => {
+        if (currentStatus === 'running') {
+           setProgress(60);
+        }
+      });
+
+      if (result) {
+        setExecutionData(result);
+        if (result.status === 'completed') {
+          setStatus('completed');
+          setProgress(100);
+          toast({
+            title: executionType === 'dry_run' ? 'Check Complete' : 'Patches Applied',
+            description: 'Operation completed successfully',
+          });
+          
+          setTimeout(() => {
+            onOpenChange(false);
+            navigate(`/patch-execution/${id}`); 
+          }, 1500);
+        } else {
+          setStatus('failed');
+          setError('Operation failed');
+          toast({
+            title: 'Execution Failed',
+            description: 'An error occurred',
+            variant: 'destructive'
+          });
+        }
+      } else {
+        setStatus('timeout');
+        setError('Operation timed out');
+        toast({
+            title: 'Taking longer than expected',
+            description: 'Navigating to execution details page...',
+        });
+        setTimeout(() => {
+            onOpenChange(false);
+            navigate(`/patch-execution/${id}`);
+        }, 1500);
+      }
 
     } catch (err) {
       console.error('Execution error:', err);
@@ -168,121 +181,6 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
       setStatus('failed');
       setProgress(0);
     }
-  };
-
-  const pollExecutionStatus = async (execId: string) => {
-    const maxWaitSeconds = 60;
-    const pollIntervalMs = 3000;
-    let pollCount = 0;
-    const maxPolls = Math.ceil((maxWaitSeconds * 1000) / pollIntervalMs);
-
-    const poll = async () => {
-      try {
-        pollCount++;
-        
-        // Check timeout
-        if (pollCount > maxPolls) {
-          setStatus('timeout');
-          setExecutionId(execId);
-          toast({
-            title: 'Taking longer than expected',
-            description: 'Navigating to execution details page...',
-          });
-          
-          // Navigate to detail page on timeout
-          setTimeout(() => {
-            onOpenChange(false);
-            navigate(`/patch-execution/${execId}`);
-          }, 1500);
-          
-          return;
-        }
-
-        // Query database directly
-        const { data: dbData, error: dbError } = await supabase
-          .from('patch_executions')
-          .select('*')
-          .eq('id', execId)
-          .single();
-
-        if (dbError) {
-          throw new Error(`Failed to query execution status: ${dbError.message}`);
-        }
-
-        // Convert database row to response format
-        const data: PatchExecutionResponse = {
-          execution_id: dbData.id,
-          agent_id: dbData.agent_id,
-          execution_type: dbData.execution_type,
-          status: dbData.status,
-          exit_code: dbData.exit_code,
-          error_message: dbData.error_message,
-          stdout_storage_path: dbData.stdout_storage_path,
-          stderr_storage_path: dbData.stderr_storage_path,
-          started_at: dbData.started_at,
-          completed_at: dbData.completed_at,
-          should_reboot: dbData.should_reboot,
-          rebooted_at: dbData.rebooted_at,
-          output: null,
-          stdout: null,
-          stderr: null
-        };
-
-        setExecutionData(data);
-
-        // Update progress
-        const progressValue = Math.min(40 + (pollCount * 3), 95);
-        setProgress(progressValue);
-
-        if (data.status === 'completed') {
-          setProgress(100);
-          setStatus('completed');
-          
-          toast({
-            title: executionType === 'dry_run' ? 'Dry Run Complete' : 'Patches Applied',
-            description: 'Execution completed successfully',
-          });
-          
-          // Navigate to detail page instead of calling onComplete
-          // This prevents the infinite loop caused by parent re-renders
-          setTimeout(() => {
-            onOpenChange(false);
-            navigate(`/patch-execution/${execId}`);
-          }, 1500);
-          
-          return;
-        } 
-        
-        if (data.status === 'failed') {
-          setStatus('failed');
-          setError(data.error_message || 'Execution failed');
-          toast({
-            title: 'Execution Failed',
-            description: data.error_message || 'An error occurred',
-            variant: 'destructive'
-          });
-          
-          // Navigate to detail page on failure too
-          setTimeout(() => {
-            onOpenChange(false);
-            navigate(`/patch-execution/${execId}`);
-          }, 1500);
-          
-          return;
-        }
-
-        // Continue polling if still running or pending
-        if (data.status === 'pending' || data.status === 'running') {
-          pollTimeoutRef.current = setTimeout(() => poll(), pollIntervalMs);
-        }
-      } catch (err) {
-        console.error('Polling error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to check execution status');
-        setStatus('failed');
-      }
-    };
-
-    poll();
   };
 
   const formatTime = (seconds: number) => {
@@ -432,11 +330,11 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
             </Button>
           </div>
 
-          {executionData?.should_reboot && (
+          {executionData?.metadata?.should_reboot && (
             <Alert>
               <RefreshCw className="h-4 w-4" />
               <AlertDescription>
-                {executionData.rebooted_at 
+                {executionData.metadata?.rebooted_at 
                   ? 'System was rebooted successfully' 
                   : 'A system reboot is recommended to apply all changes'}
               </AlertDescription>

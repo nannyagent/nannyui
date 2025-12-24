@@ -68,19 +68,19 @@ describe('Investigations Page', () => {
     const mockData = {
       investigations: [
         {
-          id: 1,
-          investigation_id: 'inv-1',
+          id: 'inv-1',
+          user_prompt: 'Test Issue',
           episode_id: 'episode-1',
-          issue: 'Test Issue',
           agent_id: 'agent-1',
+          agent: { hostname: 'agent-host' },
           priority: 'high' as const,
-          initiated_by: 'user-1',
           status: 'completed' as const,
           created_at: new Date().toISOString(),
           initiated_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           inference_count: 5,
+          metadata: {},
         },
       ],
       pagination: {
@@ -91,10 +91,6 @@ describe('Investigations Page', () => {
         has_next: false,
         has_prev: false,
       },
-      filters: {
-        status: 'all',
-        agent_id: 'all',
-      },
     };
 
     (investigationService.getInvestigationsPaginated as any).mockResolvedValueOnce(mockData);
@@ -103,6 +99,15 @@ describe('Investigations Page', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Test Issue')).toBeInTheDocument();
+      
+      const idLabel = screen.getByText('ID:');
+      expect(idLabel.parentElement).toHaveTextContent('inv-1');
+      
+      const episodeLabel = screen.getByText('Episode:');
+      expect(episodeLabel.parentElement).toHaveTextContent('episode-1');
+      
+      const agentLabel = screen.getByText('Agent:');
+      expect(agentLabel.parentElement).toHaveTextContent('agent-host');
     });
   });
 

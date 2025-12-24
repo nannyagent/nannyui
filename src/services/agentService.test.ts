@@ -8,351 +8,141 @@ import {
   createAgent,
   getAgentStats,
 } from './agentService';
-import { supabase } from '@/lib/supabase';
 import { mockAgent } from '@/test-utils/mock-data';
+import { pb } from '@/lib/pocketbase';
 
-// Mock the supabase client
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    from: vi.fn(),
-    auth: {
-      getUser: vi.fn(),
+// Mock PocketBase
+vi.mock('@/lib/pocketbase', () => {
+  const collectionMock = {
+    getList: vi.fn(),
+    getFullList: vi.fn(),
+    getOne: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  };
+  return {
+    pb: {
+      authStore: {
+        model: { id: 'user-123' },
+        isValid: true,
+      },
+      collection: vi.fn(() => collectionMock),
     },
-    rpc: vi.fn(),
-  },
-}));
+  };
+});
 
 describe('agentService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (pb.authStore as any).model = { id: 'user-123' };
   });
 
   describe('getAgents', () => {
     it('should fetch all agents successfully', async () => {
-      const mockData = [mockAgent];
-      const mockFrom = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({
-            data: mockData,
-            error: null,
-          }),
-        }),
-      });
-
-      (supabase.from as any).mockImplementation(mockFrom);
+      const mockData = [{ ...mockAgent, created: mockAgent.created_at, updated: mockAgent.updated_at }];
+      (pb.collection('agents').getFullList as any).mockResolvedValue(mockData);
 
       const result = await getAgents();
 
-      expect(result).toEqual(mockData);
-      expect(mockFrom).toHaveBeenCalledWith('agents');
-    });
-
-    it('should handle fetch errors gracefully', async () => {
-      const mockFrom = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'Database error' },
-          }),
-        }),
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(mockAgent.id);
+      expect(pb.collection).toHaveBeenCalledWith('agents');
+      expect(pb.collection('agents').getFullList).toHaveBeenCalledWith({
+        sort: '-id',
+        filter: 'user_id = "user-123"',
       });
-
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await getAgents();
-
-      expect(result).toEqual([]);
-    });
-
-    it('should handle exceptions', async () => {
-      const mockFrom = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          order: vi.fn().mockRejectedValue(new Error('Network error')),
-        }),
-      });
-
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await getAgents();
-
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe('fetchAgentMetrics', () => {
-    it('should fetch agent metrics successfully', async () => {
-      const mockMetrics = [
-        {
-          agent_id: mockAgent.id,
-          recorded_at: '2024-01-01T00:00:00Z',
-          cpu_percent: 45.5,
-          memory_mb: 2048,
-          disk_percent: 65.3,
-        },
-      ];
-
-      const mockFrom = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue({
-                data: mockMetrics,
-                error: null,
-              }),
-            }),
-          }),
-        }),
-      });
-
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await fetchAgentMetrics(mockAgent.id, 5);
-
-      expect(result).toEqual(mockMetrics);
-      expect(mockFrom).toHaveBeenCalledWith('agent_metrics');
     });
 
     it('should return empty array on error', async () => {
-      const mockFrom = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue({
-                data: null,
-                error: { message: 'Error' },
-              }),
-            }),
-          }),
-        }),
-      });
+      (pb.collection('agents').getFullList as any).mockRejectedValue(new Error('Fetch error'));
 
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await fetchAgentMetrics(mockAgent.id);
+      const result = await getAgents();
 
       expect(result).toEqual([]);
-    });
-  });
-
-  describe('getAgentDetails', () => {
-    it('should fetch agent details with metrics', async () => {
-      const mockMetrics = [
-        {
-          agent_id: mockAgent.id,
-          recorded_at: '2024-01-01T00:00:00Z',
-          cpu_percent: 45.5,
-        },
-      ];
-
-      const mockFrom = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue({
-                data: mockMetrics,
-                error: null,
-              }),
-            }),
-          }),
-        }),
-      });
-
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await getAgentDetails(mockAgent);
-
-      expect(result.id).toBe(mockAgent.id);
-      expect(result.metrics).toEqual(mockMetrics);
-    });
-
-    it('should handle errors when fetching details', async () => {
-      const mockFrom = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue({
-                data: null,
-                error: { message: 'Error' },
-              }),
-            }),
-          }),
-        }),
-      });
-
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await getAgentDetails(mockAgent);
-
-      expect(result.id).toBe(mockAgent.id);
-      expect(result.metrics).toEqual([]);
-    });
-  });
-
-  describe('deleteAgent', () => {
-    it('should delete agent successfully', async () => {
-      const mockFrom = vi.fn().mockReturnValue({
-        delete: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({
-            error: null,
-          }),
-        }),
-      });
-
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await deleteAgent(mockAgent.id);
-
-      expect(result.error).toBeNull();
-      expect(mockFrom).toHaveBeenCalledWith('agents');
-    });
-
-    it('should return error when delete fails', async () => {
-      const mockFrom = vi.fn().mockReturnValue({
-        delete: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({
-            error: { message: 'Delete failed' },
-          }),
-        }),
-      });
-
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await deleteAgent(mockAgent.id);
-
-      expect(result.error).toBeDefined();
-      expect(result.error.message).toBe('Delete failed');
-    });
-  });
-
-  describe('updateAgent', () => {
-    it('should update agent successfully', async () => {
-      const updates = { name: 'Updated Agent', status: 'active' as const };
-      const updatedAgent = { ...mockAgent, ...updates };
-
-      const mockFrom = vi.fn().mockReturnValue({
-        update: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: updatedAgent,
-                error: null,
-              }),
-            }),
-          }),
-        }),
-      });
-
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await updateAgent(mockAgent.id, updates);
-
-      expect(result.data?.name).toBe('Updated Agent');
-      expect(result.error).toBeNull();
-      expect(mockFrom).toHaveBeenCalledWith('agents');
-    });
-
-    it('should return error when update fails', async () => {
-      const mockFrom = vi.fn().mockReturnValue({
-        update: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: null,
-                error: { message: 'Update failed' },
-              }),
-            }),
-          }),
-        }),
-      });
-
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await updateAgent(mockAgent.id, { name: 'Test' });
-
-      expect(result.data).toBeNull();
-      expect(result.error).toBeDefined();
-      expect(result.error.message).toBe('Update failed');
-    });
-  });
-
-  describe('getAgentStats', () => {
-    it('should fetch agent stats successfully', async () => {
-      const mockFrom = vi.fn().mockReturnValue({
-        select: vi.fn().mockResolvedValue({
-          data: [mockAgent, mockAgent],
-          error: null,
-        }),
-      });
-
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await getAgentStats();
-
-      expect(result).toBeDefined();
-      expect(mockFrom).toHaveBeenCalledWith('agents');
-    });
-
-    it('should handle errors when fetching stats', async () => {
-      const mockFrom = vi.fn().mockReturnValue({
-        select: vi.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'Stats error' },
-        }),
-      });
-
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await getAgentStats();
-
-      expect(result).toBeDefined();
     });
   });
 
   describe('createAgent', () => {
     it('should create agent successfully', async () => {
-      const newAgent = {
-        name: 'New Agent',
-        status: 'pending' as const,
-      };
+      const newAgent = { ...mockAgent, created: mockAgent.created_at, updated: mockAgent.updated_at };
+      (pb.collection('agents').create as any).mockResolvedValue(newAgent);
 
-      const mockFrom = vi.fn().mockReturnValue({
-        insert: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: { ...newAgent, id: '2', created_at: '2024-01-01' },
-              error: null,
-            }),
-          }),
-        }),
-      });
+      const result = await createAgent(mockAgent);
 
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await createAgent(newAgent);
-
-      expect(result.data?.name).toBe(newAgent.name);
+      expect(result.data).toBeDefined();
       expect(result.error).toBeNull();
-      expect(mockFrom).toHaveBeenCalledWith('agents');
+      expect(pb.collection).toHaveBeenCalledWith('agents');
     });
 
-    it('should return error when creation fails', async () => {
-      const mockFrom = vi.fn().mockReturnValue({
-        insert: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: null,
-              error: { message: 'Creation failed' },
-            }),
-          }),
-        }),
-      });
+    it('should handle create error', async () => {
+      (pb.collection('agents').create as any).mockRejectedValue(new Error('Create error'));
 
-      (supabase.from as any).mockImplementation(mockFrom);
-
-      const result = await createAgent({ name: 'Test', status: 'pending' });
+      const result = await createAgent(mockAgent);
 
       expect(result.data).toBeNull();
       expect(result.error).toBeDefined();
+    });
+  });
+
+  describe('updateAgent', () => {
+    it('should update agent successfully', async () => {
+      const updatedAgent = { ...mockAgent, hostname: 'updated-host', created: mockAgent.created_at, updated: mockAgent.updated_at };
+      (pb.collection('agents').update as any).mockResolvedValue(updatedAgent);
+
+      const result = await updateAgent(mockAgent.id, { hostname: 'updated-host' });
+
+      expect(result.data?.hostname).toBe('updated-host');
+      expect(result.error).toBeNull();
+      expect(pb.collection).toHaveBeenCalledWith('agents');
+    });
+  });
+
+  describe('deleteAgent', () => {
+    it('should delete agent successfully', async () => {
+      (pb.collection('agents').delete as any).mockResolvedValue(true);
+
+      const result = await deleteAgent(mockAgent.id);
+
+      expect(result.error).toBeNull();
+      expect(pb.collection).toHaveBeenCalledWith('agents');
+    });
+  });
+
+  describe('fetchAgentMetrics', () => {
+    it('should fetch metrics successfully', async () => {
+      const mockMetrics = {
+        items: [
+          { id: 'm1', agent_id: mockAgent.id, cpu_percent: 10, created: '2023-01-01' }
+        ]
+      };
+      (pb.collection('agent_metrics').getList as any).mockResolvedValue(mockMetrics);
+
+      const result = await fetchAgentMetrics(mockAgent.id);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].cpu_percent).toBe(10);
+      expect(pb.collection).toHaveBeenCalledWith('agent_metrics');
+    });
+  });
+
+  describe('getAgentStats', () => {
+    it('should calculate stats correctly', async () => {
+      const now = new Date();
+      const activeTime = now.toISOString();
+      const inactiveTime = new Date(now.getTime() - 10 * 60 * 1000).toISOString(); // 10 mins ago
+
+      const mockAgents = [
+        { ...mockAgent, last_seen: activeTime, created: '2023-01-01', updated: '2023-01-01' },
+        { ...mockAgent, id: '2', last_seen: inactiveTime, created: '2023-01-01', updated: '2023-01-01' }
+      ];
+      (pb.collection('agents').getFullList as any).mockResolvedValue(mockAgents);
+
+      const stats = await getAgentStats();
+
+      expect(stats.total).toBe(2);
+      expect(stats.online).toBe(2);
+      expect(stats.offline).toBe(0);
     });
   });
 });

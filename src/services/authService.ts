@@ -32,7 +32,7 @@ export const signUpWithEmail = async (
     const authData = await pb.collection('users').authWithPassword(email, password);
 
     return {
-      user: authData.record as UserRecord,
+      user: authData.record as unknown as UserRecord,
       token: authData.token,
       error: null,
     };
@@ -56,7 +56,7 @@ export const signInWithEmail = async (
     const authData = await pb.collection('users').authWithPassword(email, password);
 
     return {
-      user: authData.record as UserRecord,
+      user: authData.record as unknown as UserRecord,
       token: authData.token,
       error: null,
     };
@@ -84,7 +84,7 @@ export const signInWithGitHub = async () => {
     // Successfully authenticated - return the auth data
     return { 
       data: {
-        user: authData.record as UserRecord,
+        user: authData.record as unknown as UserRecord,
         token: authData.token,
       }, 
       error: null 
@@ -108,7 +108,7 @@ export const signInWithGoogle = async () => {
     // Successfully authenticated - return the auth data
     return { 
       data: {
-        user: authData.record as UserRecord,
+        user: authData.record as unknown as UserRecord,
         token: authData.token,
       }, 
       error: null 
@@ -136,7 +136,7 @@ export const signOut = async () => {
 export const getCurrentUser = async (): Promise<UserRecord | null> => {
   try {
     if (!pb.authStore.isValid) return null;
-    return pb.authStore.record as UserRecord;
+    return pb.authStore.record as unknown as UserRecord;
   } catch (error) {
     return null;
   }
@@ -161,7 +161,7 @@ export const onAuthStateChange = (
   callback: (event: string, user: UserRecord | null) => void
 ) => {
   pb.authStore.onChange(() => {
-    const user = pb.authStore.record as UserRecord | null;
+    const user = pb.authStore.record as unknown as UserRecord | null;
     callback('auth_change', user);
   }, true);
 
@@ -325,3 +325,5 @@ export const verifyMFALogin = async (_code: string) => {
     return { data: null, error };
   }
 };
+
+

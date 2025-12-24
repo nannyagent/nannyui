@@ -1,12 +1,4 @@
-import { supabase } from '@/lib/supabase';
-
-const getSupabaseUrl = (): string => {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  if (!url) {
-    throw new Error('VITE_SUPABASE_URL is not defined in environment variables');
-  }
-  return url;
-};
+import { pb } from '@/lib/pocketbase';
 
 export interface Vulnerability {
   cve_id?: string;
@@ -48,439 +40,438 @@ export interface Summary {
 }
 
 export interface PatchManagementData {
-  architecture: string;
-  package_manager: string;
-  os_distribution: string;
-  os_version: string;
-  kernel_version: string;
-  analysis_timestamp: string;
   packages: Package[];
   kernel_upgrade: KernelUpgrade;
   os_upgrade: OsUpgrade;
   summary: Summary;
-  recommendations: string[];
+  last_checked: string;
 }
 
-export interface PatchExecution {
+export interface PatchOperation {
   id: string;
   agent_id: string;
-  script_id: string;
-  execution_type: 'dry_run' | 'apply' | 'apply_with_reboot';
+  mode: 'dry-run' | 'apply' | 'rollback';
   status: 'pending' | 'running' | 'completed' | 'failed';
-  command: string;
-  exit_code: number | null;
-  error_message: string | null;
-  stdout_storage_path: string | null;
-  stderr_storage_path: string | null;
-  started_at: string | null;
-  completed_at: string | null;
-  triggered_by: string;
-  should_reboot: boolean;
-  rebooted_at: string | null;
+  script_url: string;
+  stdout_file: string;
+  stderr_file: string;
+  exit_code: number;
+  metadata: Record<string, any>;
+  started_at: string;
+  completed_at: string;
+  created: string;
+  updated: string;
 }
 
-export interface PatchExecutionResponse {
-  execution_id: string;
+/**
+ * Get the latest patch status for an agent
+ */
+export const getPatchStatus = async (agentId: string): Promise<PatchManagementData | null> => {
+  try {
+    // Get the latest completed 'check' operation
+    const result = await pb.collection('patch_operations').getList(1, 1, {
+      filter: `agent_id = "${agentId}" && mode = "dry-run" && status = "completed"`,
+      sort: '-id', // Changed from -created
+    });
+
+    if (result.items.length === 0) {
+      return null;
+    }
+
+    const operation = result.items[0];
+    
+    // Fetch the stdout file content
+    if (operation.stdout_file) {
+      const url = pb.files.getUrl(operation, operation.stdout_file);
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          ...data,
+          last_checked: operation.created,
+        };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching patch status:', error);
+    return null;
+  }
+};
+
+/**
+ * Get patch operation details including parsed stdout
+ */
+export const getPatchOperationDetails = async (id: string): Promise<PatchOperation & { parsedOutput?: any }> => {
+  try {
+    const operation = await pb.collection('patch_operations').getOne(id);
+    
+    let parsedOutput = null;
+    if (operation.stdout_file) {
+      const url = pb.files.getUrl(operation, operation.stdout_file);
+      const response = await fetch(url);
+      if (response.ok) {
+        const text = await response.text();
+        // Extract JSON from text
+        // The example shows "=== JSON Output (for UI parsing) ===" followed by JSON
+        const marker = '=== JSON Output (for UI parsing) ===';
+        const jsonStart = text.indexOf(marker);
+        
+        if (jsonStart !== -1) {
+          const jsonText = text.substring(jsonStart + marker.length).trim();
+          try {
+            parsedOutput = JSON.parse(jsonText);
+          } catch (e) {
+            console.error('Failed to parse JSON from stdout section:', e);
+          }
+        } else {
+            // Fallback: try parsing the whole text
+            try {
+                parsedOutput = JSON.parse(text);
+            } catch (e) {
+                // ignore
+            }
+        }
+      }
+    }
+
+    return {
+      ...operation,
+      parsedOutput,
+      created: operation.created,
+      updated: operation.updated,
+    } as unknown as PatchOperation & { parsedOutput?: any };
+  } catch (error) {
+    console.error('Error fetching patch operation details:', error);
+    throw error;
+  }
+};
+
+
+/**
+ * Run a patch check
+ */
+export const runPatchCheck = async (agentId: string): Promise<string> => {
+  try {
+    const user = pb.authStore.model;
+    
+    // Fetch agent to get platform_family
+    const agent = await pb.collection('agents').getOne(agentId);
+    const platformFamily = agent.platform_family;
+
+    if (!platformFamily) {
+      throw new Error('Agent platform_family not found');
+    }
+
+    // Fetch script for this platform_family
+    const scripts = await pb.collection('scripts').getList(1, 1, {
+      filter: `platform_family = "${platformFamily}"`,
+    });
+
+    if (scripts.items.length === 0) {
+      throw new Error(`No script found for platform_family: ${platformFamily}`);
+    }
+    const scriptId = scripts.items[0].id;
+
+    const record = await pb.collection('patch_operations').create({
+      agent_id: agentId,
+      user_id: user?.id,
+      script_id: scriptId,
+      mode: 'dry-run',
+      status: 'pending',
+    });
+    return record.id;
+  } catch (error) {
+    console.error('Error running patch check:', error);
+    throw error;
+  }
+};
+
+/**
+ * Apply patches
+ */
+export const applyPatches = async (agentId: string, packageNames: string[]): Promise<string> => {
+  try {
+    const user = pb.authStore.model;
+
+    // Fetch agent to get platform_family
+    const agent = await pb.collection('agents').getOne(agentId);
+    const platformFamily = agent.platform_family;
+
+    if (!platformFamily) {
+      throw new Error('Agent platform_family not found');
+    }
+
+    // Fetch script for this platform_family
+    const scripts = await pb.collection('scripts').getList(1, 1, {
+      filter: `platform_family = "${platformFamily}"`,
+    });
+
+    if (scripts.items.length === 0) {
+      throw new Error(`No script found for platform_family: ${platformFamily}`);
+    }
+    const scriptId = scripts.items[0].id;
+
+    const record = await pb.collection('patch_operations').create({
+      agent_id: agentId,
+      user_id: user?.id,
+      script_id: scriptId,
+      mode: 'apply',
+      status: 'pending',
+      metadata: {
+        packages: packageNames,
+      },
+    });
+    return record.id;
+  } catch (error) {
+    console.error('Error applying patches:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get patch history
+ */
+export const getPatchHistory = async (agentId: string, limit: number = 10): Promise<PatchOperation[]> => {
+  try {
+    const result = await pb.collection('patch_operations').getList(1, limit, {
+      filter: `agent_id = "${agentId}"`,
+      sort: '-id', // Changed from -created
+    });
+    
+    return result.items.map((record: any) => ({
+      ...record,
+      created: record.created,
+      updated: record.updated,
+    })) as unknown as PatchOperation[];
+  } catch (error) {
+    console.error('Error fetching patch history:', error);
+    return [];
+  }
+};
+
+/**
+ * Poll for operation completion
+ */
+export const waitForPatchOperation = async (
+  operationId: string, 
+  onProgress?: (status: string) => void
+): Promise<PatchOperation | null> => {
+  const pollInterval = 2000;
+  const maxAttempts = 300; // 10 minutes
+  
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const record = await pb.collection('patch_operations').getOne(operationId);
+      
+      if (onProgress) {
+        onProgress(record.status);
+      }
+      
+      if (record.status === 'completed' || record.status === 'failed') {
+        return record as unknown as PatchOperation;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    } catch (error) {
+      console.error('Error polling patch operation:', error);
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+  }
+  
+  return null;
+};
+
+export interface PatchSchedule {
+  id: string;
   agent_id: string;
-  status: string;
-  execution_type: string;
-  exit_code: number | null;
-  output: Record<string, string | number | boolean | null>;
-  stdout: string | null;
-  stderr: string | null;
-  error_message: string | null;
-  started_at: string | null;
-  completed_at: string | null;
-  should_reboot: boolean;
-  rebooted_at: string | null;
-  stdout_storage_path?: string | null;
-  stderr_storage_path?: string | null;
+  cron_expr: string;
+  next_run: string;
+  last_run: string;
+  enabled: boolean;
+  metadata: Record<string, any>;
 }
 
 export interface PackageException {
   id: string;
   agent_id: string;
   package_name: string;
-  reason: string | null;
-  is_active: boolean;
-  expires_at: string | null;
-  created_at: string;
+  reason: string;
+  expires_at: string;
+  created_by: string;
 }
 
-export interface TriggerPatchRequest {
-  agent_id: string;
-  execution_type: 'dry_run' | 'apply';
-  reboot?: boolean;
-}
-
-export interface TriggerPatchResponse {
-  success: boolean;
-  execution_id: string;
-  agent_id: string;
-  execution_type: string;
-  status: string;
-  message: string;
-}
-
-const getAuthHeaders = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) {
-    throw new Error('No active session');
-  }
-  
-  return {
-    'Authorization': `Bearer ${session.access_token}`,
-    'Content-Type': 'application/json',
-    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-  };
-};
-
-export const getPatchManagementData = async (agentId: string): Promise<PatchManagementData> => {
-  const supabaseUrl = getSupabaseUrl();
-  const apiUrl = `${supabaseUrl}/functions/v1/diagnostic/packages/${agentId}`;
-  
-  const response = await fetch(apiUrl, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch patch management data: ${response.statusText}`);
-  }
-
-  return await response.json();
-  // Diagnostic endpoint may not exist yet - this is expected for new installations
-};
-
-export const triggerPatchExecution = async (
-  request: TriggerPatchRequest
-): Promise<TriggerPatchResponse> => {
-  const headers = await getAuthHeaders();
-  const supabaseUrl = getSupabaseUrl();
-  
-  const response = await fetch(
-    `${supabaseUrl}/functions/v1/patch-management`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(request)
-    }
-  );
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || error.error || 'Failed to trigger patch execution');
-  }
-
-  const data = await response.json();
-  
-  // Handle different response formats
-  // If execution_id exists, use it directly
-  if (data.execution_id) {
-    return data;
-  }
-  
-  // If success but no execution_id, the backend may have created it async
-  // Query the database for the most recent execution for this agent
-  if (data.success || data.message) {
-    console.log('Patch execution triggered, querying for execution record...');
-    
-    // Retry logic: wait up to 5 seconds for execution record to be created
-    let retries = 0;
-    const maxRetries = 10; // 5 seconds total (10 * 500ms)
-    let executions = null;
-    let queryError = null;
-
-    while (retries < maxRetries) {
-      const query = await supabase
-        .from('patch_executions')
-        .select('*')
-        .eq('agent_id', request.agent_id)
-        .order('started_at', { ascending: false })
-        .limit(1);
-      
-      executions = query.data;
-      queryError = query.error;
-
-      if (!queryError && executions && executions.length > 0) {
-        const execution = executions[0];
-        console.log('Found execution record:', execution.id);
-        return {
-          success: true,
-          execution_id: execution.id,
-          agent_id: execution.agent_id,
-          execution_type: execution.execution_type,
-          status: execution.status,
-          message: data.message || 'Execution started'
-        };
-      }
-
-      retries++;
-      if (retries < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    }
-    
-    // If we still can't find it after retries, throw error
-    console.error('Patch execution response after retries:', data);
-    console.error('Could not find execution record in database');
-    throw new Error('Patch execution triggered but execution record not found. Check execution history.');
-  }
-
-  console.error('Invalid patch execution response:', data);
-  throw new Error('Server returned invalid response: missing execution_id');
-};
-
-export const getPatchExecutionStatus = async (
-  executionId: string
-): Promise<PatchExecutionResponse> => {
+/**
+ * Get scheduled patches
+ */
+export const getScheduledPatches = async (agentId: string): Promise<PatchSchedule[]> => {
   try {
-    const headers = await getAuthHeaders();
-    const supabaseUrl = getSupabaseUrl();
-    
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/patch-management/${executionId}`,
-      {
-        method: 'GET',
-        headers
-      }
-    );
-
-    if (response.ok) {
-      return await response.json();
-    }
+    const result = await pb.collection('patch_schedules').getList(1, 50, {
+      filter: `agent_id = "${agentId}"`,
+    });
+    return result.items.map((record: any) => ({
+      ...record,
+    })) as unknown as PatchSchedule[];
   } catch (error) {
-    console.error('API endpoint error, falling back to database query:', error);
+    console.error('Error fetching patch schedules:', error);
+    return [];
   }
+};
 
-  // Fallback: query database directly
+/**
+ * Get package exceptions
+ */
+export const getPackageExceptions = async (agentId: string): Promise<PackageException[]> => {
   try {
-    const { data, error } = await supabase
-      .from('patch_executions')
-      .select('*')
-      .eq('id', executionId)
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    if (!data) {
-      throw new Error('Execution not found');
-    }
-
-    return {
-      execution_id: data.id,
-      agent_id: data.agent_id,
-      execution_type: data.execution_type,
-      status: data.status,
-      exit_code: data.exit_code,
-      error_message: data.error_message,
-      stdout_storage_path: data.stdout_storage_path,
-      stderr_storage_path: data.stderr_storage_path,
-      started_at: data.started_at,
-      completed_at: data.completed_at,
-      should_reboot: data.should_reboot,
-      rebooted_at: data.rebooted_at,
-      output: null,
-      stdout: null,
-      stderr: null
-    };
+    const result = await pb.collection('package_exceptions').getList(1, 50, {
+      filter: `agent_id = "${agentId}"`,
+    });
+    return result.items.map((record: any) => ({
+      ...record,
+    })) as unknown as PackageException[];
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Failed to get execution status';
-    throw new Error(errorMsg);
+    console.error('Error fetching package exceptions:', error);
+    return [];
   }
 };
 
-export const listPatchExecutions = async (
-  agentId: string,
-  limit: number = 10
-): Promise<PatchExecution[]> => {
-  const { data, error } = await supabase
-    .from('patch_executions')
-    .select('*')
-    .eq('agent_id', agentId)
-    .order('started_at', { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data || [];
-};
-
-export const getPackageExceptions = async (
-  agentId: string
-): Promise<PackageException[]> => {
-  const { data, error } = await supabase
-    .from('package_exceptions')
-    .select('*')
-    .eq('agent_id', agentId)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data || [];
-};
-
+/**
+ * Add a package exception
+ */
 export const addPackageException = async (
   agentId: string,
   packageName: string,
-  reason?: string,
+  reason: string,
   expiresAt?: string
-): Promise<PackageException> => {
-  const { data, error } = await supabase
-    .from('package_exceptions')
-    .insert({
+): Promise<PackageException | null> => {
+  try {
+    const user = pb.authStore.model;
+    if (!user) throw new Error('User not authenticated');
+
+    const record = await pb.collection('package_exceptions').create({
       agent_id: agentId,
       package_name: packageName,
-      reason: reason || null,
-      expires_at: expiresAt || null,
-      is_active: true
-    })
-    .select()
-    .single();
+      reason: reason,
+      expires_at: expiresAt,
+      created_by: user.id,
+    });
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data;
-};
-
-export const removePackageException = async (exceptionId: string): Promise<void> => {
-  const { error } = await supabase
-    .from('package_exceptions')
-    .update({ is_active: false })
-    .eq('id', exceptionId);
-
-  if (error) {
-    throw new Error(error.message);
+    return {
+      ...record,
+    } as unknown as PackageException;
+  } catch (error) {
+    console.error('Error adding package exception:', error);
+    return null;
   }
 };
 
-export const checkAgentWebSocketConnection = async (agentId: string): Promise<boolean> => {
-  const { data, error } = await supabase
-    .from('agents')
-    .select('websocket_connected')
-    .eq('id', agentId)
-    .single();
-
-  if (error || !data) {
+/**
+ * Remove a package exception
+ */
+export const removePackageException = async (exceptionId: string): Promise<boolean> => {
+  try {
+    await pb.collection('package_exceptions').delete(exceptionId);
+    return true;
+  } catch (error) {
+    console.error('Error removing package exception:', error);
     return false;
   }
-
-  // Simply return the current connection status
-  // Don't check when it connected - just check if it's currently connected
-  return data.websocket_connected === true;
 };
 
-export const listAllPatchExecutions = async (
-  limit: number = 50
-): Promise<(PatchExecution & { agent_name?: string })[]> => {
-  const { data: executionsData, error: execError } = await supabase
-    .from('patch_executions')
-    .select('*')
-    .order('started_at', { ascending: false })
-    .limit(limit);
-
-  if (execError) {
-    throw new Error(execError.message);
-  }
-
-  if (!executionsData || executionsData.length === 0) {
-    return [];
-  }
-
-  const agentIds = [...new Set(executionsData.map(e => e.agent_id))];
-  const { data: agentsData } = await supabase
-    .from('agents')
-    .select('id, name')
-    .in('id', agentIds);
-
-  const agentMap = new Map(agentsData?.map(a => [a.id, a.name]) || []);
-
-  return executionsData.map(exec => ({
-    ...exec,
-    agent_name: agentMap.get(exec.agent_id) || `Agent ${exec.agent_id.substring(0, 8)}`
-  }));
-};
-
-export const triggerAgentReboot = async (agentId: string): Promise<void> => {
-  const headers = await getAuthHeaders();
-  const supabaseUrl = getSupabaseUrl();
-  
-  const response = await fetch(
-    `${supabaseUrl}/functions/v1/agent-management/reboot`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ agent_id: agentId })
-    }
-  );
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || error.error || 'Failed to trigger agent reboot');
-  }
-};
-
-export interface CronScheduleRequest {
-  agent_id: string;
-  cron_expression: string;
-  execution_type: 'dry_run' | 'apply';
-  with_reboot: boolean;
-}
-
-export interface ScheduledPatch {
-  id: string;
-  agent_id: string;
-  cron_expression: string;
-  execution_type: string;
-  is_active: boolean;
-  next_run_at: string | null;
-  last_run_at: string | null;
-  created_at: string;
-}
-
-export const getScheduledPatches = async (agentId: string): Promise<ScheduledPatch[]> => {
-  const { data, error } = await supabase
-    .from('scheduled_patches')
-    .select('*')
-    .eq('agent_id', agentId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching scheduled patches:', error);
-    return [];
-  }
-
-  return data || [];
-};
-
+/**
+ * Save cron schedule
+ */
 export const saveCronSchedule = async (
-  request: CronScheduleRequest
-): Promise<void> => {
-  const headers = await getAuthHeaders();
-  const supabaseUrl = getSupabaseUrl();
-  
-  const response = await fetch(
-    `${supabaseUrl}/functions/v1/patch-management/schedule`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(request)
-    }
-  );
+  agentId: string,
+  cronExpression: string,
+  enabled: boolean = true
+): Promise<boolean> => {
+  try {
+    // Check if schedule exists
+    const existing = await pb.collection('patch_schedules').getList(1, 1, {
+      filter: `agent_id = "${agentId}"`,
+    });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || error.error || 'Failed to save cron schedule');
+    if (existing.items.length > 0) {
+      await pb.collection('patch_schedules').update(existing.items[0].id, {
+        cron_expression: cronExpression,
+        enabled: enabled,
+      });
+    } else {
+      await pb.collection('patch_schedules').create({
+        agent_id: agentId,
+        cron_expression: cronExpression,
+        enabled: enabled,
+      });
+    }
+    return true;
+  } catch (error) {
+    console.error('Error saving cron schedule:', error);
+    return false;
   }
 };
+
+/**
+ * Trigger agent reboot
+ */
+export const triggerAgentReboot = async (agentId: string): Promise<boolean> => {
+  try {
+    await pb.collection('agent_commands').create({
+      agent_id: agentId,
+      command: 'reboot',
+      status: 'pending',
+    });
+    return true;
+  } catch (error) {
+    console.error('Error triggering reboot:', error);
+    return false;
+  }
+};
+
+/**
+ * Check agent connection
+ */
+export const checkAgentWebSocketConnection = async (agentId: string): Promise<boolean> => {
+  // Simplified: always return true as per user request
+  return true;
+};
+
+/**
+ * List all patch executions (paginated)
+ */
+export const listAllPatchExecutions = async (
+  page: number = 1,
+  limit: number = 10,
+  filter: string = ''
+): Promise<{ executions: PatchOperation[], total: number }> => {
+  try {
+    const result = await pb.collection('patch_operations').getList(page, limit, {
+      filter: filter,
+      sort: '-id', // Changed from -created
+      expand: 'agent_id',
+    });
+
+    const executions = result.items.map((record: any) => ({
+      ...record,
+      created: record.created,
+      updated: record.updated,
+      agent_name: record.expand?.agent_id?.hostname || 'Unknown Agent',
+    })) as unknown as PatchOperation[];
+
+    return {
+      executions,
+      total: result.totalItems,
+    };
+  } catch (error) {
+    console.error('Error listing all patch executions:', error);
+    return { executions: [], total: 0 };
+  }
+};
+
+// Alias for compatibility
+export const getPatchManagementData = getPatchStatus;
+
+// Aliases for compatibility
+export const listPatchExecutions = getPatchHistory;
+export type PatchExecution = PatchOperation;

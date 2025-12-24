@@ -11,35 +11,38 @@ vi.mock('@/utils/withAuth', () => ({
 // Mock the services
 vi.mock('@/services/patchManagementService', () => ({
   listAllPatchExecutions: vi.fn(() =>
-    Promise.resolve([
-      {
-        id: '1',
-        agent_id: 'agent-123',
-        agent_name: 'Test Agent',
-        status: 'completed',
-        execution_type: 'dry_run',
-        started_at: new Date().toISOString(),
-        completed_at: new Date().toISOString(),
-      },
-      {
-        id: '2',
-        agent_id: 'agent-123',
-        agent_name: 'Test Agent',
-        status: 'running',
-        execution_type: 'apply',
-        started_at: new Date().toISOString(),
-        completed_at: null,
-      },
-      {
-        id: '3',
-        agent_id: 'agent-456',
-        agent_name: 'Another Agent',
-        status: 'completed',
-        execution_type: 'apply_with_reboot',
-        started_at: new Date().toISOString(),
-        completed_at: new Date().toISOString(),
-      },
-    ])
+    Promise.resolve({
+      executions: [
+        {
+          id: '1',
+          agent_id: 'agent-123',
+          agent_name: 'Test Agent',
+          status: 'completed',
+          mode: 'check',
+          created: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          agent_id: 'agent-123',
+          agent_name: 'Test Agent',
+          status: 'running',
+          mode: 'update',
+          created: new Date().toISOString(),
+          completed_at: null,
+        },
+        {
+          id: '3',
+          agent_id: 'agent-456',
+          agent_name: 'Another Agent',
+          status: 'completed',
+          mode: 'update',
+          created: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        },
+      ],
+      total: 3
+    })
   ),
   listPatchExecutions: vi.fn(() =>
     Promise.resolve({
@@ -49,8 +52,8 @@ vi.mock('@/services/patchManagementService', () => ({
           agent_id: 'agent-123',
           agent_name: 'Test Agent',
           status: 'completed',
-          execution_type: 'dry_run',
-          started_at: new Date().toISOString(),
+          mode: 'check',
+          created: new Date().toISOString(),
           completed_at: new Date().toISOString(),
         },
       ],

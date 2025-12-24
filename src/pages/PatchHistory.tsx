@@ -71,8 +71,8 @@ const PatchHistory = () => {
   const loadExecutions = async () => {
     setLoading(true);
     try {
-      const data = await listAllPatchExecutions(100);
-      setExecutions(data);
+      const { executions } = await listAllPatchExecutions(1, 100);
+      setExecutions(executions);
     } catch (error) {
       console.error('Error loading executions:', error);
     } finally {
@@ -201,8 +201,8 @@ const PatchHistory = () => {
     
     // Sort by date descending (newest first)
     filtered.sort((a, b) => {
-      const dateA = a.started_at ? new Date(a.started_at).getTime() : 0;
-      const dateB = b.started_at ? new Date(b.started_at).getTime() : 0;
+      const dateA = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+      const dateB = b.completed_at ? new Date(b.completed_at).getTime() : 0;
       return dateB - dateA;
     });
     
@@ -433,22 +433,22 @@ const PatchHistory = () => {
                                         {execution.status.charAt(0).toUpperCase() + execution.status.slice(1)}
                                       </Badge>
                                       <Badge variant="outline" className="text-xs">
-                                        {execution.execution_type === 'dry_run' ? 'Dry Run' : 
-                                         execution.execution_type === 'apply' ? 'Apply' : 
-                                         execution.execution_type === 'apply_with_reboot' ? 'Apply + Reboot' : execution.execution_type}
+                                        {execution.mode === 'check' ? 'Check' : 
+                                         execution.mode === 'update' ? 'Update' : 
+                                         execution.mode === 'rollback' ? 'Rollback' : execution.mode}
                                       </Badge>
                                       <span className="text-sm text-muted-foreground">
-                                        {formatDate(execution.started_at)}
+                                        {formatDate(execution.created)}
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                       {execution.completed_at && (
                                         <span className="text-xs text-muted-foreground hidden sm:inline">
                                           {(() => {
-                                            if (!execution.started_at || isNaN(Date.parse(execution.started_at))) {
+                                            if (!execution.created || isNaN(Date.parse(execution.created))) {
                                               return 'N/A';
                                             } 
-                                            const seconds = Math.floor((new Date(execution.completed_at).getTime() - new Date(execution.started_at).getTime()) / 1000);
+                                            const seconds = Math.floor((new Date(execution.completed_at).getTime() - new Date(execution.created).getTime()) / 1000);
                                             if (seconds < 60) return `${seconds}s`;
                                             return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
                                           })()}

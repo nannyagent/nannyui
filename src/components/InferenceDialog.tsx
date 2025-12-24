@@ -504,44 +504,23 @@ const InferenceDialog: React.FC<InferenceDialogProps> = ({ inferenceId, open, on
               </div>
               <div className="text-sm font-medium">{inference.processing_time_ms}ms</div>
             </div>
-            {inference.model_inference && (
-              <>
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">Model</div>
-                  <div className="text-sm font-medium">{inference.model_inference.model_name}</div>
+            {inference.variant_name && (
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">Model</div>
+                <div className="text-sm font-medium">{inference.variant_name}</div>
+              </div>
+            )}
+            {inference.usage && (
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">Tokens</div>
+                <div className="text-sm font-medium">
+                  {inference.usage.input_tokens || 0} in / {inference.usage.output_tokens || 0} out
                 </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">Tokens</div>
-                  <div className="text-sm font-medium">
-                    {inference.model_inference.input_tokens} in / {inference.model_inference.output_tokens} out
-                  </div>
-                </div>
-              </>
+              </div>
             )}
           </div>
 
-          {/* Model Inference Details */}
-          {inference.model_inference && (
-            <div className="p-4 border rounded-lg space-y-2">
-              <h3 className="font-semibold text-sm flex items-center gap-2">
-                <Code2 className="h-4 w-4" />
-                Model Inference
-              </h3>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-muted-foreground">Provider:</span> {inference.model_inference.model_provider_name}
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Response Time:</span> {inference.model_inference.response_time_ms}ms
-                </div>
-                {inference.model_inference.ttft_ms && (
-                  <div>
-                    <span className="text-muted-foreground">Time to First Token:</span> {inference.model_inference.ttft_ms}ms
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+
 
           {/* Input/Output Tabs */}
           <Tabs defaultValue="input" className="w-full">

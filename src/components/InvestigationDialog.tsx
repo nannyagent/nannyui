@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { getInvestigationByIdFromAPI, formatInvestigationTime, type Investigation } from '@/services/investigationService';
+import { getInvestigation, formatInvestigationTime, type Investigation } from '@/services/investigationService';
 import { Database, Server, Smartphone, Network, Globe, Activity as ActivityIcon, Calendar, User, Target, Clock, Eye, Loader2, Code2, Zap } from 'lucide-react';
 import InferenceDialog from './InferenceDialog';
 
@@ -25,11 +25,11 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
 
   useEffect(() => {
     const fetchFullInvestigation = async () => {
-      if (!initialInvestigation?.investigation_id) return;
+      if (!initialInvestigation?.id) return;
 
       setLoading(true);
       try {
-        const fullData = await getInvestigationByIdFromAPI(initialInvestigation.investigation_id);
+        const fullData = await getInvestigation(initialInvestigation.id);
         if (fullData) {
           setInvestigation(fullData);
         }
@@ -107,18 +107,18 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
     }
   };
 
-  const tensorZeroData = parseTensorZeroResponse(investigation.tensorzero_response || '');
-  const agentData = investigation.agent || investigation.agents;
+
+  const agentData = investigation.agent;
 
   // Extract resolution from the last inference
   const getResolutionFromInferences = () => {
-    if (!investigation.inferences || investigation.inferences.length === 0) {
+    if (!investigation.metadata?.inferences || investigation.metadata?.inferences.length === 0) {
       console.log('No inferences found');
       return null;
     }
     
     // Check the last inference for resolution
-    const lastInference = investigation.inferences[investigation.inferences.length - 1];
+    const lastInference = investigation.metadata?.inferences[investigation.metadata?.inferences.length - 1];
     console.log('Last inference output:', lastInference.output);
     
     if (!lastInference.output) {
@@ -199,7 +199,7 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
               <span>Investigation Episode Details</span>
             </DialogTitle>
             <DialogDescription>
-              ID: {investigation.investigation_id} • Episode: {investigation.episode_id}
+              ID: {investigation.id} • Episode: {investigation.episode_id}
             </DialogDescription>
           </DialogHeader>
           
@@ -220,7 +220,7 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
               </div>
               <div className="space-y-1">
                 <div className="text-xs text-muted-foreground">Agent</div>
-                <div className="text-sm font-medium">{agentData?.name || 'N/A'}</div>
+                <div className="text-sm font-medium">{agentData?.hostname || 'N/A'}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-xs text-muted-foreground">Inferences</div>
@@ -231,11 +231,11 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
             {/* Issue Description */}
             <div className="p-4 border rounded-lg">
               <h4 className="font-semibold text-sm mb-2">Issue Description</h4>
-              <p className="text-sm">{investigation.issue}</p>
+              <p className="text-sm">{investigation.user_prompt}</p>
             </div>
 
             {/* Investigation Resolution */}
-            {resolution ? (
+            {resolution && (
               <div className="p-4 border rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-semibold text-sm flex items-center gap-2">
@@ -285,11 +285,6 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
                   </div>
                 </div>
               </div>
-            ) : investigation.holistic_analysis && (
-              <div className="p-4 border rounded-lg">
-                <h4 className="font-semibold text-sm mb-2">Holistic Analysis</h4>
-                <p className="text-sm bg-muted/30 p-3 rounded">{investigation.holistic_analysis}</p>
-              </div>
             )}
 
             <Separator />
@@ -298,12 +293,12 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
             <div className="space-y-3">
               <h4 className="font-semibold text-sm flex items-center gap-2">
                 <Code2 className="h-4 w-4" />
-                Episode Inferences ({investigation.inferences?.length || 0})
+                Episode Inferences ({investigation.metadata?.inferences?.length || 0})
               </h4>
               
-              {investigation.inferences && investigation.inferences.length > 0 ? (
+              {investigation.metadata?.inferences && investigation.metadata?.inferences.length > 0 ? (
                 <div className="space-y-2">
-                  {investigation.inferences.map((inference, index) => (
+                  {investigation.metadata?.inferences.map((inference, index) => (
                     <div
                       key={inference.id}
                       className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
@@ -367,7 +362,7 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
               <div className="flex items-center space-x-2">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Initiated by:</span>
-                <span>{investigation.initiated_by}</span>
+                <span>{investigation.user_id}</span>
               </div>
               {investigation.completed_at && (
                 <div className="flex items-center space-x-2">

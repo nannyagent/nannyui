@@ -1,6 +1,7 @@
-import { supabase } from '@/lib/supabase';
+import { pb } from '@/lib/pocketbase';
 
 export interface PricingPlan {
+  id: string;
   plan_id: string;
   name: string;
   slug: string;
@@ -17,28 +18,25 @@ export interface PricingPlan {
   advanced_security: boolean;
   priority_support: boolean;
   custom_agents: boolean;
-  features: Record<string, string | number | boolean | null>;
+  features: Record<string, any>;
   created_at: string;
 }
 
 /**
- * Fetch all pricing plans from Supabase
+ * Fetch all pricing plans
  */
 export const getPricingPlans = async (): Promise<PricingPlan[]> => {
   try {
-    const { data, error } = await supabase
-      .from('pricing_plans')
-      .select('*')
-      .order('monthly_price_cents', { ascending: true });
+    const records = await pb.collection('pricing_plans').getFullList({
+      sort: 'monthly_price_cents',
+    });
 
-    if (error) {
-      console.error('Error fetching pricing plans:', error);
-      return [];
-    }
-
-    return data || [];
+    return records.map((record: any) => ({
+      ...record,
+      created_at: record.created,
+    })) as unknown as PricingPlan[];
   } catch (error) {
-    console.error('Exception fetching pricing plans:', error);
+    console.error('Error fetching pricing plans:', error);
     return [];
   }
 };
