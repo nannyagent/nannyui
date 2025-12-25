@@ -42,49 +42,48 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
   const [verifyingTotp, setVerifyingTotp] = useState(false);
   const [totpError, setTotpError] = useState<string | null>(null);
   const [totpVerified, setTotpVerified] = useState(false);
-  const [showTotpInput, setShowTotpInput] = useState(false);
 
   useEffect(() => {
+    const generateMFASetup = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data, error } = await setupMFA();
+
+        if (error) {
+          setError(error.message || 'Failed to setup MFA');
+          return;
+        }
+
+        const setupData = data as MFASetupData;
+        setMFAData(setupData);
+
+        // Generate QR code
+        try {
+          const qrUrl = await QRCode.toDataURL(setupData.qrUrl, {
+            width: 200,
+            margin: 1,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF',
+            },
+          });
+          setQRCodeUrl(qrUrl);
+        } catch {
+          // Still proceed even if QR code generation fails
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (open && !mfaData) {
       generateMFASetup();
     }
-  }, [open]);
-
-  const generateMFASetup = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const { data, error } = await setupMFA();
-
-      if (error) {
-        setError(error.message || 'Failed to setup MFA');
-        return;
-      }
-
-      const setupData = data as MFASetupData;
-      setMFAData(setupData);
-
-      // Generate QR code
-      try {
-        const qrUrl = await QRCode.toDataURL(setupData.qrUrl, {
-          width: 200,
-          margin: 1,
-          color: {
-            dark: '#000000',
-            light: '#FFFFFF',
-          },
-        });
-        setQRCodeUrl(qrUrl);
-      } catch {
-        // Still proceed even if QR code generation fails
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [open, mfaData]);
 
   const copyToClipboard = (text: string, codeId?: string) => {
     navigator.clipboard.writeText(text);
@@ -189,7 +188,6 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
       setTotpCode('');
       setTotpError(null);
       setTotpVerified(false);
-      setShowTotpInput(false);
     }, 300);
   };
 

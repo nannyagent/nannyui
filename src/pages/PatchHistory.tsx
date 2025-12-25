@@ -433,8 +433,8 @@ const PatchHistory = () => {
                                         {execution.status.charAt(0).toUpperCase() + execution.status.slice(1)}
                                       </Badge>
                                       <Badge variant="outline" className="text-xs">
-                                        {execution.mode === 'check' ? 'Check' : 
-                                         execution.mode === 'update' ? 'Update' : 
+                                        {execution.mode === 'dry-run' ? 'dry-run' : 
+                                         execution.mode === 'apply' ? 'apply' : 
                                          execution.mode === 'rollback' ? 'Rollback' : execution.mode}
                                       </Badge>
                                       <span className="text-sm text-muted-foreground">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
@@ -49,7 +49,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
   agentName,
   executionType,
   shouldReboot = false,
-  onComplete
+  // onComplete // Unused
 }) => {
   const navigate = useNavigate();
   const [status, setStatus] = useState<ExecutionStatus>('idle');
@@ -64,56 +64,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
   const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
-  // Start execution when dialog opens
-  useEffect(() => {
-    if (open && !hasTriggeredRef.current && status === 'idle') {
-      hasTriggeredRef.current = true;
-      startExecution();
-    }
-  }, [open]);
-
-  // Reset state when dialog closes
-  useEffect(() => {
-    if (!open) {
-      // Clear all timers
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      if (pollTimeoutRef.current) {
-        clearTimeout(pollTimeoutRef.current);
-        pollTimeoutRef.current = null;
-      }
-      
-      // Reset state after animation
-      setTimeout(() => {
-        setStatus('idle');
-        setExecutionId(null);
-        setExecutionData(null);
-        setError(null);
-        setProgress(0);
-        setElapsedTime(0);
-        hasTriggeredRef.current = false;
-      }, 300);
-    }
-  }, [open]);
-
-  // Elapsed time counter
-  useEffect(() => {
-    if (status === 'checking' || status === 'triggering' || status === 'polling') {
-      timerRef.current = setInterval(() => {
-        setElapsedTime(prev => prev + 1);
-      }, 1000);
-      return () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-      };
-    }
-  }, [status]);
-
-  const startExecution = async () => {
+  const startExecution = useCallback(async () => {
     try {
       // Step 1: Trigger execution
       setStatus('triggering');
@@ -181,7 +132,58 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
       setStatus('failed');
       setProgress(0);
     }
-  };
+  }, [agentId, executionType, navigate, onOpenChange, toast]);
+
+  // Start execution when dialog opens
+  useEffect(() => {
+    if (open && !hasTriggeredRef.current && status === 'idle') {
+      hasTriggeredRef.current = true;
+      startExecution();
+    }
+  }, [open, status, startExecution]);
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      // Clear all timers
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (pollTimeoutRef.current) {
+        clearTimeout(pollTimeoutRef.current);
+        pollTimeoutRef.current = null;
+      }
+      
+      // Reset state after animation
+      setTimeout(() => {
+        setStatus('idle');
+        setExecutionId(null);
+        setExecutionData(null);
+        setError(null);
+        setProgress(0);
+        setElapsedTime(0);
+        hasTriggeredRef.current = false;
+      }, 300);
+    }
+  }, [open]);
+
+  // Elapsed time counter
+  useEffect(() => {
+    if (status === 'checking' || status === 'triggering' || status === 'polling') {
+      timerRef.current = setInterval(() => {
+        setElapsedTime(prev => prev + 1);
+      }, 1000);
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+    }
+  }, [status]);
+
+
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

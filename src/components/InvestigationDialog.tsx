@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { getInvestigation, formatInvestigationTime, type Investigation } from '@/services/investigationService';
-import { Database, Server, Smartphone, Network, Globe, Activity as ActivityIcon, Calendar, User, Target, Clock, Eye, Loader2, Code2, Zap } from 'lucide-react';
+import { Database, Server, Smartphone, Network, Globe, Activity as ActivityIcon, Calendar, User, Clock, Eye, Loader2, Code2, Zap } from 'lucide-react';
 import InferenceDialog from './InferenceDialog';
 
 export interface InvestigationDialogProps {
@@ -81,32 +81,6 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
         return 'outline';
     }
   };
-
-  const getApplicationGroupIcon = (applicationGroup: string) => {
-    switch (applicationGroup) {
-      case 'database':
-        return <Database className="h-4 w-4" />;
-      case 'backend-api':
-        return <Server className="h-4 w-4" />;
-      case 'mobile-app':
-        return <Smartphone className="h-4 w-4" />;
-      case 'infrastructure':
-        return <Network className="h-4 w-4" />;
-      case 'web-app':
-        return <Globe className="h-4 w-4" />;
-      default:
-        return <ActivityIcon className="h-4 w-4" />;
-    }
-  };
-
-  const parseTensorZeroResponse = (response: string) => {
-    try {
-      return JSON.parse(response);
-    } catch {
-      return null;
-    }
-  };
-
 
   const agentData = investigation.agent;
 

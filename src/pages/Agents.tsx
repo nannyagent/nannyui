@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import withAuth from '@/utils/withAuth';
 import {
@@ -16,13 +16,11 @@ import {
   MemoryStick,
   HardDrive,
   Wifi,
-  MapPin,
   Monitor,
   Zap,
   Trash2,
   Key,
   Globe,
-  Database,
   Folder,
   Calendar,
   Network,
@@ -51,47 +49,7 @@ import { deleteAgent } from '@/services/agentManagementService';
 import AgentDeleteDialog from '@/components/AgentDeleteDialog';
 import CreateInvestigationDialog from '@/components/CreateInvestigationDialog';
 import { useToast } from '@/hooks/use-toast';
-import { pb } from '@/integrations/pocketbase/client';
 import { getCurrentUser } from '@/services/authService';
-
-// Helper function to format network data
-const formatNetworkData = (kbps: number | undefined): string => {
-  if (!kbps || kbps === 0) return '0 KB';
-  
-  const absKbps = Math.abs(kbps);
-  
-  // If the value is suspiciously high (>10GB/s), treat it as cumulative data
-  if (absKbps > 10 * 1024 * 1024) {
-    // Convert to total data transferred
-    if (absKbps < 1024 * 1024) {
-      return `${(kbps / 1024).toFixed(1)} MB total`;
-    } else if (absKbps < 1024 * 1024 * 1024) {
-      return `${(kbps / (1024 * 1024)).toFixed(1)} GB total`;
-    } else {
-      return `${(kbps / (1024 * 1024 * 1024)).toFixed(2)} TB total`;
-    }
-  } else {
-    // Treat as rate data
-    if (absKbps < 1024) {
-      return `${kbps.toFixed(1)} KB/s`;
-    } else if (absKbps < 1024 * 1024) {
-      return `${(kbps / 1024).toFixed(1)} MB/s`;
-    } else {
-      return `${(kbps / (1024 * 1024)).toFixed(2)} GB/s`;
-    }
-  }
-};
-
-// Helper function to format bytes
-const formatBytes = (bytes: number | undefined): string => {
-  if (!bytes || bytes === 0) return '0 B';
-  
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-};
 
 // Helper function to format JSON data
 const formatJsonData = (data: any): string => {
@@ -132,7 +90,7 @@ const Agents = () => {
 
   useEffect(() => {
     loadAgents();
-  }, [currentPage, statusFilter]);
+  }, [loadAgents]);
 
   // Get current user session
   useEffect(() => {
@@ -147,7 +105,7 @@ const Agents = () => {
 
   // Note: Auto-refresh disabled - users can manually refresh with the refresh button
 
-  const loadAgents = async (isManualRefresh = false) => {
+  const loadAgents = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) {
       setIsRefreshing(true);
     } else {
@@ -185,7 +143,7 @@ const Agents = () => {
         setLoading(false);
       }
     }
-  };
+  }, [currentPage, pageSize, statusFilter, toast]);
 
   const handleManualRefresh = () => {
     loadAgents(true);
@@ -741,7 +699,7 @@ const Agents = () => {
                         <Monitor className="h-4 w-4 text-blue-500" />
                         <span className="text-sm font-medium">Operating System</span>
                       </div>
-                      <p className="text-sm">{selectedAgentForDetails.os_info || selectedAgentForDetails.os_version || 'Unknown'}</p>
+                      <p className="text-sm">{(selectedAgentForDetails.os_info + ' ' + selectedAgentForDetails.os_version) || 'Unknown'}</p>
                       {selectedAgentForDetails.arch && (
                         <p className="text-xs text-gray-500">{selectedAgentForDetails.arch}</p>
                       )}
@@ -767,6 +725,16 @@ const Agents = () => {
                       </div>
                     )}
 
+                    {(selectedAgentForDetails.platform_family) && (
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Server className="h-4 w-4 text-green-500" />
+                          <span className="text-sm font-medium">Platform Family</span>
+                        </div>
+                        <p className="text-sm">{selectedAgentForDetails.platform_family}</p>
+                      </div>
+                    )}
+
 
                   </div>
                 </div>
@@ -777,30 +745,6 @@ const Agents = () => {
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Performance Metrics</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Cpu className="h-4 w-4 text-orange-500" />
-                        <span className="text-sm font-medium">CPU Usage</span>
-                      </div>
-                      <p className="text-sm font-semibold">{selectedAgentForDetails.lastMetric.cpu_percent?.toFixed(1)}%</p>
-                    </div>
-
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center gap-2 mb-1">
-                        <MemoryStick className="h-4 w-4 text-purple-500" />
-                        <span className="text-sm font-medium">Memory Usage</span>
-                      </div>
-                      <p className="text-sm font-semibold">{(selectedAgentForDetails.lastMetric.memory_percent)}%</p>
-                    </div>
-
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center gap-2 mb-1">
-                        <HardDrive className="h-4 w-4 text-green-500" />
-                        <span className="text-sm font-medium">Disk Usage</span>
-                      </div>
-                      <p className="text-sm font-semibold">{selectedAgentForDetails.lastMetric.disk_usage_percent?.toFixed(1)}%</p>
-                    </div>
-
                     {selectedAgentForDetails.lastMetric.load_avg_1min !== undefined && (
                       <div className="bg-gray-50 p-3 rounded-lg">
                         <div className="flex items-center gap-2 mb-1">
@@ -813,13 +757,86 @@ const Agents = () => {
                       </div>
                     )}
 
+                     <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Cpu className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm font-medium">CPU Cores</span>
+                      </div>
+                      <p className="text-sm font-semibold">{selectedAgentForDetails.lastMetric.cpu_cores}</p>
+                    </div>
+
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
-                        <Clock className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium">Last Metric</span>
+                        <Cpu className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm font-medium">CPU Usage</span>
                       </div>
-                      <p className="text-xs">{new Date(selectedAgentForDetails.lastMetric.created_at).toLocaleString()}</p>
+                      <p className="text-sm font-semibold">{selectedAgentForDetails.lastMetric.cpu_percent?.toFixed(1)}%</p>
                     </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <MemoryStick className="h-4 w-4 text-purple-500" />
+                        <span className="text-sm font-medium">Memory Total Size</span>
+                      </div>
+                      <p className="text-sm font-semibold">{(selectedAgentForDetails.lastMetric.memory_total_gb)} GB</p>
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <MemoryStick className="h-4 w-4 text-purple-500" />
+                        <span className="text-sm font-medium">Memory Used Size</span>
+                      </div>
+                      <p className="text-sm font-semibold">{(selectedAgentForDetails.lastMetric.memory_used_gb)} GB</p>
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <MemoryStick className="h-4 w-4 text-purple-500" />
+                        <span className="text-sm font-medium">Memory Usage</span>
+                      </div>
+                      <p className="text-sm font-semibold">{(selectedAgentForDetails.lastMetric.memory_percent)}%</p>
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <HardDrive className="h-4 w-4 text-purple-500" />
+                        <span className="text-sm font-medium">Disk Total Size</span>
+                      </div>
+                      <p className="text-sm font-semibold">{(selectedAgentForDetails.lastMetric.disk_total_gb)} GB</p>
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <HardDrive className="h-4 w-4 text-purple-500" />
+                        <span className="text-sm font-medium">Disk Used Size</span>
+                      </div>
+                      <p className="text-sm font-semibold">{(selectedAgentForDetails.lastMetric.disk_used_gb)} GB</p>
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <HardDrive className="h-4 w-4 text-green-500" />
+                        <span className="text-sm font-medium">Disk Usage</span>
+                      </div>
+                      <p className="text-sm font-semibold">{selectedAgentForDetails.lastMetric.disk_usage_percent?.toFixed(1)}%</p>
+                    </div>
+                    
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Network className="h-4 w-4 text-green-500" />
+                        <span className="text-sm font-medium">Ingress</span>
+                      </div>
+                      <p className="text-sm font-semibold">{selectedAgentForDetails.lastMetric.network_in_gb} GB</p>
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Network className="h-4 w-4 text-green-500" />
+                        <span className="text-sm font-medium">Egress</span>
+                      </div>
+                      <p className="text-sm font-semibold">{selectedAgentForDetails.lastMetric.network_out_gb} GB</p>
+                    </div>
+                    
                   </div>
                 </div>
               )}
@@ -862,16 +879,19 @@ const Agents = () => {
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <Folder className="h-4 w-4 text-orange-500" />
-                            <span className="text-sm font-medium">{fs.mountpoint || 'Unknown'}</span>
+                            <span className="text-sm font-medium">{fs.mount_path || 'Unknown'}</span>
                           </div>
                           <span className="text-xs bg-gray-200 px-2 py-1 rounded">{fs.fstype}</span>
                         </div>
                         <div className="grid grid-cols-3 gap-2 text-xs">
                           <div>
-                            <span className="text-gray-500">Used:</span> {formatBytes(fs.used)}
+                            <span className="text-gray-500">Used:</span> {fs.used_gb} GiB
                           </div>
                           <div>
-                            <span className="text-gray-500">Free:</span> {formatBytes(fs.free)}
+                            <span className="text-gray-500">Total:</span> {fs.total_gb} GiB
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Free:</span> {fs.free_gb} GiB
                           </div>
                           <div>
                             <span className="text-gray-500">Usage:</span> {fs.usage_percent?.toFixed(1)}%

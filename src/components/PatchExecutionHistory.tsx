@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
@@ -39,11 +39,7 @@ export const PatchExecutionHistory: React.FC<PatchExecutionHistoryProps> = ({
   const [executions, setExecutions] = useState<PatchExecution[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadExecutions();
-  }, [agentId, refreshTrigger]);
-
-  const loadExecutions = async () => {
+  const loadExecutions = useCallback(async () => {
     setLoading(true);
     try {
       const data = await listPatchExecutions(agentId, limit);
@@ -53,7 +49,13 @@ export const PatchExecutionHistory: React.FC<PatchExecutionHistoryProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [agentId, limit]);
+
+  useEffect(() => {
+    loadExecutions();
+  }, [loadExecutions, refreshTrigger]);
+
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {

@@ -60,34 +60,33 @@ export const RebootDialog: React.FC<RebootDialogProps> = ({
       // Start checking after initial wait (60 seconds)
       const checkTimer = setTimeout(() => {
         setState('checking');
-        startHealthChecks();
       }, 60000);
 
       return () => clearTimeout(checkTimer);
     }
   }, [state]);
 
-  const startHealthChecks = async () => {
-    const checkInterval = setInterval(async () => {
-      try {
-        const isOnline = await checkAgentWebSocketConnection(agentId);
-        
-        if (isOnline) {
-          setState('completed');
-          clearInterval(checkInterval);
-          toast({
-            title: 'Success',
-            description: 'Agent has rebooted successfully and is back online',
-          });
+  useEffect(() => {
+    if (state === 'checking') {
+      const checkInterval = setInterval(async () => {
+        try {
+          const isOnline = await checkAgentWebSocketConnection(agentId);
+          
+          if (isOnline) {
+            setState('completed');
+            toast({
+              title: 'Success',
+              description: 'Agent has rebooted successfully and is back online',
+            });
+          }
+        } catch (error) {
+          console.error('Health check error:', error);
         }
-      } catch (error) {
-        console.error('Health check error:', error);
-      }
-    }, 5000); // Check every 5 seconds
+      }, 5000); // Check every 5 seconds
 
-    // Store interval ID for cleanup
-    return () => clearInterval(checkInterval);
-  };
+      return () => clearInterval(checkInterval);
+    }
+  }, [state, agentId, toast]);
 
   const handleReboot = async () => {
     setState('triggering');

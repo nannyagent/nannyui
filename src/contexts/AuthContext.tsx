@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { pb } from '@/integrations/pocketbase/client';
 import type { UserRecord } from '@/integrations/pocketbase/types';
-import { onAuthStateChange } from '@/services/authService';
 
 export interface AuthContextType {
   user: UserRecord | null;
@@ -45,7 +44,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
-      // unsubscribe if needed
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
     };
   }, []);
 

@@ -300,6 +300,8 @@ export interface PackageException {
   reason: string;
   expires_at: string;
   created_by: string;
+  created: string;
+  updated: string;
 }
 
 /**

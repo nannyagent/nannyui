@@ -14,7 +14,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { deviceAuthService, DeviceAuthResponse } from '@/services/deviceAuthService';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
 import withAuth from '@/utils/withAuth';
 
 const AgentRegistration = () => {
@@ -30,7 +29,7 @@ const AgentRegistration = () => {
         title: "Copied!",
         description: "Token copied to clipboard",
       });
-    } catch (err) {
+    } catch {
       toast({
         title: "Copy failed",
         description: "Could not copy to clipboard",
@@ -80,7 +79,7 @@ const AgentRegistration = () => {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch {
       const errorResult: DeviceAuthResponse = {
         success: false,
         error: "An unexpected error occurred during registration.",

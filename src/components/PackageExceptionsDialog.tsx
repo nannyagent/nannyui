@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -47,13 +47,7 @@ export const PackageExceptionsDialog: React.FC<PackageExceptionsDialogProps> = (
   const [reason, setReason] = useState('');
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (open) {
-      loadExceptions();
-    }
-  }, [open, agentId]);
-
-  const loadExceptions = async () => {
+  const loadExceptions = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getPackageExceptions(agentId);
@@ -68,7 +62,15 @@ export const PackageExceptionsDialog: React.FC<PackageExceptionsDialogProps> = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [agentId, toast]);
+
+  useEffect(() => {
+    if (open) {
+      loadExceptions();
+    }
+  }, [open, loadExceptions]);
+
+
 
   const handleAdd = async () => {
     const packageNames = newPackages
@@ -219,7 +221,7 @@ export const PackageExceptionsDialog: React.FC<PackageExceptionsDialogProps> = (
                         <p className="text-sm text-muted-foreground mt-1">{exception.reason}</p>
                       )}
                       <div className="text-xs text-muted-foreground mt-1">
-                        Added {new Date(exception.created_at).toLocaleDateString()}
+                        Added {new Date(exception.created).toLocaleDateString()}
                       </div>
                     </div>
                     <Button

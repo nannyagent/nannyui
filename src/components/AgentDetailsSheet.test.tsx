@@ -52,9 +52,9 @@ describe('AgentDetailsSheet component', () => {
     os_type: 'linux',
     arch: 'x64',
     platform_family: 'debian',
-    owner: 'user-123456',
-    last_seen: '2024-01-01T00:30:00Z',
+    owner: 'user-123456',    
     metadata: {},
+    last_seen: '2024-01-01T00:30:00Z',
     lastMetric: {
       id: 'metric-1',
       agent_id: 'agent-123',
@@ -73,6 +73,7 @@ describe('AgentDetailsSheet component', () => {
       load_avg_5min: 0.5,
       load_avg_15min: 0.5,
       cpu_cores: 4,
+      last_seen: '2024-01-01T00:30:00Z',      
     }
   };
 
@@ -174,7 +175,7 @@ describe('AgentDetailsSheet component', () => {
     );
 
     // Verify offline status is displayed (appears multiple times in badges)
-    const offlineElements = screen.getAllByText('offline');
+    const offlineElements = screen.getAllByText('inactive');
     expect(offlineElements.length).toBeGreaterThan(0);
   });
 

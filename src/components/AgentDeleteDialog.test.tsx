@@ -17,7 +17,7 @@ describe('AgentDeleteDialog', () => {
     renderWithProviders(
       <AgentDeleteDialog
         open={true}
-        agentName={mockAgent.name}
+        agentName={mockAgent.hostname}
         onOpenChange={mockOnOpenChange}
         onConfirm={mockOnConfirm}
       />
@@ -27,14 +27,14 @@ describe('AgentDeleteDialog', () => {
     const deleteElements = screen.getAllByText(/delete agent/i)
     expect(deleteElements.length).toBeGreaterThan(0)
     // Text is split across multiple elements, use more flexible matcher
-    expect(screen.getByText(/Test Agent/)).toBeInTheDocument()
+    expect(screen.getByText((content) => content.includes(mockAgent.hostname))).toBeInTheDocument()
   })
 
   it('should not render when closed', () => {
     renderWithProviders(
       <AgentDeleteDialog
         open={false}
-        agentName={mockAgent.name}
+        agentName={mockAgent.hostname}
         onOpenChange={mockOnOpenChange}
         onConfirm={mockOnConfirm}
       />

@@ -9,16 +9,15 @@ import {
   SheetClose
 } from '@/components/ui/sheet';
 import { 
-  Server, X, Terminal, Database, Cpu, Activity,
+  Server, X, Database, Cpu, Activity,
   MemoryStick, HardDrive, Wifi, Monitor,
-  Settings, CheckCircle, AlertCircle,
-  TrendingUp, Clock, Globe
+  CheckCircle, AlertCircle,
+  TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { type AgentWithRelations, getAgentMetrics, type AgentMetric } from '@/services/agentService';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AgentDetailsProps {
   agent: AgentWithRelations;
@@ -28,14 +27,11 @@ interface AgentDetailsProps {
 
 const AgentDetailsSheet = ({ agent, open, onOpenChange }: AgentDetailsProps) => {
   const [metrics, setMetrics] = React.useState<AgentMetric[]>([]);
-  const [loadingMetrics, setLoadingMetrics] = React.useState(false);
 
   React.useEffect(() => {
     if (open && agent?.id) {
-      setLoadingMetrics(true);
       getAgentMetrics(agent.id).then(data => {
         setMetrics(data);
-        setLoadingMetrics(false);
       });
     }
   }, [open, agent?.id]);
@@ -44,15 +40,6 @@ const AgentDetailsSheet = ({ agent, open, onOpenChange }: AgentDetailsProps) => 
 
   const latestMetric = metrics.length > 0 ? metrics[0] : agent.lastMetric;
   const hasMetrics = !!latestMetric;
-  
-  // Helper function to format bytes
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
 
   const osInfoString = `${agent.os_info || ''} ${agent.os_version || ''}`.trim();
 
@@ -94,10 +81,10 @@ const AgentDetailsSheet = ({ agent, open, onOpenChange }: AgentDetailsProps) => 
             </SheetClose>
           </div>
           <SheetDescription>
-            {hasMetrics && latestMetric?.created_at && (
+            {hasMetrics && latestMetric?.last_seen && (
               <span className="flex items-center gap-1 text-sm">
                 <Activity className="h-3 w-3" />
-                Last updated: {new Date(latestMetric.created_at).toLocaleString()}
+                Last updated: {new Date(latestMetric.last_seen).toLocaleString()}
               </span>
             )}
             {!hasMetrics && (

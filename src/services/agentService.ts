@@ -58,7 +58,7 @@ export interface AgentMetric {
   load_avg_15min: number;
   network_in_gb: number;
   network_out_gb: number;
-  created_at: string;
+  last_seen: string;
   cpu_cores: number;
 }
 

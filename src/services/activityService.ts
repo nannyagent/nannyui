@@ -78,7 +78,7 @@ export const getActivities = async (
       };
     }
 
-    let filterStr = `user_id = "${user.id}"`;
+    const filterStr = `user_id = "${user.id}"`;
     if (filter !== 'all') {
       // Map filter to activity types if needed, or just use as is
       // Assuming filter is activity_type or similar
