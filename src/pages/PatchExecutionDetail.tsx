@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import withAuth from '@/utils/withAuth';
+import { pb } from '@/lib/pocketbase';
 import {
   Package,
   Loader2,
@@ -50,7 +51,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 interface PatchExecutionWithAgent {
@@ -126,62 +126,76 @@ const PatchExecutionDetail = () => {
   const loadExecutionDetails = async () => {
     setLoading(true);
     try {
-      const { data: execData, error: execError } = await supabase
-        .from('patch_executions')
-        .select('*')
-        .eq('id', executionId)
-        .single();
-
-      if (execError) throw execError;
-
-      const { data: agentData } = await supabase
-        .from('agents')
-        .select('id, name')
-        .eq('id', execData.agent_id)
-        .single();
+      if (!executionId) return;
+      
+      const execData = await pb.collection('patch_operations').getOne(executionId, {
+        expand: 'agent_id',
+      });
 
       const enrichedExecution = {
-        ...execData,
-        agent_name: agentData?.name || `Agent ${execData.agent_id.substring(0, 8)}`
+        id: execData.id,
+        agent_id: execData.agent_id,
+        agent_name: execData.expand?.agent_id?.hostname || `Agent ${execData.agent_id.substring(0, 8)}`,
+        execution_type: execData.mode,
+        status: execData.status,
+        exit_code: execData.exit_code,
+        error_message: null,
+        stdout_storage_path: execData.stdout_file,
+        stderr_storage_path: execData.stderr_file,
+        started_at: execData.created,
+        completed_at: execData.updated,
+        should_reboot: false,
+        rebooted_at: null,
       };
 
       setExecution(enrichedExecution);
 
-      // Load JSON output
-      const jsonFilePath = `${execData.agent_id}/${executionId}-output.json`;
-      try {
-        const { data: jsonData, error: jsonError } = await supabase.storage
-          .from('patch-execution-outputs')
-          .download(jsonFilePath);
-
-        if (!jsonError && jsonData) {
-          const text = await jsonData.text();
-          const parsed = JSON.parse(text);
-          setParsedOutput(parsed);
-        }
-      } catch (error) {
-        console.error('Error loading JSON output:', error);
-      }
-
-      // Load stdout
-      if (execData.stdout_storage_path) {
-        const { data: stdoutData } = await supabase.storage
-          .from('patch-execution-outputs')
-          .download(execData.stdout_storage_path);
-
-        if (stdoutData) {
-          setStdout(await stdoutData.text());
+      // Load stdout and parse JSON
+      if (execData.stdout_file) {
+        const url = pb.files.getUrl(execData, execData.stdout_file);
+        try {
+            const response = await fetch(url);
+            if (response.ok) {
+                const text = await response.text();
+                setStdout(text);
+                
+                // Parse JSON from text
+                const marker = '=== JSON Output (for UI parsing) ===';
+                const jsonStart = text.indexOf(marker);
+                if (jsonStart !== -1) {
+                    const jsonText = text.substring(jsonStart + marker.length).trim();
+                    try {
+                        setParsedOutput(JSON.parse(jsonText));
+                    } catch (e) {
+                        console.error("Error parsing JSON from stdout", e);
+                    }
+                } else {
+                    // Fallback: try parsing the whole text if it looks like JSON
+                    try {
+                        const parsed = JSON.parse(text);
+                        if (parsed && typeof parsed === 'object') {
+                            setParsedOutput(parsed);
+                        }
+                    } catch (e) {
+                        // Not JSON
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error fetching stdout", e);
         }
       }
 
       // Load stderr
-      if (execData.stderr_storage_path) {
-        const { data: stderrData } = await supabase.storage
-          .from('patch-execution-outputs')
-          .download(execData.stderr_storage_path);
-
-        if (stderrData) {
-          setStderr(await stderrData.text());
+      if (execData.stderr_file) {
+        const url = pb.files.getUrl(execData, execData.stderr_file);
+        try {
+            const response = await fetch(url);
+            if (response.ok) {
+                setStderr(await response.text());
+            }
+        } catch (e) {
+            console.error("Error fetching stderr", e);
         }
       }
     } catch (error) {
@@ -212,6 +226,9 @@ const PatchExecutionDetail = () => {
 
   const getExecutionTypeLabel = (type: string) => {
     switch (type) {
+      case 'check': return 'Check Updates';
+      case 'update': return 'Update Packages';
+      case 'rollback': return 'Rollback';
       case 'dry_run': return 'Dry Run';
       case 'apply': return 'Apply Patches';
       case 'apply_with_reboot': return 'Apply + Reboot';
@@ -448,12 +465,12 @@ const PatchExecutionDetail = () => {
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                           <TrendingUp className="h-4 w-4" />
-                          {execution.execution_type === 'dry_run' ? 'Updates Available' : 'Updates Available'}
+                          {execution.execution_type === 'check' ? 'Updates Available' : 'Updates Available'}
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
                         <p className="text-3xl font-bold">
-                          {execution.execution_type === 'dry_run' 
+                          {execution.execution_type === 'check' 
                             ? (parsedOutput.updates_available || packageList?.length || 0)
                             : (parsedOutput.updates_available || parsedOutput.packages_updated || packageList?.length || 0)
                           }
@@ -470,7 +487,7 @@ const PatchExecutionDetail = () => {
                       </CardHeader>
                       <CardContent>
                         <p className="text-3xl font-bold">
-                          {execution.execution_type === 'dry_run' 
+                          {execution.execution_type === 'check' 
                             ? 0
                             : (parsedOutput.packages_updated || packageList?.length || 0)
                           }

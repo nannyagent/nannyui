@@ -77,7 +77,7 @@ const Investigations = () => {
 
   const handleViewDetails = (investigation: Investigation) => {
     // Always use investigation_id as that's the indexed field in the database
-    navigate(`/investigations/${investigation.investigation_id}`);
+    navigate(`/investigations/${investigation.id}`);
   };
 
   const getPriorityBadgeVariant = (priority: string) => {
@@ -166,36 +166,23 @@ const Investigations = () => {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           className="flex items-start space-x-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
-                            {getApplicationGroupIcon(investigation.application_group)}
-                          </div>
+                        >                          
                           
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                {(() => {
-                                  let displayText = investigation.issue;
-                                  try {
-                                    const parsed = JSON.parse(investigation.issue);
-                                    if (parsed.command_results && parsed.command_results.length > 0) {
-                                      const firstCmd = parsed.command_results[0];
-                                      displayText = `Diagnostic: ${firstCmd.command || 'System diagnostics'} (+${parsed.command_results.length - 1} more)`;
-                                    }
-                                  } catch {
-                                    // Failed to parse issue, use default text
-                                  }
-                                  return <h3 className="font-medium text-sm">{displayText}</h3>;
-                                })()}
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Episode: {investigation.episode_id?.substring(0, 12)}...
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Application Group: {investigation.application_group}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Initiated by: {investigation.initiated_by}
-                                </p>
+                                <h3 className="font-medium text-sm">{investigation.user_prompt || 'No prompt'}</h3>
+                                <div className="flex flex-col gap-1 mt-1">
+                                  <p className="text-xs text-muted-foreground">
+                                    <span className="font-semibold">ID:</span> {investigation.id}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    <span className="font-semibold">Episode:</span> {investigation.episode_id || 'N/A'}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    <span className="font-semibold">Agent:</span> {investigation.agent?.hostname || investigation.agent_id}
+                                  </p>
+                                </div>
                               </div>
                               
                               <div className="flex flex-col items-end space-y-2">
@@ -222,16 +209,16 @@ const Investigations = () => {
                             </div>
                             
                             <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                              <span>Agent: {investigation.agent?.name || 'N/A'}</span>
+                              <span>Agent: {investigation.agent?.id || 'N/A'}</span>
                               {investigation.inference_count !== undefined && (
                                 <span>Inferences: {investigation.inference_count}</span>
                               )}
                               <span>Episode: {investigation.episode_id?.substring(0, 8)}...</span>
                             </div>
                             
-                            {investigation.holistic_analysis && (
+                            {investigation.resolution_plan && (
                               <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                                {investigation.holistic_analysis}
+                                {investigation.resolution_plan}
                               </p>
                             )}
                           </div>

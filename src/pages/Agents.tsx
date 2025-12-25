@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import withAuth from '@/utils/withAuth';
 import {
@@ -16,13 +16,11 @@ import {
   MemoryStick,
   HardDrive,
   Wifi,
-  MapPin,
   Monitor,
   Zap,
   Trash2,
   Key,
   Globe,
-  Database,
   Folder,
   Calendar,
   Network,
@@ -51,46 +49,7 @@ import { deleteAgent } from '@/services/agentManagementService';
 import AgentDeleteDialog from '@/components/AgentDeleteDialog';
 import CreateInvestigationDialog from '@/components/CreateInvestigationDialog';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
-
-// Helper function to format network data
-const formatNetworkData = (kbps: number | undefined): string => {
-  if (!kbps || kbps === 0) return '0 KB';
-  
-  const absKbps = Math.abs(kbps);
-  
-  // If the value is suspiciously high (>10GB/s), treat it as cumulative data
-  if (absKbps > 10 * 1024 * 1024) {
-    // Convert to total data transferred
-    if (absKbps < 1024 * 1024) {
-      return `${(kbps / 1024).toFixed(1)} MB total`;
-    } else if (absKbps < 1024 * 1024 * 1024) {
-      return `${(kbps / (1024 * 1024)).toFixed(1)} GB total`;
-    } else {
-      return `${(kbps / (1024 * 1024 * 1024)).toFixed(2)} TB total`;
-    }
-  } else {
-    // Treat as rate data
-    if (absKbps < 1024) {
-      return `${kbps.toFixed(1)} KB/s`;
-    } else if (absKbps < 1024 * 1024) {
-      return `${(kbps / 1024).toFixed(1)} MB/s`;
-    } else {
-      return `${(kbps / (1024 * 1024)).toFixed(2)} GB/s`;
-    }
-  }
-};
-
-// Helper function to format bytes
-const formatBytes = (bytes: number | undefined): string => {
-  if (!bytes || bytes === 0) return '0 B';
-  
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-};
+import { getCurrentUser } from '@/services/authService';
 
 // Helper function to format JSON data
 const formatJsonData = (data: any): string => {
@@ -106,7 +65,7 @@ const Agents = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<'active' | 'pending' | 'all'>('active');
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
   
   // Delete dialog state
   const [agentToDelete, setAgentToDelete] = useState<AgentWithRelations | null>(null);
@@ -131,20 +90,22 @@ const Agents = () => {
 
   useEffect(() => {
     loadAgents();
-  }, [currentPage, statusFilter]);
+  }, [loadAgents]);
 
   // Get current user session
   useEffect(() => {
-    const getCurrentUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
+    const loadCurrentUser = async () => {
+      const user = await getCurrentUser();
+      if (user) {
+        setCurrentUser(user as any);
+      }
     };
-    getCurrentUser();
+    loadCurrentUser();
   }, []);
 
   // Note: Auto-refresh disabled - users can manually refresh with the refresh button
 
-  const loadAgents = async (isManualRefresh = false) => {
+  const loadAgents = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) {
       setIsRefreshing(true);
     } else {
@@ -182,7 +143,7 @@ const Agents = () => {
         setLoading(false);
       }
     }
-  };
+  }, [currentPage, pageSize, statusFilter, toast]);
 
   const handleManualRefresh = () => {
     loadAgents(true);
@@ -191,8 +152,8 @@ const Agents = () => {
   // Filter agents based on search term
   const filteredAgents = searchTerm 
     ? agents.filter(agent => 
-        agent.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        agent.fingerprint?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        agent.hostname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        agent.primary_ip?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         agent.status?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     : agents;
@@ -410,23 +371,7 @@ const Agents = () => {
               ) : (
                 filteredAgents.map((agent, i) => {
                   const lastMetric = agent.lastMetric;
-                  const displayVersion = lastMetric?.agent_version || agent.version || agent.os_version;
-                  const displayLocation = lastMetric?.location || agent.location || lastMetric?.ip_address || agent.ip_address;
-                  
-                  // Get OS info from both old and new formats
-                  let osInfo = 'Unknown OS';
-                  let architecture = 'Unknown';
-                  
-                  if (lastMetric?.os_info && lastMetric.os_info.platform) {
-                    // New format: {platform, kernel_arch, kernel_version, platform_family, platform_version}
-                    osInfo = `${lastMetric.os_info.platform || 'Linux'} ${lastMetric.os_info.platform_version || ''}`.trim();
-                    architecture = lastMetric.os_info.kernel_arch || 'Unknown';
-                  } else {
-                    osInfo = agent.os_version || 'Unknown OS';
-                  }
-                  
-                  // Get IP address from either agent record or latest metric
-                  const displayIpAddress = agent.ip_address || lastMetric?.ip_address;
+                  const osInfoString = `${agent.os_info || ''} ${agent.os_version || ''}`.trim();
                   
                   // Get real-time status
                   const realTimeStatus = getAgentRealTimeStatus(agent);
@@ -449,27 +394,19 @@ const Agents = () => {
                               <Server className="h-5 w-5" />
                             </div>
                             <div>
-                              <h3 className="font-semibold text-lg">{agent.name || 'Unnamed Agent'}</h3>
+                              <h3 className="font-semibold text-lg">{agent.hostname || 'Unnamed Agent'}</h3>
                               <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                                {agent.fingerprint && (
-                                  <span>ID: {agent.fingerprint.substring(0, 8)}...</span>
-                                )}
-                                {displayIpAddress && (
+                                <span>ID: {agent.id.substring(0, 8)}...</span>
+                                {agent.primary_ip && (
                                   <span className="flex items-center">
                                     <Globe className="h-3 w-3 mr-1" />
-                                    {displayIpAddress}
+                                    {agent.primary_ip}
                                   </span>
                                 )}
-                                {lastMetric?.recorded_at && (
+                                {agent.last_seen && (
                                   <span className="flex items-center">
                                     <Clock className="h-3 w-3 mr-1" />
-                                    {new Date(lastMetric.recorded_at).toLocaleString()}
-                                  </span>
-                                )}
-                                {!lastMetric && agent.created_at && (
-                                  <span className="flex items-center">
-                                    <Clock className="h-3 w-3 mr-1" />
-                                    Created: {new Date(agent.created_at).toLocaleDateString()}
+                                    {new Date(agent.last_seen).toLocaleString()}
                                   </span>
                                 )}
                               </div>
@@ -542,22 +479,20 @@ const Agents = () => {
                           <div className="space-y-2">
                             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">System</h4>
                             <div className="space-y-1">
-                              {osInfo && (
-                                <div className="flex items-center text-sm">
-                                  <Monitor className="h-3 w-3 mr-2 text-muted-foreground" />
-                                  <span>{osInfo}</span>
-                                </div>
-                              )}
-                              {architecture && architecture !== 'Unknown' && (
+                              <div className="flex items-center text-sm">
+                                <Monitor className="h-3 w-3 mr-2 text-muted-foreground" />
+                                <span>{osInfoString || 'Unknown OS'}</span>
+                              </div>
+                              {agent.kernel_version && (
                                 <div className="flex items-center text-sm">
                                   <Cpu className="h-3 w-3 mr-2 text-muted-foreground" />
-                                  <span>{architecture}</span>
+                                  <span>Kernel: {agent.kernel_version}</span>
                                 </div>
                               )}
-                              {displayVersion && (
+                              {agent.version && (
                                 <div className="flex items-center text-sm">
                                   <Zap className="h-3 w-3 mr-2 text-muted-foreground" />
-                                  <span>{displayVersion}</span>
+                                  <span>Agent v{agent.version}</span>
                                 </div>
                               )}
                             </div>
@@ -574,9 +509,9 @@ const Agents = () => {
                                     {lastMetric.cpu_percent ? `${Number(lastMetric.cpu_percent).toFixed(1)}%` : 'N/A'}
                                   </span>
                                 </div>
-                                {lastMetric.load_averages?.load1 && (
+                                {lastMetric.load_avg_1min !== undefined && (
                                   <div className="text-xs text-muted-foreground">
-                                    Load: {Number(lastMetric.load_averages.load1).toFixed(2)}
+                                    Load: {Number(lastMetric.load_avg_1min).toFixed(2)}
                                   </div>
                                 )}
                               </div>
@@ -586,13 +521,13 @@ const Agents = () => {
                                 <div className="flex items-center">
                                   <MemoryStick className="h-3 w-3 mr-2 text-muted-foreground" />
                                   <span className="text-sm font-medium">
-                                    {lastMetric.memory_mb ? `${(lastMetric.memory_mb / 1024).toFixed(1)} GB` : 'N/A'}
+                                    {lastMetric.memory_percent ? `${Number(lastMetric.memory_percent).toFixed(1)}%` : 'N/A'}
                                   </span>
                                 </div>
-                                {lastMetric.disk_percent && (
+                                {lastMetric.disk_usage_percent !== undefined && (
                                   <div className="flex items-center text-xs text-muted-foreground">
                                     <HardDrive className="h-3 w-3 mr-1" />
-                                    Disk: {Number(lastMetric.disk_percent).toFixed(1)}%
+                                    Disk: {Number(lastMetric.disk_usage_percent).toFixed(1)}%
                                   </div>
                                 )}
                               </div>
@@ -600,23 +535,12 @@ const Agents = () => {
                               <div className="space-y-2">
                                 <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Network</h4>
                                 <div className="space-y-1">
-                                  {displayIpAddress && (
-                                    <div className="flex items-center text-sm">
-                                      <Globe className="h-3 w-3 mr-2 text-muted-foreground" />
-                                      <span className="font-mono">{displayIpAddress}</span>
-                                    </div>
-                                  )}
-                                  {displayLocation && (
-                                    <div className="flex items-center text-sm">
-                                      <MapPin className="h-3 w-3 mr-2 text-muted-foreground" />
-                                      <span>{displayLocation}</span>
-                                    </div>
-                                  )}
-                                  {(lastMetric.network_in_kbps || lastMetric.network_out_kbps) && (
+
+                                  {(lastMetric.network_in_gb !== undefined || lastMetric.network_out_gb !== undefined) && (
                                     <div className="flex items-center text-xs text-muted-foreground">
                                       <Wifi className="h-3 w-3 mr-1" />
-                                      {lastMetric.network_in_kbps && `↓${Number(lastMetric.network_in_kbps).toFixed(1)}k`}
-                                      {lastMetric.network_out_kbps && ` ↑${Number(lastMetric.network_out_kbps).toFixed(1)}k`}
+                                      {lastMetric.network_in_gb !== undefined && `↓${Number(lastMetric.network_in_gb).toFixed(2)} GB`}
+                                      {lastMetric.network_out_gb !== undefined && ` ↑${Number(lastMetric.network_out_gb).toFixed(2)} GB`}
                                     </div>
                                   )}
                                 </div>
@@ -695,7 +619,7 @@ const Agents = () => {
       <AgentDeleteDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        agentName={agentToDelete?.name || 'Unknown Agent'}
+        agentName={agentToDelete?.hostname || 'Unknown Agent'}
         onConfirm={handleDeleteConfirm}
         isDeleting={!!deletingAgentId}
       />
@@ -704,7 +628,7 @@ const Agents = () => {
       <Dialog open={agentDetailsDialogOpen} onOpenChange={setAgentDetailsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Agent Details - {selectedAgentForDetails?.name}</DialogTitle>
+            <DialogTitle>Agent Details - {selectedAgentForDetails?.hostname}</DialogTitle>
             <DialogDescription>
               Detailed system information and metrics for this agent
             </DialogDescription>
@@ -721,7 +645,7 @@ const Agents = () => {
                       <Tag className="h-4 w-4 text-blue-500" />
                       <span className="text-sm font-medium">Agent Name</span>
                     </div>
-                    <p className="text-sm font-semibold">{selectedAgentForDetails.name || 'Unnamed Agent'}</p>
+                    <p className="text-sm font-semibold">{selectedAgentForDetails.hostname || 'Unnamed Agent'}</p>
                   </div>
 
                   <div className="bg-gray-50 p-3 rounded-lg">
@@ -739,45 +663,29 @@ const Agents = () => {
                     </div>
                   </div>
 
-                  {selectedAgentForDetails.fingerprint && (
+                  {selectedAgentForDetails.id && (
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <Key className="h-4 w-4 text-purple-500" />
                         <span className="text-sm font-medium">Fingerprint</span>
                       </div>
-                      <p className="font-mono text-xs break-all">{selectedAgentForDetails.fingerprint}</p>
+                      <p className="font-mono text-xs break-all">{selectedAgentForDetails.id}</p>
                     </div>
                   )}
 
-                  {(selectedAgentForDetails.ip_address || selectedAgentForDetails.lastMetric?.ip_address) && (
+                  {selectedAgentForDetails.primary_ip && (
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <Globe className="h-4 w-4 text-indigo-500" />
                         <span className="text-sm font-medium">IP Address</span>
                       </div>
-                      <p className="text-sm font-mono">{selectedAgentForDetails.ip_address || selectedAgentForDetails.lastMetric?.ip_address}</p>
+                      <p className="text-sm font-mono">{selectedAgentForDetails.primary_ip}</p>
                     </div>
                   )}
 
-                  {selectedAgentForDetails.registered_ip && (
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Network className="h-4 w-4 text-cyan-500" />
-                        <span className="text-sm font-medium">Registered IP</span>
-                      </div>
-                      <p className="text-sm font-mono">{selectedAgentForDetails.registered_ip}</p>
-                    </div>
-                  )}
 
-                  {(selectedAgentForDetails.location || selectedAgentForDetails.lastMetric?.location) && (
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center gap-2 mb-1">
-                        <MapPin className="h-4 w-4 text-red-500" />
-                        <span className="text-sm font-medium">Location</span>
-                      </div>
-                      <p className="text-sm">{selectedAgentForDetails.location || selectedAgentForDetails.lastMetric?.location}</p>
-                    </div>
-                  )}
+
+
                 </div>
               </div>
 
@@ -791,47 +699,43 @@ const Agents = () => {
                         <Monitor className="h-4 w-4 text-blue-500" />
                         <span className="text-sm font-medium">Operating System</span>
                       </div>
-                      <p className="text-sm">{
-                        selectedAgentForDetails.lastMetric.os_info 
-                          ? (typeof selectedAgentForDetails.lastMetric.os_info === 'string' 
-                              ? selectedAgentForDetails.lastMetric.os_info 
-                              : `${selectedAgentForDetails.lastMetric.os_info.platform || 'Unknown'} ${selectedAgentForDetails.lastMetric.os_info.platform_version || ''}`.trim())
-                          : selectedAgentForDetails.os_version || 'Unknown'
-                      }</p>
-                      {selectedAgentForDetails.lastMetric.os_info?.kernel_arch && (
-                        <p className="text-xs text-gray-500">{selectedAgentForDetails.lastMetric.os_info.kernel_arch}</p>
+                      <p className="text-sm">{(selectedAgentForDetails.os_info + ' ' + selectedAgentForDetails.os_version) || 'Unknown'}</p>
+                      {selectedAgentForDetails.arch && (
+                        <p className="text-xs text-gray-500">{selectedAgentForDetails.arch}</p>
                       )}
                     </div>
 
-                    {(selectedAgentForDetails.kernel_version || selectedAgentForDetails.lastMetric.kernel_version) && (
+                    {(selectedAgentForDetails.kernel_version) && (
                       <div className="bg-gray-50 p-3 rounded-lg">
                         <div className="flex items-center gap-2 mb-1">
                           <Zap className="h-4 w-4 text-orange-500" />
                           <span className="text-sm font-medium">Kernel Version</span>
                         </div>
-                        <p className="text-sm">{selectedAgentForDetails.kernel_version || selectedAgentForDetails.lastMetric.kernel_version}</p>
+                        <p className="text-sm">{selectedAgentForDetails.kernel_version}</p>
                       </div>
                     )}
 
-                    {(selectedAgentForDetails.version || selectedAgentForDetails.lastMetric?.agent_version) && (
+                    {(selectedAgentForDetails.version) && (
                       <div className="bg-gray-50 p-3 rounded-lg">
                         <div className="flex items-center gap-2 mb-1">
                           <Server className="h-4 w-4 text-green-500" />
                           <span className="text-sm font-medium">Agent Version</span>
                         </div>
-                        <p className="text-sm">{selectedAgentForDetails.version || selectedAgentForDetails.lastMetric?.agent_version}</p>
+                        <p className="text-sm">{selectedAgentForDetails.version}</p>
                       </div>
                     )}
 
-                    {selectedAgentForDetails.lastMetric.device_fingerprint && (
+                    {(selectedAgentForDetails.platform_family) && (
                       <div className="bg-gray-50 p-3 rounded-lg">
                         <div className="flex items-center gap-2 mb-1">
-                          <Key className="h-4 w-4 text-purple-500" />
-                          <span className="text-sm font-medium">Device Fingerprint</span>
+                          <Server className="h-4 w-4 text-green-500" />
+                          <span className="text-sm font-medium">Platform Family</span>
                         </div>
-                        <p className="text-xs font-mono">{selectedAgentForDetails.lastMetric.device_fingerprint}</p>
+                        <p className="text-sm">{selectedAgentForDetails.platform_family}</p>
                       </div>
                     )}
+
+
                   </div>
                 </div>
               )}
@@ -841,6 +745,26 @@ const Agents = () => {
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Performance Metrics</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {selectedAgentForDetails.lastMetric.load_avg_1min !== undefined && (
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Zap className="h-4 w-4 text-yellow-500" />
+                          <span className="text-sm font-medium">Load Average</span>
+                        </div>
+                        <p className="text-sm">
+                          {selectedAgentForDetails.lastMetric.load_avg_1min?.toFixed(2)} / {selectedAgentForDetails.lastMetric.load_avg_5min?.toFixed(2)} / {selectedAgentForDetails.lastMetric.load_avg_15min?.toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+
+                     <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Cpu className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm font-medium">CPU Cores</span>
+                      </div>
+                      <p className="text-sm font-semibold">{selectedAgentForDetails.lastMetric.cpu_cores}</p>
+                    </div>
+
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <Cpu className="h-4 w-4 text-orange-500" />
@@ -852,9 +776,41 @@ const Agents = () => {
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <MemoryStick className="h-4 w-4 text-purple-500" />
+                        <span className="text-sm font-medium">Memory Total Size</span>
+                      </div>
+                      <p className="text-sm font-semibold">{(selectedAgentForDetails.lastMetric.memory_total_gb)} GB</p>
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <MemoryStick className="h-4 w-4 text-purple-500" />
+                        <span className="text-sm font-medium">Memory Used Size</span>
+                      </div>
+                      <p className="text-sm font-semibold">{(selectedAgentForDetails.lastMetric.memory_used_gb)} GB</p>
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <MemoryStick className="h-4 w-4 text-purple-500" />
                         <span className="text-sm font-medium">Memory Usage</span>
                       </div>
-                      <p className="text-sm font-semibold">{formatBytes((selectedAgentForDetails.lastMetric.memory_mb || 0) * 1024 * 1024)}</p>
+                      <p className="text-sm font-semibold">{(selectedAgentForDetails.lastMetric.memory_percent)}%</p>
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <HardDrive className="h-4 w-4 text-purple-500" />
+                        <span className="text-sm font-medium">Disk Total Size</span>
+                      </div>
+                      <p className="text-sm font-semibold">{(selectedAgentForDetails.lastMetric.disk_total_gb)} GB</p>
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <HardDrive className="h-4 w-4 text-purple-500" />
+                        <span className="text-sm font-medium">Disk Used Size</span>
+                      </div>
+                      <p className="text-sm font-semibold">{(selectedAgentForDetails.lastMetric.disk_used_gb)} GB</p>
                     </div>
 
                     <div className="bg-gray-50 p-3 rounded-lg">
@@ -862,28 +818,25 @@ const Agents = () => {
                         <HardDrive className="h-4 w-4 text-green-500" />
                         <span className="text-sm font-medium">Disk Usage</span>
                       </div>
-                      <p className="text-sm font-semibold">{selectedAgentForDetails.lastMetric.disk_percent?.toFixed(1)}%</p>
+                      <p className="text-sm font-semibold">{selectedAgentForDetails.lastMetric.disk_usage_percent?.toFixed(1)}%</p>
                     </div>
-
-                    {selectedAgentForDetails.lastMetric.load_averages && (
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Zap className="h-4 w-4 text-yellow-500" />
-                          <span className="text-sm font-medium">Load Average</span>
-                        </div>
-                        <p className="text-sm">
-                          {selectedAgentForDetails.lastMetric.load_averages.load1?.toFixed(2)} / {selectedAgentForDetails.lastMetric.load_averages.load5?.toFixed(2)} / {selectedAgentForDetails.lastMetric.load_averages.load15?.toFixed(2)}
-                        </p>
+                    
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Network className="h-4 w-4 text-green-500" />
+                        <span className="text-sm font-medium">Ingress</span>
                       </div>
-                    )}
+                      <p className="text-sm font-semibold">{selectedAgentForDetails.lastMetric.network_in_gb} GB</p>
+                    </div>
 
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
-                        <Clock className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium">Last Metric</span>
+                        <Network className="h-4 w-4 text-green-500" />
+                        <span className="text-sm font-medium">Egress</span>
                       </div>
-                      <p className="text-xs">{new Date(selectedAgentForDetails.lastMetric.recorded_at).toLocaleString()}</p>
+                      <p className="text-sm font-semibold">{selectedAgentForDetails.lastMetric.network_out_gb} GB</p>
                     </div>
+                    
                   </div>
                 </div>
               )}
@@ -912,38 +865,33 @@ const Agents = () => {
                     </div>
                   )}
 
-                  {selectedAgentForDetails.oauth_token_expires_at && (
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center gap-2 mb-1">
-                        <ShieldCheck className="h-4 w-4 text-red-500" />
-                        <span className="text-sm font-medium">Token Expires</span>
-                      </div>
-                      <p className="text-sm">{new Date(selectedAgentForDetails.oauth_token_expires_at).toLocaleString()}</p>
-                    </div>
-                  )}
+
                 </div>
               </div>
 
               {/* Storage & Filesystem Information */}
-              {selectedAgentForDetails.lastMetric?.filesystem_info && Array.isArray(selectedAgentForDetails.lastMetric.filesystem_info) && (
+              {selectedAgentForDetails.lastMetric?.filesystems && Array.isArray(selectedAgentForDetails.lastMetric.filesystems) && (
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Filesystem Information</h3>
                   <div className="grid gap-3 max-h-60 overflow-y-auto">
-                    {selectedAgentForDetails.lastMetric.filesystem_info.slice(0, 10).map((fs: any, index: number) => (
+                    {selectedAgentForDetails.lastMetric.filesystems.slice(0, 10).map((fs: any, index: number) => (
                       <div key={index} className="bg-gray-50 p-3 rounded-lg">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <Folder className="h-4 w-4 text-orange-500" />
-                            <span className="text-sm font-medium">{fs.mountpoint || 'Unknown'}</span>
+                            <span className="text-sm font-medium">{fs.mount_path || 'Unknown'}</span>
                           </div>
                           <span className="text-xs bg-gray-200 px-2 py-1 rounded">{fs.fstype}</span>
                         </div>
                         <div className="grid grid-cols-3 gap-2 text-xs">
                           <div>
-                            <span className="text-gray-500">Used:</span> {formatBytes(fs.used)}
+                            <span className="text-gray-500">Used:</span> {fs.used_gb} GiB
                           </div>
                           <div>
-                            <span className="text-gray-500">Free:</span> {formatBytes(fs.free)}
+                            <span className="text-gray-500">Total:</span> {fs.total_gb} GiB
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Free:</span> {fs.free_gb} GiB
                           </div>
                           <div>
                             <span className="text-gray-500">Usage:</span> {fs.usage_percent?.toFixed(1)}%
@@ -956,112 +904,26 @@ const Agents = () => {
               )}
 
               {/* Network Statistics */}
-              {selectedAgentForDetails.lastMetric?.network_stats && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">Network Statistics (Total Since Boot)</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Network className="h-4 w-4 text-green-500" />
-                        <span className="text-sm font-medium">Bytes Received</span>
-                      </div>
-                      <p className="text-sm">{formatBytes(selectedAgentForDetails.lastMetric.network_stats.bytes_recv)}</p>
-                    </div>
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Network className="h-4 w-4 text-red-500" />
-                        <span className="text-sm font-medium">Bytes Sent</span>
-                      </div>
-                      <p className="text-sm">{formatBytes(selectedAgentForDetails.lastMetric.network_stats.bytes_sent)}</p>
-                    </div>
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Database className="h-4 w-4 text-blue-500" />
-                        <span className="text-sm font-medium">Total Bytes</span>
-                      </div>
-                      <p className="text-sm">{formatBytes(selectedAgentForDetails.lastMetric.network_stats.total_bytes)}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {/* Legacy Network Rate Data (if available) */}
-              {(selectedAgentForDetails.lastMetric?.network_in_kbps || selectedAgentForDetails.lastMetric?.network_out_kbps) && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">Network Rate Data (Legacy)</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Wifi className="h-4 w-4 text-indigo-500" />
-                        <span className="text-sm font-medium">Network Data</span>
-                      </div>
-                      <p className="text-xs">In: {formatNetworkData(selectedAgentForDetails.lastMetric.network_in_kbps)}</p>
-                      <p className="text-xs">Out: {formatNetworkData(selectedAgentForDetails.lastMetric.network_out_kbps)}</p>
-                      {(selectedAgentForDetails.lastMetric.network_in_kbps! > 10 * 1024 * 1024 || 
-                        selectedAgentForDetails.lastMetric.network_out_kbps! > 10 * 1024 * 1024) && (
-                        <p className="text-xs text-amber-600 mt-1">⚠️ Values appear to be cumulative since boot</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {/* OAuth & Security Information */}
-              {(selectedAgentForDetails.oauth_client_id || selectedAgentForDetails.public_key) && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">Security Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedAgentForDetails.oauth_client_id && (
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <div className="flex items-center gap-2 mb-1">
-                          <ShieldCheck className="h-4 w-4 text-blue-500" />
-                          <span className="text-sm font-medium">OAuth Client ID</span>
-                        </div>
-                        <p className="text-xs font-mono break-all">{selectedAgentForDetails.oauth_client_id}</p>
-                      </div>
-                    )}
 
-                    {selectedAgentForDetails.public_key && (
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Key className="h-4 w-4 text-purple-500" />
-                          <span className="text-sm font-medium">Public Key</span>
-                        </div>
-                        <p className="text-xs font-mono break-all">{selectedAgentForDetails.public_key.substring(0, 100)}...</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
-              {/* Metadata & Extra Information */}
-              {(selectedAgentForDetails.metadata || selectedAgentForDetails.lastMetric?.extra) && (
+
+
+              {/* Metadata Information */}
+              {selectedAgentForDetails.metadata && (
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Additional Data</h3>
                   <div className="space-y-3">
-                    {selectedAgentForDetails.metadata && (
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Info className="h-4 w-4 text-blue-500" />
-                          <span className="text-sm font-medium">Agent Metadata</span>
-                        </div>
-                        <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto">
-                          {formatJsonData(selectedAgentForDetails.metadata)}
-                        </pre>
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Info className="h-4 w-4 text-blue-500" />
+                        <span className="text-sm font-medium">Agent Metadata</span>
                       </div>
-                    )}
-
-                    {selectedAgentForDetails.timeline && Object.keys(selectedAgentForDetails.timeline).length > 0 && (
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Calendar className="h-4 w-4 text-green-500" />
-                          <span className="text-sm font-medium">Timeline</span>
-                        </div>
-                        <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto">
-                          {formatJsonData(selectedAgentForDetails.timeline)}
-                        </pre>
-                      </div>
-                    )}
+                      <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto">
+                        {formatJsonData(selectedAgentForDetails.metadata)}
+                      </pre>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1076,7 +938,7 @@ const Agents = () => {
           open={investigationDialogOpen}
           onOpenChange={setInvestigationDialogOpen}
           agentId={selectedAgentForInvestigation.id}
-          agentName={selectedAgentForInvestigation.name || 'Unknown Agent'}
+          agentName={selectedAgentForInvestigation.hostname || 'Unknown Agent'}
           isAgentActive={getAgentRealTimeStatus(selectedAgentForInvestigation) === 'active'}
           userId={currentUser.id}
         />

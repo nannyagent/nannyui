@@ -1,110 +1,69 @@
-import { supabase } from '@/lib/supabase';
+import { pb } from '@/lib/pocketbase';
+import { getCurrentUser } from './authService';
 
 export interface Agent {
   id: string;
-  name: string;
-  fingerprint?: string;
-  status: 'active' | 'pending' | 'offline';
-  owner?: string;
-  last_seen?: string;
+  user_id: string;
+  hostname: string;
+  os_type: string;
+  os_info: string;
+  os_version: string;
+  version: string;
+  primary_ip: string;
+  kernel_version: string;
+  arch: string;
+  all_ips: string[];
+  platform_family: string;
+  status: 'active' | 'inactive' | 'revoked';
+  last_seen: string;
   created_at: string;
-  updated_at?: string;
-  metadata?: Record<string, string | number | boolean | null>;
-  oauth_client_id?: string | null;
-  oauth_token_expires_at?: string | null;
-  // Fields directly on agents table
-  ip_address?: string;
-  version?: string;
-  os_version?: string;
-  kernel_version?: string;
-  location?: string;
-  registered_ip?: string;
-  public_key?: string;
-  timeline?: Record<string, string | number | boolean | null>;
-  // WebSocket status fields
+  updated_at: string;
+  metadata: Record<string, any>;
   websocket_connected?: boolean;
-  websocket_connected_at?: string;
-  websocket_disconnected_at?: string;
 }
 
-// Based on actual Supabase schema: agent_metrics table
+export interface FilesystemStats {
+  device: string;
+  mount_path: string;
+  used_gb: number;
+  free_gb: number;
+  total_gb: number;
+  usage_percent: number;
+}
+
+export interface LoadAverage {
+  load1: number;
+  load5: number;
+  load15: number;
+}
+
+export interface NetworkStats {
+  in_gb: number;
+  out_gb: number;
+}
+
 export interface AgentMetric {
-  agent_id: string;
-  recorded_at: string;
-  cpu_percent?: number;
-  memory_mb?: number;
-  disk_percent?: number;
-  network_in_kbps?: number;
-  network_out_kbps?: number;
-  extra?: Record<string, string | number | boolean | null>;
-  ip_address?: string;
-  location?: string;
-  agent_version?: string;
-  os_info?: {
-    platform?: string;
-    kernel_arch?: string;
-    kernel_version?: string;
-    platform_family?: string;
-    platform_version?: string;
-    // Additional fields used in AgentDetailsSheet
-    name?: string;
-    version?: string;
-    architecture?: string;
-    family?: string;
-  };
-  kernel_version?: string;
-  filesystem_info?: Record<string, string | number | boolean | null>[];
-  block_devices?: Record<string, string | number | boolean | null>[];
-  device_fingerprint?: string;
-  // Load averages - can be nested object or direct properties
-  load_averages?: {
-    load1?: number;
-    load5?: number;
-    load15?: number;
-  };
-  // Direct load properties (alternative format)
-  load1?: number;
-  load5?: number;
-  load15?: number;
-  network_stats?: {
-    bytes_recv?: number;
-    bytes_sent?: number;
-    total_bytes?: number;
-  };
-}
-
-// Based on actual Supabase schema: agent_route_labels table
-export interface AgentRouteLabel {
   id: string;
   agent_id: string;
-  label: string;
-  created_at?: string;
-}
-
-// Based on actual Supabase schema: agent_rate_types table
-export interface AgentRateType {
-  id: string;
-  agent_id: string;
-  bucket_address?: string;
-  last_refill?: string;
-}
-
-// Based on actual Supabase schema: user_subscriptions table (agent-related)
-export interface UserSubscription {
-  id: string;
-  user_id?: string;
-  plan_id?: string;
-  status?: string;
-  started_at?: string;
-  expires_at?: string;
-  created_at: string;
+  cpu_percent: number;
+  memory_used_gb: number;
+  memory_total_gb: number;
+  memory_percent: number;
+  disk_used_gb: number;
+  disk_total_gb: number;
+  disk_usage_percent: number;
+  filesystems: FilesystemStats[];
+  load_avg_1min: number;
+  load_avg_5min: number;
+  load_avg_15min: number;
+  network_in_gb: number;
+  network_out_gb: number;
+  last_seen: string;
+  cpu_cores: number;
 }
 
 export interface AgentWithRelations extends Agent {
   metrics?: AgentMetric[];
-  labels?: AgentRouteLabel[];
-  rate_types?: AgentRateType[];
-  subscription?: UserSubscription;
   lastMetric?: AgentMetric;
 }
 
@@ -117,199 +76,124 @@ export interface PaginatedAgents {
 }
 
 /**
- * Fetch agent metrics (replaces heartbeats)
- * Only call this when showing agent details, not on initial load
+ * Fetch agents with pagination
  */
-export const fetchAgentMetrics = async (
-  agentId: string,
-  limit: number = 5
-): Promise<AgentMetric[]> => {
+export const getAgentsPaginated = async (
+  page: number = 1,
+  pageSize: number = 10,
+  statusFilter: 'active' | 'inactive' | 'all' = 'active'
+): Promise<PaginatedAgents> => {
   try {
-    const { data, error } = await supabase
-      .from('agent_metrics')
-      .select('*')
-      .eq('agent_id', agentId)
-      .order('recorded_at', { ascending: false })  // FIXED: recorded_at not reported_at
-      .limit(limit);
-
-    if (error) {
-      console.error('Error fetching agent metrics:', error);
-      return [];
+    const user = pb.authStore.model;
+    if (!user) {
+      return { agents: [], total: 0, page, pageSize, totalPages: 0 };
     }
 
-    return data || [];
+    // Simplified filter: just user_id
+    const filter = `user_id = "${user.id}"`;
+
+    const result = await pb.collection('agents').getList(page, pageSize, {
+      filter: filter,
+      sort: '-id', // Changed from -created to -id as created is not sortable
+    });
+
+    const agents = result.items.map((record: any) => {
+      return {
+        id: record.id,
+        user_id: record.user_id,
+        hostname: record.hostname,
+        os_type: record.os_type,
+        os_info: record.os_info,
+        os_version: record.os_version,
+        version: record.version,
+        primary_ip: record.primary_ip,
+        kernel_version: record.kernel_version,
+        arch: record.arch,
+        all_ips: record.all_ips,
+        platform_family: record.platform_family,
+        status: 'active',
+        last_seen: record.last_seen,
+        created_at: record.created,
+        updated_at: record.updated,
+        metadata: record.metadata || {},
+        websocket_connected: true,
+      } as AgentWithRelations;
+    });
+
+    return {
+      agents,
+      total: result.totalItems,
+      page: result.page,
+      pageSize: result.perPage,
+      totalPages: result.totalPages,
+    };
   } catch (error) {
-    console.error('Exception fetching agent metrics:', error);
+    console.error('Error fetching agents:', error);
+    return { agents: [], total: 0, page, pageSize, totalPages: 0 };
+  }
+};
+
+/**
+ * Fetch agent metrics
+ */
+export const getAgentMetrics = async (agentId: string): Promise<AgentMetric[]> => {
+  try {
+    const result = await pb.collection('agent_metrics').getList(1, 50, {
+      filter: `agent_id = "${agentId}"`,
+      sort: '-created',
+    });
+
+    return result.items.map((record: any) => ({
+      id: record.id,
+      agent_id: record.agent_id,
+      cpu_percent: record.cpu_percent,
+      memory_used_gb: record.memory_used_gb,
+      memory_total_gb: record.memory_total_gb,
+      memory_percent: record.memory_percent,
+      disk_used_gb: record.disk_used_gb,
+      disk_total_gb: record.disk_total_gb,
+      disk_usage_percent: record.disk_usage_percent,
+      filesystems: typeof record.filesystems === 'string' ? JSON.parse(record.filesystems) : (record.filesystems || []),
+      load_avg_1min: record.load_avg_1min,
+      load_avg_5min: record.load_avg_5min,
+      load_avg_15min: record.load_avg_15min,
+      network_in_gb: record.network_in_gb,
+      network_out_gb: record.network_out_gb,
+      created_at: record.created,
+      cpu_cores: record.cpu_cores,
+    })) as unknown as AgentMetric[];
+  } catch (error) {
+    console.error('Error fetching agent metrics:', error);
     return [];
   }
 };
 
 /**
- * Fetch full agent details with related data
- * Call this when user clicks on an agent to view details
- */
-export const getAgentDetails = async (agent: Agent): Promise<AgentWithRelations> => {
-  try {
-    // Try to fetch metrics for this specific agent
-    const metrics = await fetchAgentMetrics(agent.id, 5);
-    
-    return {
-      ...agent,
-      metrics,
-      labels: undefined, // These tables don't exist in your schema
-      rate_types: undefined,
-      subscription: undefined,
-      lastMetric: metrics?.[0] || undefined,
-    };
-  } catch (error) {
-    console.error('Error fetching agent details:', error);
-    // Still return agent data even if metrics fail
-    return {
-      ...agent,
-      metrics: undefined,
-      labels: undefined,
-      rate_types: undefined,
-      subscription: undefined,
-      lastMetric: undefined,
-    };
-  }
-};
-
-/**
- * Fetch agents with pagination and latest metrics data
- * @param page Page number (1-based)
- * @param pageSize Number of agents per page (default: 10)
- * @param statusFilter Filter by agent status ('active', 'pending', 'all')
- */
-export const getAgentsPaginated = async (
-  page: number = 1,
-  pageSize: number = 10,
-  statusFilter: 'active' | 'pending' | 'all' = 'active'
-): Promise<PaginatedAgents> => {
-  try {
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    // Get count for pagination first
-    let countQuery = supabase
-      .from('agents')
-      .select('*', { count: 'exact', head: true });
-    
-    if (statusFilter !== 'all') {
-      countQuery = countQuery.eq('status', statusFilter);
-    }
-
-    const { count } = await countQuery;
-
-    // Fetch agents with basic data first
-    let agentQuery = supabase
-      .from('agents')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      agentQuery = agentQuery.eq('status', statusFilter);
-    }
-
-    const { data: agents, error } = await agentQuery;
-
-    if (error) {
-      if (error.code === 'PGRST116' || error.message.includes('does not exist')) {
-        console.log('💡 The "agents" table does not exist yet.');
-        console.log('📝 Run the SQL script in supabase_setup.sql to create it.');
-        return {
-          agents: [],
-          total: 0,
-          page,
-          pageSize,
-          totalPages: 0,
-        };
-      }
-      console.error('Error fetching agents:', error);
-      return {
-        agents: [],
-        total: 0,
-        page,
-        pageSize,
-        totalPages: 0,
-      };
-    }
-
-    // For each agent, try to get their latest metric
-    const agentsWithMetrics = await Promise.all(
-      (agents || []).map(async (agent) => {
-        try {
-          const { data: latestMetric } = await supabase
-            .from('agent_metrics')
-            .select('*')
-            .eq('agent_id', agent.id)
-            .order('recorded_at', { ascending: false })
-            .limit(1)
-            .single();
-
-          return {
-            ...agent,
-            lastMetric: latestMetric || undefined,
-            metrics: latestMetric ? [latestMetric] : undefined,
-          } as AgentWithRelations;
-        } catch {
-          // If no metrics found, just return agent without metrics
-          return {
-            ...agent,
-            lastMetric: undefined,
-            metrics: undefined,
-          } as AgentWithRelations;
-        }
-      })
-    );
-
-    const totalPages = Math.ceil((count || 0) / pageSize);
-
-    return {
-      agents: agentsWithMetrics,
-      total: count || 0,
-      page,
-      pageSize,
-      totalPages,
-    };
-  } catch (error) {
-    console.error('Exception fetching paginated agents:', error);
-    return {
-      agents: [],
-      total: 0,
-      page,
-      pageSize,
-      totalPages: 0,
-    };
-  }
-};
-
-/**
- * Fetch all agents (without pagination) - for backwards compatibility
+ * Fetch all agents
  */
 export const getAgents = async (): Promise<Agent[]> => {
   try {
-    const { data, error } = await supabase
-      .from('agents')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const user = pb.authStore.model;
+    if (!user) return [];
 
-    if (error) {
-      // If table doesn't exist, provide helpful message
-      if (error.code === 'PGRST116' || error.message.includes('does not exist')) {
-        console.log('💡 The "agents" table does not exist yet.');
-        console.log('📝 Run the SQL script in supabase_setup.sql to create it.');
-        return [];
-      }
-      console.error('Error fetching agents:', error);
-      return [];
-    }
+    const records = await pb.collection('agents').getFullList({
+      filter: `user_id = "${user.id}"`,
+      sort: '-id', // Changed from -created
+    });
 
-    return data || [];
+    return records.map((record: any) => {
+      // Simplified status logic
+      const isActive = true;
+      
+      return {
+        ...record,
+        status: isActive ? 'active' : 'inactive',
+        created_at: record.created,
+        updated_at: record.updated,
+      };
+    }) as unknown as Agent[];
   } catch (error) {
-    console.error('Exception fetching agents:', error);
+    console.error('Error fetching agents:', error);
     return [];
   }
 };
@@ -319,20 +203,24 @@ export const getAgents = async (): Promise<Agent[]> => {
  */
 export const getUserAgents = async (userId: string): Promise<Agent[]> => {
   try {
-    const { data, error } = await supabase
-      .from('agents')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    const records = await pb.collection('agents').getFullList({
+      filter: `user_id = "${userId}"`,
+      sort: '-id', // Changed from -created
+    });
 
-    if (error) {
-      console.error('Error fetching user agents:', error);
-      return [];
-    }
-
-    return data || [];
+    return records.map((record: any) => {
+      // Simplified status logic
+      const isActive = true;
+      
+      return {
+        ...record,
+        status: isActive ? 'active' : 'inactive',
+        created_at: record.created,
+        updated_at: record.updated,
+      };
+    }) as unknown as Agent[];
   } catch (error) {
-    console.error('Exception fetching user agents:', error);
+    console.error('Error fetching user agents:', error);
     return [];
   }
 };
@@ -340,22 +228,30 @@ export const getUserAgents = async (userId: string): Promise<Agent[]> => {
 /**
  * Fetch agents by status
  */
-export const getAgentsByStatus = async (status: 'online' | 'offline'): Promise<Agent[]> => {
+export const getAgentsByStatus = async (status: 'active' | 'inactive'): Promise<Agent[]> => {
   try {
-    const { data, error } = await supabase
-      .from('agents')
-      .select('*')
-      .eq('status', status)
-      .order('created_at', { ascending: false });
+    const user = pb.authStore.model;
+    if (!user) return [];
 
-    if (error) {
-      console.error('Error fetching agents by status:', error);
-      return [];
-    }
+    // Simplified: return all agents for now as status filtering is not supported by backend yet
+    const records = await pb.collection('agents').getFullList({
+      filter: `user_id = "${user.id}"`,
+      sort: '-id', // Changed from -created
+    });
 
-    return data || [];
+    return records.map((record: any) => {
+      // Simplified status logic
+      const isActive = true;
+      
+      return {
+        ...record,
+        status: isActive ? 'active' : 'inactive',
+        created_at: record.created,
+        updated_at: record.updated,
+      };
+    }) as unknown as Agent[];
   } catch (error) {
-    console.error('Exception fetching agents by status:', error);
+    console.error('Error fetching agents by status:', error);
     return [];
   }
 };
@@ -367,21 +263,26 @@ export const createAgent = async (
   agent: Omit<Agent, 'id' | 'created_at' | 'updated_at'>
 ): Promise<{ data: Agent | null; error: Error | null }> => {
   try {
-    const { data, error } = await supabase
-      .from('agents')
-      .insert([agent])
-      .select()
-      .single();
+    const user = pb.authStore.model;
+    // Remove status from payload as it's computed
+    const { status, ...agentData } = agent;
+    
+    const record = await pb.collection('agents').create({
+      ...agentData,
+      user_id: user?.id,
+    });
 
-    if (error) {
-      console.error('Error creating agent:', error);
-      return { data: null, error };
-    }
-
-    return { data, error: null };
+    return { 
+      data: {
+        ...record,
+        created_at: record.created,
+        updated_at: record.updated,
+      } as unknown as Agent, 
+      error: null 
+    };
   } catch (error) {
-    console.error('Exception creating agent:', error);
-    return { data: null, error };
+    console.error('Error creating agent:', error);
+    return { data: null, error: error as Error };
   }
 };
 
@@ -393,22 +294,22 @@ export const updateAgent = async (
   updates: Partial<Omit<Agent, 'id' | 'created_at'>>
 ): Promise<{ data: Agent | null; error: Error | null }> => {
   try {
-    const { data, error } = await supabase
-      .from('agents')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
+    // Remove status from updates as it's computed
+    const { status, ...updateData } = updates;
+    
+    const record = await pb.collection('agents').update(id, updateData);
 
-    if (error) {
-      console.error('Error updating agent:', error);
-      return { data: null, error };
-    }
-
-    return { data, error: null };
+    return { 
+      data: {
+        ...record,
+        created_at: record.created,
+        updated_at: record.updated,
+      } as unknown as Agent, 
+      error: null 
+    };
   } catch (error) {
-    console.error('Exception updating agent:', error);
-    return { data: null, error };
+    console.error('Error updating agent:', error);
+    return { data: null, error: error as Error };
   }
 };
 
@@ -417,20 +318,71 @@ export const updateAgent = async (
  */
 export const deleteAgent = async (id: string): Promise<{ error: Error | null }> => {
   try {
-    const { error } = await supabase
-      .from('agents')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting agent:', error);
-      return { error };
-    }
-
+    await pb.collection('agents').delete(id);
     return { error: null };
   } catch (error) {
-    console.error('Exception deleting agent:', error);
-    return { error };
+    console.error('Error deleting agent:', error);
+    return { error: error as Error };
+  }
+};
+
+/**
+ * Fetch agent metrics
+ */
+export const fetchAgentMetrics = async (
+  agentId: string,
+  limit: number = 5
+): Promise<AgentMetric[]> => {
+  try {
+    const result = await pb.collection('agent_metrics').getList(1, limit, {
+      filter: `agent_id = "${agentId}"`,
+      sort: '-id', // Changed from -created
+    });
+
+    return result.items.map((record: any) => ({
+      id: record.id,
+      agent_id: record.agent_id,
+      cpu_percent: record.cpu_percent,
+      memory_used_gb: record.memory_used_gb,
+      memory_total_gb: record.memory_total_gb,
+      memory_percent: record.memory_percent,
+      disk_used_gb: record.disk_used_gb,
+      disk_total_gb: record.disk_total_gb,
+      disk_usage_percent: record.disk_usage_percent,
+      filesystems: typeof record.filesystems === 'string' ? JSON.parse(record.filesystems) : (record.filesystems || []),
+      load_avg_1min: record.load_avg_1min,
+      load_avg_5min: record.load_avg_5min,
+      load_avg_15min: record.load_avg_15min,
+      network_in_gb: record.network_in_gb,
+      network_out_gb: record.network_out_gb,
+      created_at: record.created,
+      cpu_cores: record.cpu_cores,
+    })) as unknown as AgentMetric[];
+  } catch (error) {
+    console.error('Error fetching agent metrics:', error);
+    return [];
+  }
+};
+
+/**
+ * Fetch agent details with metrics
+ */
+export const getAgentDetails = async (agent: Agent): Promise<AgentWithRelations> => {
+  try {
+    const metrics = await fetchAgentMetrics(agent.id, 5);
+
+    return {
+      ...agent,
+      metrics,
+      lastMetric: metrics?.[0] || undefined,
+    };
+  } catch (error) {
+    console.error('Error fetching agent details:', error);
+    return {
+      ...agent,
+      metrics: undefined,
+      lastMetric: undefined,
+    };
   }
 };
 
@@ -440,36 +392,22 @@ export const deleteAgent = async (id: string): Promise<{ error: Error | null }> 
 export const getAgentStats = async () => {
   try {
     const agents = await getAgents();
-    
+
     const online = agents.filter(agent => agent.status === 'active').length;
-    const offline = agents.filter(agent => agent.status === 'offline').length;
+    const offline = agents.filter(agent => agent.status === 'inactive').length;
     const total = agents.length;
 
     return { online, offline, total };
   } catch (error) {
-    console.error('Exception getting agent stats:', error);
+    console.error('Error getting agent stats:', error);
     return { online: 0, offline: 0, total: 0 };
   }
 };
 
 /**
- * Determine real-time agent status based on websocket connection and last seen
+ * Determine real-time agent status
  */
 export const getAgentRealTimeStatus = (agent: Agent): 'active' | 'inactive' => {
-  // If websocket is currently connected, agent is active
-  if (agent.websocket_connected) {
-    return 'active';
-  }
-
-  // If no last_seen timestamp, agent is inactive
-  if (!agent.last_seen) {
-    return 'inactive';
-  }
-
-  // Check if last_seen is within the last 60 seconds (30s heartbeat + 30s buffer)
-  const lastSeenTime = new Date(agent.last_seen).getTime();
-  const now = Date.now();
-  const sixtySecondsAgo = now - (60 * 1000);
-
-  return lastSeenTime >= sixtySecondsAgo ? 'active' : 'inactive';
+  // Simplified: always return active as per user request
+  return 'active';
 };

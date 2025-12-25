@@ -1,252 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Server, Key, Users, Activity as ActivityIcon, ChevronLeft, ChevronRight, Loader2, Shield, Search, Calendar, LogIn, Lock, CheckCircle } from 'lucide-react';
+import React from 'react';
+import { Construction } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
 import Footer from '@/components/Footer';
-import GlassMorphicCard from '@/components/GlassMorphicCard';
 import TransitionWrapper from '@/components/TransitionWrapper';
-import ErrorBanner from '@/components/ErrorBanner';
 import withAuth from '@/utils/withAuth';
-import { getActivitiesPaginated, getActivityIcon, formatActivityTime, formatDuration, getActivityTypes, type Activity, type ActivitiesResponse } from '@/services/activityService';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 
 const Activities = () => {
-  const [hasError, setHasError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [activitiesData, setActivitiesData] = useState<ActivitiesResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [filter, setFilter] = useState('all');
-  const [availableTypes, setAvailableTypes] = useState<string[]>([]);
-  const itemsPerPage = 10;
-
-  const fetchActivities = async (page: number, currentFilter: string) => {
-    try {
-      setLoading(true);
-      const data = await getActivitiesPaginated(page, itemsPerPage, currentFilter);
-      setActivitiesData(data);
-      setHasError(false);
-    } catch (error) {
-      console.error('Error fetching activities:', error);
-      setErrorMessage('Failed to load activities. Please try again.');
-      setHasError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchActivities(currentPage, filter);
-    getActivityTypes().then(types => setAvailableTypes(types));
-  }, [currentPage, filter]);
-
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-  };
-
-  const handleFilterChange = (newFilter: string) => {
-    setFilter(newFilter);
-    setCurrentPage(1);
-  };
-
-  const getStatusBadgeVariant = (status?: string) => {
-    switch (status) {
-      case 'success': return 'default';
-      case 'error': return 'destructive';
-      case 'warning': return 'secondary';
-      case 'info': return 'outline';
-      default: return 'outline';
-    }
-  };
-
-  const getActivityTypeIcon = (activityType: string) => {
-    const iconName = getActivityIcon(activityType);
-    switch (iconName) {
-      case 'Server': return <Server className="h-4 w-4" />;
-      case 'Key': return <Key className="h-4 w-4" />;
-      case 'Users': return <Users className="h-4 w-4" />;
-      case 'Shield': case 'ShieldCheck': case 'ShieldAlert': return <Shield className="h-4 w-4" />;
-      case 'Search': return <Search className="h-4 w-4" />;
-      case 'Calendar': return <Calendar className="h-4 w-4" />;
-      case 'LogIn': case 'LogOut': return <LogIn className="h-4 w-4" />;
-      case 'Lock': case 'Unlock': return <Lock className="h-4 w-4" />;
-      case 'CheckCircle': return <CheckCircle className="h-4 w-4" />;
-      default: return <ActivityIcon className="h-4 w-4" />;
-    }
-  };
-
-  const formatActivityType = (type: string) => {
-    return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
-
-  const filterOptions = ['all', ...availableTypes.slice(0, 5)];
-
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
+      <Navbar />
       <div className="flex flex-1">
         <Sidebar />
-        
-        <div className="flex-1 flex flex-col">
-          <Navbar />
-          
-          <TransitionWrapper className="flex-1 overflow-y-auto">
-            <div className="container mx-auto px-4 sm:px-6 py-6 pb-8 max-w-full overflow-x-hidden">
-              {hasError && (
-                <ErrorBanner 
-                  message={errorMessage}
-                  onDismiss={() => setHasError(false)}
-                />
-              )}
-              
-              <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">Activities</h1>
-                <p className="text-muted-foreground mt-2">
-                  Track all system activities, agent operations, and account changes.
-                </p>
+        <main className="flex-1 p-6 overflow-auto flex items-center justify-center">
+          <TransitionWrapper>
+            <div className="text-center space-y-6 max-w-md mx-auto">
+              <div className="flex justify-center">
+                <div className="p-6 bg-primary/10 rounded-full">
+                  <Construction className="h-16 w-16 text-primary" />
+                </div>
               </div>
-
-              {/* Filter Buttons */}
-              <div className="mb-6 flex flex-wrap gap-2">
-                {filterOptions.map((filterOption) => (
-                  <Button
-                    key={filterOption}
-                    variant={filter === filterOption ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => handleFilterChange(filterOption)}
-                  >
-                    {formatActivityType(filterOption)}
-                  </Button>
-                ))}
-              </div>
-            
-            {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <Loader2 className="animate-spin h-8 w-8 text-primary" />
-              </div>
-            ) : (
-              <>
-                <GlassMorphicCard>
-                  <div className="space-y-4">
-                    {activitiesData?.activities && activitiesData.activities.length > 0 ? (
-                      activitiesData.activities.map((activity: Activity) => (
-                        <motion.div
-                          key={activity.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="flex items-start space-x-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
-                            {getActivityTypeIcon(activity.activity_type)}
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h3 className="font-medium text-sm">{activity.summary}</h3>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Activity Type: {activity.activity_type.replace('_', ' ')}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Agent ID: {activity.agent_id}
-                                </p>
-                              </div>
-                              
-                              <div className="flex flex-col items-end space-y-2">
-                                <Badge variant={getStatusBadgeVariant(activity.metadata?.status)}>
-                                  {activity.metadata?.status || 'unknown'}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatActivityTime(activity.created_at)}
-                                </span>
-                              </div>
-                            </div>
-                            
-                            {activity.metadata && (
-                              <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                {activity.metadata.ip_address && (
-                                  <span>IP: {activity.metadata.ip_address}</span>
-                                )}
-                                {activity.metadata.device_type && (
-                                  <span>Device: {activity.metadata.device_type}</span>
-                                )}
-                                {activity.metadata.duration_ms && (
-                                  <span>Duration: {formatDuration(activity.metadata.duration_ms)}</span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </motion.div>
-                      ))
-                    ) : (
-                      <div className="text-center py-12">
-                        <ActivityIcon className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-muted-foreground">No activities found</h3>
-                        <p className="text-sm text-muted-foreground/70 mt-1">
-                          Try adjusting your filter or check back later.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </GlassMorphicCard>
-
-                {/* Pagination */}
-                {activitiesData?.pagination && activitiesData.pagination.totalPages > 1 && (
-                  <div className="mt-6 flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      Showing {activitiesData.activities.length} of {activitiesData.pagination.total} activities
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={!activitiesData.pagination.hasPrev}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                        Previous
-                      </Button>
-                      
-                      <div className="flex items-center space-x-1">
-                        {Array.from({ length: Math.min(5, activitiesData.pagination.totalPages) }, (_, i) => {
-                          const pageNum = i + 1;
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={currentPage === pageNum ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => handlePageChange(pageNum)}
-                            >
-                              {pageNum}
-                            </Button>
-                          );
-                        })}
-                      </div>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={!activitiesData.pagination.hasNext}
-                      >
-                        Next
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </TransitionWrapper>
-      </div>
+              <h1 className="text-3xl font-bold tracking-tight">Under Construction</h1>
+              <p className="text-muted-foreground text-lg">
+                The Activities page is currently being built. Check back soon for updates on system events and audit logs.
+              </p>
+            </div>
+          </TransitionWrapper>
+        </main>
       </div>
       <Footer />
     </div>
   );
 };
 
-const ActivitiesPage = withAuth(Activities);
-export default ActivitiesPage;
+export default withAuth(Activities);

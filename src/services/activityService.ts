@@ -1,5 +1,4 @@
-import { supabase } from '@/lib/supabase';
-import { getCurrentSession } from '@/services/authService';
+import { pb } from '@/lib/pocketbase';
 
 export interface Activity {
   id: string;
@@ -7,14 +6,7 @@ export interface Activity {
   agent_id: string | null;
   activity_type: string;
   summary: string;
-  metadata: {
-    status?: 'success' | 'error' | 'warning' | 'info';
-    ip_address?: string;
-    user_agent?: string;
-    device_type?: string;
-    duration_ms?: number;
-    [key: string]: string | number | boolean | null;
-  } | null;
+  metadata: Record<string, any>;
   created_at: string;
   // Legacy fields for backward compatibility
   title?: string;
@@ -52,369 +44,159 @@ export const ACTIVITY_TYPES = {
   // Investigation activities
   INVESTIGATION_STARTED: 'investigation_started',
   INVESTIGATION_COMPLETED: 'investigation_completed',
+  INVESTIGATION_FAILED: 'investigation_failed',
   
-  // Account activities
-  MFA_ENABLED: 'mfa_enabled',
-  MFA_DISABLED: 'mfa_disabled',
-  PASSWORD_CHANGED: 'password_changed',
-  LOGIN: 'login',
-  LOGOUT: 'logout',
-  
-  // Legacy types
-  DATA_SYNC: 'data_sync',
-  TOKEN_GENERATED: 'token_generated',
-  SESSION_STARTED: 'session_started',
-  WEBSOCKET_CONNECTED: 'websocket_connected',
-} as const;
-
-/**
- * Fetch recent activities from Supabase directly
- * @param limit Number of activities to fetch (default: 10)
- */
-export const getRecentActivities = async (limit: number = 10): Promise<Activity[]> => {
-  try {
-    const session = await getCurrentSession();
-    if (!session?.user?.id) {
-      console.error('No session found for activities');
-      return [];
-    }
-
-    const { data, error } = await supabase
-      .from('activities')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error('Error fetching activities:', error);
-      return [];
-    }
-
-    return (data || []).map(activity => ({
-      ...activity,
-      title: activity.summary,
-      description: `${activity.activity_type} - ${activity.metadata?.status || 'info'}`
-    }));
-  } catch (error) {
-    console.error('Exception fetching activities:', error);
-    return [];
-  }
+  // User activities
+  USER_LOGIN: 'user_login',
+  USER_LOGOUT: 'user_logout',
+  USER_REGISTERED: 'user_registered',
 };
 
 /**
  * Fetch activities with pagination
- * @param page Page number (default: 1)
- * @param limit Number of activities per page (default: 10)
- * @param filter Filter type (default: 'all')
  */
 export const getActivitiesPaginated = async (
-  page: number = 1, 
-  limit: number = 10, 
+  page: number = 1,
+  limit: number = 10,
+  filter: string = 'all'
+): Promise<ActivitiesResponse> => {
+  return getActivities(page, limit, filter);
+};
+
+export const getActivities = async (
+  page: number = 1,
+  limit: number = 10,
   filter: string = 'all'
 ): Promise<ActivitiesResponse> => {
   try {
-    const session = await getCurrentSession();
-    if (!session?.user?.id) {
-      console.error('No session found for activities');
+    const user = pb.authStore.model;
+    if (!user) {
       return {
         activities: [],
-        pagination: {
-          page: 1,
-          limit: 0,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false
-        },
-        filter: 'all'
+        pagination: { page: 1, limit, total: 0, totalPages: 0, hasNext: false, hasPrev: false },
+        filter
       };
     }
 
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-
-    let query = supabase
-      .from('activities')
-      .select('*', { count: 'exact' })
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    // Apply filter if not 'all'
+    const filterStr = `user_id = "${user.id}"`;
     if (filter !== 'all') {
-      query = query.eq('activity_type', filter);
+      // Map filter to activity types if needed, or just use as is
+      // Assuming filter is activity_type or similar
     }
 
-    const { data, error, count } = await query;
+    const result = await pb.collection('activities').getList(page, limit, {
+      filter: filterStr,
+      sort: '-created',
+    });
 
-    if (error) {
-      console.error('Error fetching activities:', error);
-      throw new Error(`Failed to fetch activities: ${error.message}`);
-    }
-
-    const total = count || 0;
-    const totalPages = Math.ceil(total / limit);
-
-    const transformedActivities = (data || []).map(activity => ({
-      ...activity,
-      title: activity.summary,
-      description: `${activity.activity_type} - ${activity.metadata?.status || 'info'}`
-    }));
+    const activities = result.items.map((record: any) => ({
+      ...record,
+      created_at: record.created,
+    })) as unknown as Activity[];
 
     return {
-      activities: transformedActivities,
+      activities,
       pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
+        page: result.page,
+        limit: result.perPage,
+        total: result.totalItems,
+        totalPages: result.totalPages,
+        hasNext: result.page < result.totalPages,
+        hasPrev: result.page > 1,
       },
       filter
     };
   } catch (error) {
-    console.error('Exception fetching paginated activities:', error);
-    throw error;
+    console.error('Error fetching activities:', error);
+    return {
+      activities: [],
+      pagination: { page: 1, limit, total: 0, totalPages: 0, hasNext: false, hasPrev: false },
+      filter
+    };
   }
 };
 
 /**
- * Create a new activity log
- * @param activity Activity data to insert
+ * Log an activity
  */
-export const createActivity = async (
-  activityData: {
-    activity_type: string;
-    summary: string;
-    agent_id?: string | null;
-    metadata?: Record<string, string | number | boolean | null>;
-  }
-): Promise<{ data: Activity | null; error: Error | null }> => {
+export const logActivity = async (
+  activityType: string,
+  summary: string,
+  metadata: Record<string, any> = {},
+  agentId?: string
+): Promise<void> => {
   try {
-    const session = await getCurrentSession();
-    if (!session?.user?.id) {
-      return { data: null, error: new Error('No active session') };
-    }
+    const user = pb.authStore.model;
+    if (!user) return;
 
-    const { data, error } = await supabase
-      .from('activities')
-      .insert([{
-        user_id: session.user.id,
-        agent_id: activityData.agent_id || null,
-        activity_type: activityData.activity_type,
-        summary: activityData.summary,
-        metadata: activityData.metadata || { status: 'success' }
-      }])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error creating activity:', error);
-      return { data: null, error: new Error(error.message) };
-    }
-
-    return { data, error: null };
+    await pb.collection('activities').create({
+      user_id: user.id,
+      agent_id: agentId,
+      activity_type: activityType,
+      summary,
+      metadata,
+    });
   } catch (error) {
-    console.error('Exception creating activity:', error);
-    return { data: null, error: error as Error };
+    console.error('Error logging activity:', error);
   }
 };
 
+import { Activity as LucideActivity, Server, Shield, User, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+
 /**
- * Log agent creation activity
+ * Get recent activities
  */
-export const logAgentCreated = async (agentId: string, agentName: string) => {
-  return createActivity({
-    activity_type: ACTIVITY_TYPES.AGENT_CREATED,
-    summary: `Agent "${agentName}" was registered`,
-    agent_id: agentId,
-    metadata: { status: 'success', agent_name: agentName }
-  });
+export const getRecentActivities = async (limit: number = 5): Promise<Activity[]> => {
+  const response = await getActivities(1, limit);
+  return response.activities;
 };
 
 /**
- * Log agent deletion activity
+ * Get icon for activity type
  */
-export const logAgentDeleted = async (agentId: string, agentName: string) => {
-  return createActivity({
-    activity_type: ACTIVITY_TYPES.AGENT_DELETED,
-    summary: `Agent "${agentName}" was deleted`,
-    agent_id: agentId,
-    metadata: { status: 'info', agent_name: agentName }
-  });
+export const getActivityIcon = (type: string) => {
+  if (type.includes('agent')) return Server;
+  if (type.includes('patch')) return Shield;
+  if (type.includes('user')) return User;
+  if (type.includes('investigation')) return LucideActivity;
+  if (type.includes('error') || type.includes('failed')) return AlertCircle;
+  if (type.includes('success') || type.includes('completed')) return CheckCircle;
+  return Clock;
 };
 
 /**
- * Log patch execution started
+ * Format activity time
  */
-export const logPatchStarted = async (agentId: string, executionType: string) => {
-  return createActivity({
-    activity_type: ACTIVITY_TYPES.PATCH_STARTED,
-    summary: `Patch ${executionType} started`,
-    agent_id: agentId,
-    metadata: { status: 'info', execution_type: executionType }
-  });
-};
-
-/**
- * Log patch execution completed
- */
-export const logPatchCompleted = async (agentId: string, executionType: string, success: boolean) => {
-  return createActivity({
-    activity_type: success ? ACTIVITY_TYPES.PATCH_COMPLETED : ACTIVITY_TYPES.PATCH_FAILED,
-    summary: `Patch ${executionType} ${success ? 'completed successfully' : 'failed'}`,
-    agent_id: agentId,
-    metadata: { status: success ? 'success' : 'error', execution_type: executionType }
-  });
-};
-
-/**
- * Log investigation started
- */
-export const logInvestigationStarted = async (agentId: string, issue: string) => {
-  return createActivity({
-    activity_type: ACTIVITY_TYPES.INVESTIGATION_STARTED,
-    summary: `Investigation started: ${issue.substring(0, 50)}${issue.length > 50 ? '...' : ''}`,
-    agent_id: agentId,
-    metadata: { status: 'info', issue }
-  });
-};
-
-/**
- * Log MFA enabled
- */
-export const logMfaEnabled = async () => {
-  return createActivity({
-    activity_type: ACTIVITY_TYPES.MFA_ENABLED,
-    summary: 'Multi-factor authentication was enabled',
-    metadata: { status: 'success' }
-  });
-};
-
-/**
- * Log password changed
- */
-export const logPasswordChanged = async () => {
-  return createActivity({
-    activity_type: ACTIVITY_TYPES.PASSWORD_CHANGED,
-    summary: 'Account password was changed',
-    metadata: { status: 'success' }
-  });
-};
-
-/**
- * Log user login
- */
-export const logUserLogin = async () => {
-  return createActivity({
-    activity_type: ACTIVITY_TYPES.LOGIN,
-    summary: 'User logged in',
-    metadata: { status: 'success' }
-  });
-};
-
-/**
- * Get icon name based on activity type
- */
-export const getActivityIcon = (activityType: string): string => {
-  const iconMap: Record<string, string> = {
-    // New activity types
-    [ACTIVITY_TYPES.AGENT_CREATED]: 'Server',
-    [ACTIVITY_TYPES.AGENT_DELETED]: 'Server',
-    [ACTIVITY_TYPES.AGENT_CONNECTED]: 'Wifi',
-    [ACTIVITY_TYPES.AGENT_DISCONNECTED]: 'WifiOff',
-    [ACTIVITY_TYPES.PATCH_STARTED]: 'Shield',
-    [ACTIVITY_TYPES.PATCH_COMPLETED]: 'ShieldCheck',
-    [ACTIVITY_TYPES.PATCH_FAILED]: 'ShieldAlert',
-    [ACTIVITY_TYPES.PATCH_SCHEDULED]: 'Calendar',
-    [ACTIVITY_TYPES.INVESTIGATION_STARTED]: 'Search',
-    [ACTIVITY_TYPES.INVESTIGATION_COMPLETED]: 'CheckCircle',
-    [ACTIVITY_TYPES.MFA_ENABLED]: 'Lock',
-    [ACTIVITY_TYPES.MFA_DISABLED]: 'Unlock',
-    [ACTIVITY_TYPES.PASSWORD_CHANGED]: 'Key',
-    [ACTIVITY_TYPES.LOGIN]: 'LogIn',
-    [ACTIVITY_TYPES.LOGOUT]: 'LogOut',
-    // Legacy types
-    data_sync: 'Server',
-    token_generated: 'Key',
-    session_started: 'Activity',
-    websocket_connected: 'Activity',
-    agent: 'Server',
-    user: 'Users', 
-    session: 'Activity',
-    token: 'Key',
-    system: 'Activity',
-    other: 'Activity',
-  };
-
-  return iconMap[activityType] || 'Activity';
-};
-
-/**
- * Format activity time for display
- */
-export const formatActivityTime = (createdAt: string): string => {
+export const formatActivityTime = (timestamp: string): string => {
+  const date = new Date(timestamp);
   const now = new Date();
-  const activityDate = new Date(createdAt);
-  const diffMs = now.getTime() - activityDate.getTime();
+  const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
   
-  return activityDate.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric',
-    year: activityDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-  });
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  
+  return date.toLocaleDateString();
 };
 
-/**
- * Get unique activity types for filtering
- */
-export const getActivityTypes = async (): Promise<string[]> => {
-  try {
-    const session = await getCurrentSession();
-    if (!session?.user?.id) {
-      return [];
-    }
-
-    const { data, error } = await supabase
-      .from('activities')
-      .select('activity_type')
-      .eq('user_id', session.user.id);
-
-    if (error) {
-      console.error('Error fetching activity types:', error);
-      return [];
-    }
-
-    const types = [...new Set(data?.map(d => d.activity_type) || [])];
-    return types;
-  } catch (error) {
-    console.error('Exception fetching activity types:', error);
-    return [];
-  }
+export const formatDuration = (seconds: number): string => {
+  if (!seconds) return '0s';
+  
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+  
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (remainingSeconds > 0 || parts.length === 0) parts.push(`${remainingSeconds}s`);
+  
+  return parts.join(' ');
 };
 
-/**
- * Format duration in milliseconds to human-readable string
- * @param ms Duration in milliseconds
- */
-export const formatDuration = (ms: number): string => {
-  if (ms < 1000) {
-    return `${Math.round(ms)}ms`;
-  } else if (ms < 60000) {
-    return `${(ms / 1000).toFixed(1)}s`;
-  } else if (ms < 3600000) {
-    return `${(ms / 60000).toFixed(1)}m`;
-  } else {
-    return `${(ms / 3600000).toFixed(1)}h`;
-  }
+export const getActivityTypes = () => {
+  return Object.values(ACTIVITY_TYPES);
 };

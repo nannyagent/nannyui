@@ -123,7 +123,7 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
 
         if (investigation) {
           // Agent picked up the investigation
-          setInvestigationId(investigation.investigation_id);
+          setInvestigationId(investigation.id);
           setStatus('success');
           setProgress(100);
 
@@ -132,7 +132,7 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
             setIssueDescription('');
             setPriority('medium');
             onOpenChange(false);
-            navigate(`/investigations/${investigation.investigation_id}`);
+            navigate(`/investigations/${investigation.id}`);
           }, 1500);
         } else {
           throw new Error('Investigation was created but agent did not pick it up within 30 seconds. Please check the Investigations page.');

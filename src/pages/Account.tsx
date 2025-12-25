@@ -12,11 +12,11 @@ import { MFASetupDialog } from '@/components/MFASetupDialog';
 import { DisableMFADialog } from '@/components/DisableMFADialog';
 import withAuth from '@/utils/withAuth';
 import { getCurrentUser, getCurrentSession, isMFAEnabled } from '@/services/authService';
-import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import type { UserRecord } from '@/integrations/pocketbase/types';
 
 const Account = () => {
-  const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<UserRecord | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
@@ -25,26 +25,26 @@ const Account = () => {
   const [mfaEnabled, setMfaEnabled] = useState(false);
 
   useEffect(() => {
-    // Fetch user and session data from Supabase
+    // Fetch user and session data from PocketBase
     const fetchAccountData = async () => {
       setLoading(true);
       try {
-        const [currentUser, currentSession, mfaStatus] = await Promise.all([
+        const [currentUser, currentToken, mfaStatus] = await Promise.all([
           getCurrentUser(),
           getCurrentSession(),
           isMFAEnabled()
         ]);
 
-        if (currentUser && currentSession) {
+        if (currentUser && currentToken) {
           setUser(currentUser);
-          setSession(currentSession);
+          setToken(currentToken);
           setMfaEnabled(mfaStatus);
           setHasError(false);
         } else {
           setHasError(true);
         }
       } catch (error) {
-        console.error("Error fetching user data from Supabase:", error);
+        console.error("Error fetching user data from PocketBase:", error);
         setHasError(true);
       } finally {
         setLoading(false);
@@ -82,14 +82,8 @@ const Account = () => {
     });
   };
 
-  const getAuthProvider = () => {
-    if (!user?.app_metadata?.provider && !user?.app_metadata?.providers) return 'email';
-    return user.app_metadata.provider || user.app_metadata.providers?.[0] || 'email';
-  };
-
-  const displayName = user?.user_metadata?.name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
-  const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
-  const provider = getAuthProvider();
+  const displayName = user?.name || user?.username || user?.email?.split('@')[0] || 'User';
+  const provider = 'email'; // PocketBase doesn't have provider metadata yet
 
   if (loading) {
     return (
@@ -142,27 +136,17 @@ const Account = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-1">
                 <GlassMorphicCard className="text-center">
-                  {avatarUrl ? (
-                    <img 
-                      src={avatarUrl} 
-                      alt={displayName}
-                      className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-primary/20"
-                    />
-                  ) : (
-                    <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                      <User className="h-12 w-12 text-primary" />
-                    </div>
-                  )}
+                  <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                    <User className="h-12 w-12 text-primary" />
+                  </div>
                   
                   <h2 className="mt-4 text-xl font-semibold">{displayName}</h2>
                   <p className="text-muted-foreground text-sm">{user?.email}</p>
                   
                   <div className="mt-6 py-4 border-t border-b border-border/40">
                     <div className="flex items-center justify-center space-x-2 text-sm">
-                      {provider === 'github' && <Github className="h-4 w-4" />}
-                      {provider === 'google' && <Mail className="h-4 w-4" />}
-                      {provider === 'email' && <Mail className="h-4 w-4" />}
-                      <span className="capitalize">Signed in with {provider}</span>
+                      <Mail className="h-4 w-4" />
+                      <span className="capitalize">Email</span>
                     </div>
                   </div>
                   
@@ -172,23 +156,13 @@ const Account = () => {
                       <span className="font-mono text-xs">{user?.id.substring(0, 8)}...</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Email Confirmed:</span>
-                      {user?.email_confirmed_at ? (
+                      <span className="text-muted-foreground">Email Verified:</span>
+                      {user?.verified ? (
                         <CheckCircle className="h-4 w-4 text-green-500" />
                       ) : (
                         <XCircle className="h-4 w-4 text-red-500" />
                       )}
                     </div>
-                    {user?.phone && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Phone Confirmed:</span>
-                        {user?.phone_confirmed_at ? (
-                          <CheckCircle className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-red-500" />
-                        )}
-                      </div>
-                    )}
                   </div>
                 </GlassMorphicCard>
                 
@@ -319,35 +293,29 @@ const Account = () => {
                           Access Token (Last 20 chars)
                         </label>
                         <p className="text-xs font-mono break-all">
-                          ...{session?.access_token.slice(-20)}
+                          ...{token ? token.slice(-20) : 'N/A'}
                         </p>
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                           Token Type
                         </label>
-                        <p className="text-sm">{session?.token_type || 'Bearer'}</p>
+                        <p className="text-sm">Bearer</p>
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          Session Expires At
-                        </label>
-                        <p className="text-sm">{session?.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : 'N/A'}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          Refresh Token Available
+                          Token Status
                         </label>
                         <div className="flex items-center">
-                          {session?.refresh_token ? (
+                          {token ? (
                             <>
                               <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                              <span className="text-sm">Yes</span>
+                              <span className="text-sm">Active</span>
                             </>
                           ) : (
                             <>
                               <XCircle className="h-4 w-4 text-red-500 mr-2" />
-                              <span className="text-sm">No</span>
+                              <span className="text-sm">Not Active</span>
                             </>
                           )}
                         </div>

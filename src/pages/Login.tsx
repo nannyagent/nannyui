@@ -41,17 +41,19 @@ const Login = () => {
   const handleGitHubLogin = async () => {
     try {
       setIsLoading(true);
-      const { error } = await signInWithGitHub();
+      const { data, error } = await signInWithGitHub();
       
       if (error) {
         setIsError(true);
         toast({
           title: "Authentication Error",
-          description: error.message || "Failed to sign in with GitHub.",
+          description: error || "Failed to sign in with GitHub.",
           variant: "destructive",
         });
+      } else if (data) {
+        // Successfully authenticated, redirect to dashboard
+        navigate('/dashboard', { replace: true });
       }
-      // The redirect happens automatically via Supabase
     } catch (error) {
       console.error("Error initiating GitHub login:", error);
       setIsError(true);
@@ -68,17 +70,19 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     try {
       setIsLoading(true);
-      const { error } = await signInWithGoogle();
+      const { data, error } = await signInWithGoogle();
       
       if (error) {
         setIsError(true);
         toast({
           title: "Authentication Error",
-          description: error.message || "Failed to sign in with Google.",
+          description: error || "Failed to sign in with Google.",
           variant: "destructive",
         });
+      } else if (data) {
+        // Successfully authenticated, redirect to dashboard
+        navigate('/dashboard', { replace: true });
       }
-      // The redirect happens automatically via Supabase
     } catch (error) {
       console.error("Error initiating Google login:", error);
       setIsError(true);

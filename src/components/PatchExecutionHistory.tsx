@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
@@ -39,11 +39,7 @@ export const PatchExecutionHistory: React.FC<PatchExecutionHistoryProps> = ({
   const [executions, setExecutions] = useState<PatchExecution[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadExecutions();
-  }, [agentId, refreshTrigger]);
-
-  const loadExecutions = async () => {
+  const loadExecutions = useCallback(async () => {
     setLoading(true);
     try {
       const data = await listPatchExecutions(agentId, limit);
@@ -53,7 +49,13 @@ export const PatchExecutionHistory: React.FC<PatchExecutionHistoryProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [agentId, limit]);
+
+  useEffect(() => {
+    loadExecutions();
+  }, [loadExecutions, refreshTrigger]);
+
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -92,6 +94,9 @@ export const PatchExecutionHistory: React.FC<PatchExecutionHistoryProps> = ({
 
   const getExecutionTypeLabel = (type: string) => {
     switch (type) {
+      case 'check': return 'Check';
+      case 'update': return 'Update';
+      case 'rollback': return 'Rollback';
       case 'dry_run': return 'Dry Run';
       case 'apply': return 'Apply';
       case 'apply_with_reboot': return 'Apply + Reboot';
@@ -178,16 +183,16 @@ export const PatchExecutionHistory: React.FC<PatchExecutionHistoryProps> = ({
                     <div className="flex items-center gap-3 flex-wrap">
                       {getStatusBadge(execution.status)}
                       <Badge variant="outline" className="text-xs">
-                        {getExecutionTypeLabel(execution.execution_type)}
+                        {getExecutionTypeLabel(execution.mode)}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
-                        {formatDate(execution.started_at)}
+                        {formatDate(execution.created)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       {execution.completed_at && (
                         <span className="text-xs text-muted-foreground hidden sm:inline">
-                          {getDuration(execution.started_at, execution.completed_at)}
+                          {getDuration(execution.created, execution.completed_at)}
                         </span>
                       )}
                       <Eye className="h-4 w-4 text-muted-foreground" />

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, Clock, Cpu, Zap, Code2, Terminal, AlertTriangle, ChevronDown, ChevronUp, Activity } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getInferenceById } from '@/services/investigationService';
+import { getInferenceById, getInvestigation } from '@/services/investigationService';
 import type { Inference } from '@/services/investigationService';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
@@ -57,20 +57,46 @@ function CollapsibleContent({ content, maxLines = 10 }: { content: string | any;
 function InferenceDetail() {
   const { investigationId, inferenceId } = useParams<{ investigationId: string; inferenceId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [inference, setInference] = useState<Inference | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (location.state?.inference) {
+      setInference(location.state.inference);
+      setLoading(false);
+      return;
+    }
+
     if (inferenceId) {
       fetchInference(inferenceId);
     }
-  }, [inferenceId]);
+  }, [inferenceId, location.state]);
 
   const fetchInference = async (id: string) => {
     try {
       setLoading(true);
       setError(null);
+
+      // Try to find inference in investigation metadata first
+      if (investigationId) {
+        try {
+          const investigation = await getInvestigation(investigationId);
+          if (investigation?.metadata?.inferences) {
+            const found = investigation.metadata.inferences.find((inf: Inference) => inf.id === id);
+            if (found) {
+              setInference(found);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to fetch investigation for inference lookup:', e);
+        }
+      }
+
+      // Fallback to direct fetch
       const data = await getInferenceById(id);
       
       if (!data) {
@@ -248,8 +274,8 @@ function InferenceDetail() {
                 </h4>
                 <div className="space-y-2">
                   {parsed.commands.map((cmd: any, i: number) => {
-                    const commandText = cmd.command || cmd.cmd || cmd.text || JSON.stringify(cmd);
-                    const description = cmd.description || cmd.desc || '';
+                    const commandText = typeof cmd === 'string' ? cmd : (cmd.command || cmd.cmd || cmd.text || JSON.stringify(cmd));
+                    const description = typeof cmd === 'object' ? (cmd.description || cmd.desc || '') : '';
                     
                     return (
                       <div key={i} className="border border-slate-700 rounded-lg overflow-hidden bg-slate-950">
@@ -773,42 +799,40 @@ function InferenceDetail() {
         </div>
 
         {/* Metadata */}
-        {inference.model_inference && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <div className="p-4 border rounded-lg">
-              <div className="text-xs text-muted-foreground mb-1">Model</div>
-              <div className="text-sm font-medium flex items-center gap-2">
-                <Cpu className="h-4 w-4" />
-                {inference.model_inference.model_name}
-              </div>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <div className="text-xs text-muted-foreground mb-1">Response Time</div>
-              <div className="text-sm font-medium flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                {(inference.model_inference.response_time_ms / 1000).toFixed(2)}s
-              </div>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <div className="text-xs text-muted-foreground mb-1">Input Tokens</div>
-              <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                {inference.model_inference.input_tokens.toLocaleString()}
-              </div>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <div className="text-xs text-muted-foreground mb-1">Output Tokens</div>
-              <div className="text-sm font-medium text-green-600 dark:text-green-400">
-                {inference.model_inference.output_tokens.toLocaleString()}
-              </div>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <div className="text-xs text-muted-foreground mb-1">Created</div>
-              <div className="text-sm font-medium">
-                {formatDate(inference.timestamp)}
-              </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="p-4 border rounded-lg">
+            <div className="text-xs text-muted-foreground mb-1">Model</div>
+            <div className="text-sm font-medium flex items-center gap-2">
+              <Cpu className="h-4 w-4" />
+              {inference.variant_name || 'Unknown'}
             </div>
           </div>
-        )}
+          <div className="p-4 border rounded-lg">
+            <div className="text-xs text-muted-foreground mb-1">Response Time</div>
+            <div className="text-sm font-medium flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              {(inference.processing_time_ms / 1000).toFixed(2)}s
+            </div>
+          </div>
+          <div className="p-4 border rounded-lg">
+            <div className="text-xs text-muted-foreground mb-1">Input Tokens</div>
+            <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+              {inference.usage?.input_tokens?.toLocaleString() || 0}
+            </div>
+          </div>
+          <div className="p-4 border rounded-lg">
+            <div className="text-xs text-muted-foreground mb-1">Output Tokens</div>
+            <div className="text-sm font-medium text-green-600 dark:text-green-400">
+              {inference.usage?.output_tokens?.toLocaleString() || 0}
+            </div>
+          </div>
+          <div className="p-4 border rounded-lg">
+            <div className="text-xs text-muted-foreground mb-1">Created</div>
+            <div className="text-sm font-medium">
+              {formatDate(inference.timestamp)}
+            </div>
+          </div>
+        </div>
 
         <Separator className="my-6" />
 

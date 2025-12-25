@@ -4,7 +4,7 @@ import { ArrowLeft, Code2, Activity, Clock, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { getInvestigationByIdFromAPI, getEpisodeInferences, formatInvestigationTime, type Investigation, type Inference } from '@/services/investigationService';
+import { getInvestigation, formatInvestigationTime, type Investigation, type Inference } from '@/services/investigationService';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
 import Footer from '@/components/Footer';
@@ -29,13 +29,12 @@ function InvestigationEpisode() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getInvestigationByIdFromAPI(id);
+      const data = await getInvestigation(id);
       setInvestigation(data);
       
-      // If we got investigation data with episode_id, fetch inferences
-      if (data?.episode_id) {
-        const inferenceData = await getEpisodeInferences(data.episode_id);
-        setInferences(inferenceData);
+      // Use inferences from metadata if available
+      if (data?.metadata?.inferences) {
+        setInferences(data.metadata.inferences);
       }
     } catch (err) {
       console.error('Error fetching investigation:', err);
@@ -47,18 +46,21 @@ function InvestigationEpisode() {
 
   // Extract resolution from the last inference
   const getResolutionFromInferences = () => {
-    if (!investigation?.inferences || investigation.inferences.length === 0) {
+    if (inferences.length === 0) {
       return null;
     }
     
-    const lastInference = investigation.inferences[investigation.inferences.length - 1];
+    const lastInference = inferences[inferences.length - 1];
     
     if (!lastInference.output) {
       return null;
     }
     
     try {
-      let parsed = JSON.parse(lastInference.output);
+      let parsed = lastInference.output;
+      if (typeof parsed === 'string') {
+        parsed = JSON.parse(parsed);
+      }
       
       if (Array.isArray(parsed) && parsed.length > 0) {
         const firstItem = parsed[0];
@@ -85,7 +87,8 @@ function InvestigationEpisode() {
           resolution_plan: parsed.resolution_plan,
           confidence: parsed.confidence,
           ebpf_evidence: parsed.ebpf_evidence,
-          inferenceId: lastInference.id
+          inferenceId: lastInference.id,
+          inference: lastInference
         };
       }
     } catch (e) {
@@ -165,7 +168,7 @@ function InvestigationEpisode() {
             Investigations
           </Link>
           <span>/</span>
-          <span className="text-foreground font-medium">{investigation.investigation_id}</span>
+          <span className="text-foreground font-medium">{investigation.id}</span>
         </div>
 
         {/* Back Button */}
@@ -182,12 +185,12 @@ function InvestigationEpisode() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-3xl font-bold">Investigation Details</h1>
-            <Badge variant={investigation.status === 'active' ? 'default' : 'secondary'}>
+            <Badge variant={investigation.status === 'in_progress' ? 'default' : 'secondary'}>
               {investigation.status}
             </Badge>
           </div>
           <div className="text-sm text-muted-foreground space-y-1">
-            <p>Investigation ID: {investigation.investigation_id}</p>
+            <p>Investigation ID: {investigation.id}</p>
             <p>Episode ID: {investigation.episode_id}</p>
           </div>
         </div>
@@ -203,11 +206,17 @@ function InvestigationEpisode() {
           </div>
           <div className="p-4 border rounded-lg">
             <div className="text-xs text-muted-foreground mb-1">Agent</div>
-            <div className="text-sm font-medium">{investigation.agent?.name || 'N/A'}</div>
+            <div className="text-sm font-medium">{investigation.agent?.hostname || 'N/A'}</div>
           </div>
           <div className="p-4 border rounded-lg">
             <div className="text-xs text-muted-foreground mb-1">Inferences</div>
-            <div className="text-sm font-medium">{investigation.inference_count || 0}</div>
+            <div className="text-sm font-medium">{investigation.inference_count || inferences.length || 0}</div>
+          </div>
+          <div className="p-4 border rounded-lg">
+            <div className="text-xs text-muted-foreground mb-1">Total Tokens</div>
+            <div className="text-sm font-medium">
+              {inferences.reduce((acc, inf) => acc + (inf.usage?.total_tokens || 0), 0).toLocaleString()}
+            </div>
           </div>
         </div>
 
@@ -216,7 +225,7 @@ function InvestigationEpisode() {
           <h2 className="font-semibold text-sm mb-2">Issue Description</h2>
           {(() => {
             try {
-              const parsed = JSON.parse(investigation.issue);
+              const parsed = JSON.parse(investigation.user_prompt);
               if (parsed.command_results) {
                 return (
                   <div className="space-y-3">
@@ -242,7 +251,7 @@ function InvestigationEpisode() {
             } catch (e) {
               // Not JSON
             }
-            return <p className="text-sm">{investigation.issue}</p>;
+            return <p className="text-sm">{investigation.user_prompt}</p>;
           })()}
         </div>
 
@@ -289,6 +298,7 @@ function InvestigationEpisode() {
                   For detailed analysis, view the{' '}
                   <Link
                     to={`/investigations/${investigationId}/inference/${resolution.inferenceId}`}
+                    state={{ inference: resolution.inference }}
                     className="text-primary hover:underline font-medium"
                   >
                     final inference
@@ -297,7 +307,7 @@ function InvestigationEpisode() {
               </div>
             </div>
           </div>
-        ) : investigation.holistic_analysis && (
+        ) : investigation.resolution_plan && (
           <div className="p-6 border-2 border-primary/20 rounded-xl mb-6 bg-gradient-to-br from-primary/5 to-transparent">
             <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-foreground">
               <Activity className="h-6 w-6 text-primary" />
@@ -305,7 +315,7 @@ function InvestigationEpisode() {
             </h2>
             <div className="prose prose-sm max-w-none">
               <p className="text-base leading-relaxed whitespace-pre-wrap font-medium text-foreground/90">
-                {investigation.holistic_analysis}
+                {investigation.resolution_plan}
               </p>
             </div>
           </div>
@@ -328,6 +338,7 @@ function InvestigationEpisode() {
                 <Link
                   key={inference.id}
                   to={`/investigations/${investigationId}/inference/${inference.id}`}
+                  state={{ inference }}
                   className="block p-4 border rounded-lg hover:border-primary hover:bg-muted/50 transition-colors cursor-pointer"
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -342,9 +353,9 @@ function InvestigationEpisode() {
                             {inference.function_name}
                           </Badge>
                         )}
-                        {inference.model_inference?.model_name && (
+                        {inference.variant_name && (
                           <Badge variant="secondary" className="text-xs flex-shrink-0">
-                            {inference.model_inference.model_name}
+                            {inference.variant_name}
                           </Badge>
                         )}
                       </div>
@@ -362,14 +373,14 @@ function InvestigationEpisode() {
                           </span>
                         )}
                         
-                        {inference.model_inference && (
+                        {inference.usage && (
                           <span className="flex-shrink-0">
                             <span className="text-blue-600 dark:text-blue-400 font-medium">
-                              {inference.model_inference.input_tokens.toLocaleString()}
+                              {inference.usage.input_tokens?.toLocaleString() || 0}
                             </span>
                             <span> in / </span>
                             <span className="text-green-600 dark:text-green-400 font-medium">
-                              {inference.model_inference.output_tokens.toLocaleString()}
+                              {inference.usage.output_tokens?.toLocaleString() || 0}
                             </span>
                             <span> out</span>
                           </span>

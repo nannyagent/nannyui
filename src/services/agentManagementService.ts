@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase';
+import { pb } from '@/lib/pocketbase';
+import { deleteAgent as deleteAgentPB } from './agentService';
 
 export interface AgentDeleteResponse {
   success: boolean;
@@ -8,48 +9,33 @@ export interface AgentDeleteResponse {
 }
 
 /**
- * Delete an agent and all related data (metrics, investigations, patches, etc.)
+ * Delete an agent and all related data
  */
 export const deleteAgent = async (agentId: string): Promise<AgentDeleteResponse> => {
   try {
-    // Get current session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session) {
-      return {
-        success: false,
-        error: 'Authentication required',
-        message: 'You must be logged in to delete agents'
-      };
+    // First get the agent name for the response
+    let agentName = '';
+    try {
+      const agent = await pb.collection('agents').getOne(agentId);
+      agentName = agent.hostname;
+    } catch (e) {
+      // Ignore if not found
     }
 
-    // Call the Edge Function for comprehensive deletion
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-management`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        action: 'delete',
-        agent_id: agentId
-      })
-    });
+    const { error } = await deleteAgentPB(agentId);
 
-    const result = await response.json();
-
-    if (!response.ok) {
+    if (error) {
       return {
         success: false,
-        error: result.error || 'deletion_failed',
-        message: result.message || 'Failed to delete agent'
+        error: error.message,
+        message: 'Failed to delete agent'
       };
     }
 
     return {
       success: true,
-      message: result.message || 'Agent deleted successfully',
-      agent_name: result.agent_name
+      message: 'Agent deleted successfully',
+      agent_name: agentName
     };
 
   } catch (error) {
@@ -63,59 +49,28 @@ export const deleteAgent = async (agentId: string): Promise<AgentDeleteResponse>
 };
 
 /**
- * Update an agent (for future use)
+ * Update an agent
  */
 export const updateAgent = async (
   agentId: string, 
   updates: { name?: string; status?: string }
 ): Promise<AgentDeleteResponse> => {
   try {
-    // Get current session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session) {
-      return {
-        success: false,
-        error: 'Authentication required',
-        message: 'You must be logged in to update agents'
-      };
-    }
+    const updateData: any = {};
+    if (updates.name) updateData.hostname = updates.name;
+    if (updates.status) updateData.status = updates.status;
 
-    // Call the Edge Function
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-management`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        action: 'update',
-        agent_id: agentId,
-        ...updates
-      })
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: result.error || 'update_failed',
-        message: result.message || 'Failed to update agent'
-      };
-    }
+    await pb.collection('agents').update(agentId, updateData);
 
     return {
       success: true,
-      message: result.message || 'Agent updated successfully'
+      message: 'Agent updated successfully',
     };
-
-  } catch (error) {
-    console.error('Error updating agent:', error);
+  } catch (error: any) {
     return {
       success: false,
-      error: 'network_error',
-      message: 'Network error occurred while updating agent'
+      error: error.message,
+      message: 'Failed to update agent'
     };
   }
 };

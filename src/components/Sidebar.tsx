@@ -13,7 +13,6 @@ import {
   Activity,
   DollarSign,
   Shield,
-  BarChart3,
   Search,
   PackageCheck
 } from 'lucide-react';

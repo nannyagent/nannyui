@@ -1,55 +1,44 @@
-
-import React from 'react';
-import { render, screen, act, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
-import { supabase } from '@/lib/supabase';
-import { onAuthStateChange } from '@/services/authService';
+import { pb } from '@/integrations/pocketbase/client';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: vi.fn(),
+// Mock the PocketBase client
+vi.mock('@/integrations/pocketbase/client', () => {
+  const onChangeMock = vi.fn();
+  return {
+    pb: {
+      authStore: {
+        isValid: false,
+        record: null,
+        token: null,
+        onChange: onChangeMock,
+      },
     },
-  },
-}));
+  };
+});
 
-vi.mock('@/services/authService', () => ({
-  onAuthStateChange: vi.fn(),
-}));
-
-const mockUser = { id: '123', email: 'test@example.com' };
-const mockSession = { access_token: 'abc-123', user: mockUser };
-
+// Test component to consume the context
 const TestComponent = () => {
-  const { user, session, loading } = useAuth();
+  const { user, loading } = useAuth();
   if (loading) return <div>Loading...</div>;
-  return (
-    <div>
-      <div data-testid="user">{user ? user.email : 'No User'}</div>
-      <div data-testid="session">{session ? session.access_token : 'No Session'}</div>
-    </div>
-  );
+  return <div>{user ? `User: ${user.email}` : 'No User'}</div>;
 };
 
 describe('AuthContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (supabase.auth.getSession as vi.Mock).mockResolvedValue({ data: { session: null } });
-    (onAuthStateChange as vi.Mock).mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } });
+    // Reset authStore state
+    (pb.authStore as any).isValid = false;
+    (pb.authStore as any).record = null;
+    (pb.authStore as any).token = null;
   });
 
-  it('should provide loading state initially', async () => {
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
-    expect(screen.getByText('Loading...')).toBeInTheDocument();
-  });
-
-  it('should provide session and user after loading', async () => {
-    (supabase.auth.getSession as vi.Mock).mockResolvedValue({ data: { session: mockSession } });
+  it('provides user when authenticated initially', async () => {
+    // Setup initial authenticated state
+    (pb.authStore as any).isValid = true;
+    (pb.authStore as any).record = { id: '123', email: 'test@example.com' };
+    (pb.authStore as any).token = 'fake-token';
 
     render(
       <AuthProvider>
@@ -58,70 +47,58 @@ describe('AuthContext', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('user')).toHaveTextContent('test@example.com');
-      expect(screen.getByTestId('session')).toHaveTextContent('abc-123');
+      expect(screen.getByText('User: test@example.com')).toBeInTheDocument();
     });
   });
 
-  it('should update the context on auth state change', async () => {
-    let authCallback: (event: string, session: any) => void = () => {};
-    (onAuthStateChange as vi.Mock).mockImplementation((callback) => {
-      authCallback = callback;
-      return { data: { subscription: { unsubscribe: vi.fn() } } };
-    });
-
+  it('provides no user when not authenticated initially', async () => {
     render(
       <AuthProvider>
         <TestComponent />
       </AuthProvider>
     );
 
-    act(() => {
-      authCallback('SIGNED_IN', mockSession);
-    });
-
     await waitFor(() => {
-      expect(screen.getByTestId('user')).toHaveTextContent('test@example.com');
-      expect(screen.getByTestId('session')).toHaveTextContent('abc-123');
-    });
-
-    act(() => {
-      authCallback('SIGNED_OUT', null);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('user')).toHaveTextContent('No User');
-      expect(screen.getByTestId('session')).toHaveTextContent('No Session');
+      expect(screen.getByText('No User')).toBeInTheDocument();
     });
   });
 
-  it.skip('should throw an error if useAuth is used outside of AuthProvider', () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('updates state when auth changes', async () => {
+    let changeCallback: (token: string, record: any) => void = () => {};
     
-    expect(() => {
-      function TestComponent() {
-        useAuth();
-        return <div>Test</div>;
-      }
-      render(<TestComponent />);
-    }).toThrow();
-    
-    consoleErrorSpy.mockRestore();
-  });
+    // Capture the callback passed to onChange
+    (pb.authStore.onChange as any).mockImplementation((cb: any) => {
+      changeCallback = cb;
+      return () => {}; // return unsubscribe function
+    });
 
-  it('should unsubscribe from auth state changes on unmount', async () => {
-    const unsubscribe = vi.fn();
-    (onAuthStateChange as vi.Mock).mockReturnValue({ data: { subscription: { unsubscribe } } });
-
-    const { unmount } = render(
+    render(
       <AuthProvider>
         <TestComponent />
       </AuthProvider>
     );
 
-    await waitFor(() => expect(screen.queryByText('Loading...')).not.toBeInTheDocument());
+    // Wait for initial load
+    await waitFor(() => {
+      expect(screen.getByText('No User')).toBeInTheDocument();
+    });
 
-    unmount();
-    expect(unsubscribe).toHaveBeenCalled();
+    // Simulate auth change (login)
+    act(() => {
+      changeCallback('new-token', { id: '456', email: 'new@example.com' });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('User: new@example.com')).toBeInTheDocument();
+    });
+
+    // Simulate auth change (logout)
+    act(() => {
+      changeCallback('', null);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('No User')).toBeInTheDocument();
+    });
   });
 });

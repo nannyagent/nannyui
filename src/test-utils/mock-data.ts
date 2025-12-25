@@ -3,20 +3,23 @@ import { Activity } from '@/services/activityService'
 // Mock Agent data
 export const mockAgent = {
   id: "1",
-  name: "Test Agent",
+  user_id: "user-123",
   hostname: "test-agent-001",
+  os_type: "linux",
+  os_info: "Ubuntu 22.04",
+  os_version: "22.04",
+  version: "1.0.0",
+  primary_ip: "192.168.1.100",
+  kernel_version: "5.15.0",
+  arch: "x86_64",
+  all_ips: ["192.168.1.100"],
+  platform_family: "debian",
   status: "active" as const,
   last_seen: "2024-01-15T10:30:00Z",
-  version: "1.0.0",
-  ip_address: "192.168.1.100",
-  operating_system: "Ubuntu 22.04",
-  cpu_usage: 45.5,
-  memory_usage: 62.3,
-  disk_usage: 78.9,
-  network_usage: 1024,
-  uptime: 86400,
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-15T10:30:00Z",
+  metadata: {},
+  websocket_connected: true
 };
 
 // Mock Investigation data

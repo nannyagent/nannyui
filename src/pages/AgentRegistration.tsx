@@ -14,7 +14,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { deviceAuthService, DeviceAuthResponse } from '@/services/deviceAuthService';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
 import withAuth from '@/utils/withAuth';
 
 const AgentRegistration = () => {
@@ -22,7 +21,6 @@ const AgentRegistration = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [authResult, setAuthResult] = useState<DeviceAuthResponse | null>(null);
   const { toast } = useToast();
-  const { session } = useAuth();
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -31,7 +29,7 @@ const AgentRegistration = () => {
         title: "Copied!",
         description: "Token copied to clipboard",
       });
-    } catch (err) {
+    } catch {
       toast({
         title: "Copy failed",
         description: "Could not copy to clipboard",
@@ -46,16 +44,17 @@ const AgentRegistration = () => {
     if (!userCode.trim()) {
       toast({
         title: "Missing Information",
-        description: "Please enter the 10-character user code from your nannyagent.",
+        description: "Please enter the user code from your nannyagent.",
         variant: "destructive",
       });
       return;
     }
 
-    if (userCode.trim().length !== 10) {
+    const codeLength = userCode.trim().length;
+    if (codeLength < 8 || codeLength > 10) {
       toast({
         title: "Invalid Code Format",
-        description: "User code must be exactly 10 characters long.",
+        description: "User code must be 8-10 characters long.",
         variant: "destructive",
       });
       return;
@@ -65,7 +64,7 @@ const AgentRegistration = () => {
     setAuthResult(null);
 
     try {
-      const result = await deviceAuthService.registerDevice(userCode.trim(), session);
+      const result = await deviceAuthService.registerDevice(userCode.trim());
       setAuthResult(result);
       
       if (result.success) {
@@ -80,7 +79,7 @@ const AgentRegistration = () => {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch {
       const errorResult: DeviceAuthResponse = {
         success: false,
         error: "An unexpected error occurred during registration.",
@@ -159,7 +158,7 @@ const AgentRegistration = () => {
                         <div>
                           <h4 className="font-medium">Initialize Nannyagent Registration</h4>
                           <p className="text-sm text-muted-foreground mt-1">
-                            Run the registration command on your Linux server. Your nannyagent will display a 10-character user code.
+                            Run the registration command on your Linux server. Your nannyagent will display an 8-10 character user code.
                           </p>
                         </div>
                       </div>
@@ -171,7 +170,7 @@ const AgentRegistration = () => {
                         <div>
                           <h4 className="font-medium">Enter User Code</h4>
                           <p className="text-sm text-muted-foreground mt-1">
-                            Copy the 10-character user code from your nannyagent and enter it in the form on the right.
+                            Copy the user code from your nannyagent and enter it in the form on the right.
                           </p>
                         </div>
                       </div>
@@ -215,7 +214,7 @@ const AgentRegistration = () => {
                       <Input
                         id="userCode"
                         type="text"
-                        placeholder="Enter the 10-character code (e.g., ABC123XYZ9)"
+                        placeholder="Enter the code (e.g., ABC123XYZ)"
                         value={userCode}
                         onChange={(e) => setUserCode(e.target.value.toUpperCase())}
                         className="mt-1 font-mono text-center text-lg tracking-widest"
@@ -223,14 +222,14 @@ const AgentRegistration = () => {
                         maxLength={10}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Enter the 10-character code displayed by your nannyagent
+                        Enter the 8-10 character code displayed by your nannyagent
                       </p>
                     </div>
 
                     <Button 
                       type="submit" 
                       className="w-full" 
-                      disabled={isLoading || !userCode.trim() || userCode.trim().length !== 10}
+                      disabled={isLoading || !userCode.trim() || userCode.trim().length < 8 || userCode.trim().length > 10}
                     >
                       {isLoading ? (
                         <>
