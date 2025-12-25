@@ -49,7 +49,7 @@ describe('AgentDeleteDialog', () => {
     renderWithProviders(
       <AgentDeleteDialog
         open={true}
-        agentName={mockAgent.name}
+        agentName={mockAgent.hostname}
         onOpenChange={mockOnOpenChange}
         onConfirm={mockOnConfirm}
       />
@@ -67,7 +67,7 @@ describe('AgentDeleteDialog', () => {
     renderWithProviders(
       <AgentDeleteDialog
         open={true}
-        agentName={mockAgent.name}
+        agentName={mockAgent.hostname}
         onOpenChange={mockOnOpenChange}
         onConfirm={mockOnConfirm}
       />
@@ -83,7 +83,7 @@ describe('AgentDeleteDialog', () => {
     renderWithProviders(
       <AgentDeleteDialog
         open={true}
-        agentName={mockAgent.name}
+        agentName={mockAgent.hostname}
         onOpenChange={mockOnOpenChange}
         onConfirm={mockOnConfirm}
         isDeleting={true}
@@ -98,7 +98,7 @@ describe('AgentDeleteDialog', () => {
     renderWithProviders(
       <AgentDeleteDialog
         open={true}
-        agentName={mockAgent.name}
+        agentName={mockAgent.hostname}
         onOpenChange={mockOnOpenChange}
         onConfirm={mockOnConfirm}
       />

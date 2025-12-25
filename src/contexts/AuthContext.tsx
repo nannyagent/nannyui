@@ -41,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = pb.authStore.onChange((_token, record) => {
       setUser(record as UserRecord | null);
       setToken(_token || null);
-    });
+    }) as unknown as (() => void) | undefined;
 
     return () => {
       if (typeof unsubscribe === 'function') {
