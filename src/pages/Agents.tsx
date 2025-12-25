@@ -88,23 +88,6 @@ const Agents = () => {
   const { toast } = useToast();
   const pageSize = 10;
 
-  useEffect(() => {
-    loadAgents();
-  }, [loadAgents]);
-
-  // Get current user session
-  useEffect(() => {
-    const loadCurrentUser = async () => {
-      const user = await getCurrentUser();
-      if (user) {
-        setCurrentUser(user as any);
-      }
-    };
-    loadCurrentUser();
-  }, []);
-
-  // Note: Auto-refresh disabled - users can manually refresh with the refresh button
-
   const loadAgents = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) {
       setIsRefreshing(true);
@@ -144,6 +127,21 @@ const Agents = () => {
       }
     }
   }, [currentPage, pageSize, statusFilter, toast]);
+
+  useEffect(() => {
+    loadAgents();
+  }, [loadAgents]);
+
+  // Get current user session
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      const user = await getCurrentUser();
+      if (user) {
+        setCurrentUser(user as any);
+      }
+    };
+    loadCurrentUser();
+  }, []);
 
   const handleManualRefresh = () => {
     loadAgents(true);
