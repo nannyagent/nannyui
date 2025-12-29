@@ -47,6 +47,12 @@ export interface PatchManagementData {
   summary: Summary;
   recommendations: string[];
   last_checked: string;
+  os_distribution?: string;
+  os_version?: string;
+  architecture?: string;
+  kernel_version?: string;
+  package_manager?: string;
+  analysis_timestamp?: string;
 }
 
 export type PatchOperation = PatchOperationRecord;
@@ -59,8 +65,9 @@ export type PackageException = PackageExceptionRecord;
 export const getPatchStatus = async (agentId: string): Promise<PatchManagementData | null> => {
   try {
     // Get the latest completed 'check' operation
+    const filter = pb.filter('agent_id = {:agentId} && mode = "dry-run" && status = "completed"', { agentId });
     const result = await pb.collection('patch_operations').getList(1, 1, {
-      filter: `agent_id = "${agentId}" && mode = "dry-run" && status = "completed"`,
+      filter,
       sort: '-id', // Changed from -created
     });
 
@@ -72,7 +79,7 @@ export const getPatchStatus = async (agentId: string): Promise<PatchManagementDa
     
     // Fetch the stdout file content
     if (operation.stdout_file) {
-      const url = pb.files.getUrl(operation, operation.stdout_file);
+      const url = pb.files.getURL(operation, operation.stdout_file);
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
@@ -93,13 +100,13 @@ export const getPatchStatus = async (agentId: string): Promise<PatchManagementDa
 /**
  * Get patch operation details including parsed stdout
  */
-export const getPatchOperationDetails = async (id: string): Promise<PatchOperation & { parsedOutput?: any }> => {
+export const getPatchOperationDetails = async (id: string): Promise<PatchOperation & { parsedOutput?: unknown }> => {
   try {
     const operation = await pb.collection('patch_operations').getOne(id);
     
     let parsedOutput = null;
     if (operation.stdout_file) {
-      const url = pb.files.getUrl(operation, operation.stdout_file);
+      const url = pb.files.getURL(operation, operation.stdout_file);
       const response = await fetch(url);
       if (response.ok) {
         const text = await response.text();
@@ -119,7 +126,7 @@ export const getPatchOperationDetails = async (id: string): Promise<PatchOperati
             // Fallback: try parsing the whole text
             try {
                 parsedOutput = JSON.parse(text);
-            } catch (e) {
+            } catch {
                 // ignore
             }
         }
@@ -131,7 +138,7 @@ export const getPatchOperationDetails = async (id: string): Promise<PatchOperati
       parsedOutput,
       created: operation.created,
       updated: operation.updated,
-    } as unknown as PatchOperation & { parsedOutput?: any };
+    } as unknown as PatchOperation & { parsedOutput?: unknown };
   } catch (error) {
     console.error('Error fetching patch operation details:', error);
     throw error;
@@ -164,7 +171,7 @@ export const runPatchCheck = async (agentId: string, lxcId?: string): Promise<st
     }
     const scriptId = scripts.items[0].id;
 
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       agent_id: agentId,
       user_id: user?.id,
       script_id: scriptId,
@@ -209,7 +216,7 @@ export const applyPatches = async (agentId: string, packageNames: string[], lxcI
     }
     const scriptId = scripts.items[0].id;
 
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       agent_id: agentId,
       user_id: user?.id,
       script_id: scriptId,
@@ -237,12 +244,13 @@ export const applyPatches = async (agentId: string, packageNames: string[], lxcI
  */
 export const getPatchHistory = async (agentId: string, limit: number = 10): Promise<PatchOperation[]> => {
   try {
+    const filter = pb.filter('agent_id = {:agentId}', { agentId });
     const result = await pb.collection('patch_operations').getList(1, limit, {
-      filter: `agent_id = "${agentId}"`,
+      filter,
       sort: '-id', // Changed from -created
     });
     
-    return result.items.map((record: any) => ({
+    return result.items.map((record) => ({
       ...record,
       created: record.created,
       updated: record.updated,
@@ -290,17 +298,15 @@ export const waitForPatchOperation = async (
  */
 export const getScheduledPatches = async (agentId: string, lxcId?: string): Promise<PatchSchedule[]> => {
   try {
-    let filter = `agent_id = "${agentId}"`;
-    if (lxcId) {
-      filter += ` && lxc_id = "${lxcId}"`;
-    } else {
-      filter += ` && lxc_id = ""`;
-    }
+    const filter = pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId}', { 
+      agentId, 
+      lxcId: lxcId || "" 
+    });
 
     const result = await pb.collection('patch_schedules').getList(1, 50, {
-      filter: filter,
+      filter,
     });
-    return result.items.map((record: any) => ({
+    return result.items.map((record) => ({
       ...record,
     })) as unknown as PatchSchedule[];
   } catch (error) {
@@ -317,7 +323,7 @@ export const getPackageExceptions = async (agentId: string): Promise<PackageExce
     const result = await pb.collection('package_exceptions').getList(1, 50, {
       filter: `agent_id = "${agentId}"`,
     });
-    return result.items.map((record: any) => ({
+    return result.items.map((record) => ({
       ...record,
     })) as unknown as PackageException[];
   } catch (error) {
@@ -380,18 +386,16 @@ export const saveCronSchedule = async (
 ): Promise<boolean> => {
   try {
     // Check if schedule exists
-    let filter = `agent_id = "${agentId}"`;
-    if (lxcId) {
-      filter += ` && lxc_id = "${lxcId}"`;
-    } else {
-      filter += ` && lxc_id = ""`;
-    }
-
-    const existing = await pb.collection('patch_schedules').getList(1, 1, {
-      filter: filter,
+    const filter = pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId}', { 
+      agentId, 
+      lxcId: lxcId || "" 
     });
 
-    const payload: any = {
+    const existing = await pb.collection('patch_schedules').getList(1, 1, {
+      filter,
+    });
+
+    const payload: Record<string, unknown> = {
       agent_id: agentId,
       cron_expression: cronExpression,
       is_active: isActive,
@@ -432,8 +436,9 @@ export const triggerAgentReboot = async (agentId: string): Promise<boolean> => {
 
 /**
  * Check agent connection
+ * TO-DO : TO BE IMPLEMENTED BASED ON METRICS INGESTION timestamp
  */
-export const checkAgentWebSocketConnection = async (agentId: string): Promise<boolean> => {
+export const checkAgentWebSocketConnection = async (): Promise<boolean> => {
   // Simplified: always return true as per user request
   return true;
 };
@@ -453,7 +458,7 @@ export const listAllPatchExecutions = async (
       expand: 'agent_id',
     });
 
-    const executions = result.items.map((record: any) => ({
+    const executions = result.items.map((record) => ({
       ...record,
       created: record.created,
       updated: record.updated,

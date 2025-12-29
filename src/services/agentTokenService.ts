@@ -19,17 +19,6 @@ export class AgentTokenService {
       // In a real implementation, this would make an HTTP request to the MCP server
       // For now, we'll simulate by checking the database directly
       
-      // This simulates the MCP server checking the agent_device_codes table
-      console.log(`Agent polling for token with device code: ${deviceCode}`);
-      
-      // Simulate the database query that the MCP server would make
-      const mockDbQuery = `
-        SELECT authorized, consumed, metadata, expires_at 
-        FROM agent_device_codes 
-        WHERE device_code = '${deviceCode}'
-      `;
-      
-      console.log('Simulated DB query:', mockDbQuery);
       
       // For demo purposes, we'll return different responses based on the device code
       if (deviceCode === 'c33fb820-94b9-4b72-93d9-a6ef0e8bd701') {

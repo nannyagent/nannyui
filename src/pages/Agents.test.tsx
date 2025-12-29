@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import Agents from './Agents';
 import * as agentService from '@/services/agentService';
-import * as agentManagementService from '@/services/agentManagementService';
 import * as authService from '@/services/authService';
 
 // Mock services
@@ -118,16 +117,5 @@ describe('Agents Page', () => {
     await waitFor(() => {
       expect(screen.getByText('host-1')).toBeInTheDocument();
     });
-
-    // Find delete button for first agent. 
-    // The icon is Trash2. Usually inside a button.
-    // We can look for a button with aria-label or just by role if we can identify it.
-    // Or we can use test-id if added. Since we can't modify source easily, let's try to find by icon or text.
-    // The code uses `Trash2` icon.
-    // Let's assume there is a button.
-    
-    const deleteButtons = screen.getAllByRole('button');
-    // This might be too generic.
-    // Let's try to find the row and then the button.
   });
 });

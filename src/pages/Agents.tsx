@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import withAuth from '@/utils/withAuth';
 import {
@@ -44,21 +45,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { getAgentsPaginated, getAgentDetails, getAgentRealTimeStatus, type AgentWithRelations } from '@/services/agentService';
+import { getAgentsPaginated, getAgentDetails, getAgentRealTimeStatus, type AgentWithRelations, type FilesystemStats } from '@/services/agentService';
 import { deleteAgent } from '@/services/agentManagementService';
 import AgentDeleteDialog from '@/components/AgentDeleteDialog';
 import CreateInvestigationDialog from '@/components/CreateInvestigationDialog';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUser } from '@/services/authService';
+import type { UserRecord } from '@/integrations/pocketbase/types';
 
 // Helper function to format JSON data
-const formatJsonData = (data: any): string => {
+const formatJsonData = (data: unknown): string => {
   if (!data) return 'N/A';
   if (typeof data === 'string') return data;
   return JSON.stringify(data, null, 2);
 };
 
 const Agents = () => {
+  const navigate = useNavigate();
   const [agents, setAgents] = useState<AgentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -82,7 +85,7 @@ const Agents = () => {
   
   // Real-time status updates
   const [lastStatusUpdate, setLastStatusUpdate] = useState(Date.now());
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<UserRecord | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const { toast } = useToast();
@@ -97,7 +100,7 @@ const Agents = () => {
     setHasError(false);
     
     try {
-      const result = await getAgentsPaginated(currentPage, pageSize, statusFilter);
+      const result = await getAgentsPaginated(currentPage, pageSize);
       setAgents(result.agents);
       setTotalPages(result.totalPages);
       setLastStatusUpdate(Date.now());
@@ -126,7 +129,7 @@ const Agents = () => {
         setLoading(false);
       }
     }
-  }, [currentPage, pageSize, statusFilter, toast]);
+  }, [currentPage, pageSize, toast]);
 
   useEffect(() => {
     loadAgents();
@@ -137,7 +140,7 @@ const Agents = () => {
     const loadCurrentUser = async () => {
       const user = await getCurrentUser();
       if (user) {
-        setCurrentUser(user as any);
+        setCurrentUser(user);
       }
     };
     loadCurrentUser();
@@ -372,7 +375,7 @@ const Agents = () => {
                   const osInfoString = `${agent.os_info || ''} ${agent.os_version || ''}`.trim();
                   
                   // Get real-time status
-                  const realTimeStatus = getAgentRealTimeStatus(agent);
+                  const realTimeStatus = getAgentRealTimeStatus();
                   const isAgentActive = realTimeStatus === 'active';
                   
                   return (
@@ -436,7 +439,7 @@ const Agents = () => {
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
-                                onClick={() => window.location.href = `/agents/${agent.id}/proxmox`}
+                                onClick={() => navigate(`/agents/${agent.id}/proxmox`)}
                                 className="h-8 px-2 text-xs text-orange-600 hover:text-orange-700"
                                 title="View Proxmox Cluster Details"
                               >
@@ -446,7 +449,7 @@ const Agents = () => {
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
-                                onClick={() => window.location.href = `/patch-management/${agent.id}`}
+                                onClick={() => navigate(`/patch-management/${agent.id}`)}
                                 className="h-8 px-2 text-xs text-green-600 hover:text-green-700"
                                 title="View patch management and vulnerabilities"
                               >
@@ -882,7 +885,7 @@ const Agents = () => {
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Filesystem Information</h3>
                   <div className="grid gap-3 max-h-60 overflow-y-auto">
-                    {selectedAgentForDetails.lastMetric.filesystems.slice(0, 10).map((fs: any, index: number) => (
+                    {selectedAgentForDetails.lastMetric.filesystems.slice(0, 10).map((fs: FilesystemStats, index: number) => (
                       <div key={index} className="bg-gray-50 p-3 rounded-lg">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
@@ -947,7 +950,7 @@ const Agents = () => {
           onOpenChange={setInvestigationDialogOpen}
           agentId={selectedAgentForInvestigation.id}
           agentName={selectedAgentForInvestigation.hostname || 'Unknown Agent'}
-          isAgentActive={getAgentRealTimeStatus(selectedAgentForInvestigation) === 'active'}
+          isAgentActive={getAgentRealTimeStatus() === 'active'}
           userId={currentUser.id}
         />
       )}

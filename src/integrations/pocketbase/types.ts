@@ -40,14 +40,14 @@ export interface AgentMetricRecord {
   disk_percent?: number;
   network_in_kbps?: number;
   network_out_kbps?: number;
-  extra?: Record<string, any>;
+  extra?: Record<string, unknown>;
   ip_address?: string;
   location?: string;
   agent_version?: string;
-  os_info?: Record<string, any>;
+  os_info?: Record<string, unknown>;
   kernel_version?: string;
-  filesystem_info?: Record<string, any>[];
-  block_devices?: Record<string, any>[];
+  filesystem_info?: Record<string, unknown>[];
+  block_devices?: Record<string, unknown>[];
   device_fingerprint?: string;
   load_averages?: Record<string, number>;
   load1?: number;
@@ -146,6 +146,7 @@ export interface PatchScheduleRecord {
   cron_expression: string;
   next_run?: string;
   is_active: boolean;
+  execution_type?: 'dry_run' | 'apply';
   created: string;
   updated: string;
 }

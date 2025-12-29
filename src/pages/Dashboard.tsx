@@ -10,7 +10,7 @@ import GlassMorphicCard from '@/components/GlassMorphicCard';
 import TransitionWrapper from '@/components/TransitionWrapper';
 import ErrorBanner from '@/components/ErrorBanner';
 import withAuth from '@/utils/withAuth';
-import { placeholderStats, placeholderActivities } from '@/mocks/placeholderData';
+import { placeholderStats } from '@/mocks/placeholderData';
 import { getCurrentUser, getCurrentSession } from '@/services/authService';
 import { getRecentActivities, getActivityIcon, formatActivityTime, type Activity as ActivityType } from '@/services/activityService';
 import { getRecentInvestigationsFromAPI, formatInvestigationTime, type Investigation } from '@/services/investigationService';
@@ -24,8 +24,6 @@ const Dashboard = () => {
   const [activities, setActivities] = useState<ActivityType[]>([]);
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
-  const [usePlaceholder, setUsePlaceholder] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -42,8 +40,6 @@ const Dashboard = () => {
           navigate('/login');
           return;
         }
-        
-        setUser(currentUser);
         
         // Fetch real data from Supabase with timeouts to prevent hanging
         try {
@@ -67,18 +63,14 @@ const Dashboard = () => {
           // Handle activities
           if (recentActivities.status === 'fulfilled' && recentActivities.value && recentActivities.value.length > 0) {
             setActivities(recentActivities.value);
-            setUsePlaceholder(false);
           } else {
-            console.log('No activities found or request failed:', recentActivities.status === 'rejected' ? recentActivities.reason : 'No data');
             setActivities([]);
-            setUsePlaceholder(true);
           }
           
           // Handle investigations
           if (recentInvestigations.status === 'fulfilled' && recentInvestigations.value) {
             setInvestigations(recentInvestigations.value);
           } else {
-            console.log('Failed to fetch investigations:', recentInvestigations.status === 'rejected' ? recentInvestigations.reason : 'No data');
             setInvestigations([]);
           }
           
@@ -105,15 +97,12 @@ const Dashboard = () => {
                 change: '+0.2%' 
               },
             ]);
-          } else {
-            console.log('Failed to fetch dashboard stats:', dashboardStats.status === 'rejected' ? dashboardStats.reason : 'No data');
           }
           
         } catch (dataError) {
           console.error('Error fetching dashboard data:', dataError);
           setErrorMessage("Could not load data from Supabase. Check if the 'activities' table exists.");
           setHasError(true);
-          setUsePlaceholder(true);
         }
         
         setLoading(false);

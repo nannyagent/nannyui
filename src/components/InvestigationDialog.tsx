@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { getInvestigation, formatInvestigationTime, type Investigation } from '@/services/investigationService';
-import { Database, Server, Smartphone, Network, Globe, Activity as ActivityIcon, Calendar, User, Clock, Eye, Loader2, Code2, Zap } from 'lucide-react';
+import { Activity as ActivityIcon, Calendar, User, Clock, Eye, Loader2, Code2, Zap } from 'lucide-react';
 import InferenceDialog from './InferenceDialog';
 
 export interface InvestigationDialogProps {
@@ -87,28 +87,23 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
   // Extract resolution from the last inference
   const getResolutionFromInferences = () => {
     if (!investigation.metadata?.inferences || investigation.metadata?.inferences.length === 0) {
-      console.log('No inferences found');
       return null;
     }
     
     // Check the last inference for resolution
     const lastInference = investigation.metadata?.inferences[investigation.metadata?.inferences.length - 1];
-    console.log('Last inference output:', lastInference.output);
     
     if (!lastInference.output) {
-      console.log('No output in last inference');
       return null;
     }
     
     try {
       // First try to parse as direct JSON
       let parsed = JSON.parse(lastInference.output);
-      console.log('Parsed output:', parsed);
       
       // Check if it's an array with objects containing text/content
       if (Array.isArray(parsed) && parsed.length > 0) {
         const firstItem = parsed[0];
-        console.log('First item:', firstItem);
         
         // Try multiple ways to extract the text content
         let textContent = null;
@@ -123,15 +118,12 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
         }
         
         if (textContent) {
-          console.log('Text content:', textContent);
           parsed = JSON.parse(textContent);
-          console.log('Parsed text content:', parsed);
         }
       }
       
       // Check if it's a resolution response
       if (parsed.response_type === 'resolution') {
-        console.log('Found resolution!');
         return {
           root_cause: parsed.root_cause,
           resolution_plan: parsed.resolution_plan,
@@ -139,11 +131,9 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
           ebpf_evidence: parsed.ebpf_evidence,
           inferenceId: lastInference.id
         };
-      } else {
-        console.log('Not a resolution response, type:', parsed.response_type);
       }
     } catch (e) {
-      console.log('Failed to parse resolution:', e);
+      console.error('Failed to parse resolution:', e);
     }
     
     return null;

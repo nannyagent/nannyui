@@ -26,21 +26,22 @@ export const signUpWithEmail = async (
       emailVisibility: false,
     };
 
-    const record = await pb.collection('users').create(userData);
+    await pb.collection('users').create(userData);
 
     // Auto-login after signup
     const authData = await pb.collection('users').authWithPassword(email, password);
 
     return {
-      user: authData.record as UserRecord,
+      user: authData.record as unknown as UserRecord,
       token: authData.token,
       error: null,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to sign up';
     return {
       user: null,
       token: null,
-      error: error.message || 'Failed to sign up',
+      error: errorMessage,
     };
   }
 };
@@ -56,15 +57,16 @@ export const signInWithEmail = async (
     const authData = await pb.collection('users').authWithPassword(email, password);
 
     return {
-      user: authData.record as UserRecord,
+      user: authData.record as unknown as UserRecord,
       token: authData.token,
       error: null,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to sign in';
     return {
       user: null,
       token: null,
-      error: error.message || 'Failed to sign in',
+      error: errorMessage,
     };
   }
 };
@@ -80,8 +82,9 @@ export const signInWithGitHub = async () => {
     const authUrl = `${pb.baseURL}/api/oauth2-redirect?redirect=${encodeURIComponent(window.location.origin)}/oauth-callback`;
     window.location.href = authUrl;
     return { data: null, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message || 'Failed to initiate GitHub login' };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to initiate GitHub login';
+    return { data: null, error: errorMessage };
   }
 };
 
@@ -93,11 +96,12 @@ export const signInWithGitHub = async () => {
 export const signInWithGoogle = async () => {
   try {
     // PocketBase OAuth flow
-    const authUrl = `${pb.baseUrl}/api/oauth2-authorize/google?redirect=${encodeURIComponent(window.location.origin)}/oauth-callback`;
+    const authUrl = `${pb.baseURL}/api/oauth2-authorize/google?redirect=${encodeURIComponent(window.location.origin)}/oauth-callback`;
     window.location.href = authUrl;
     return { data: null, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message || 'Failed to initiate Google login' };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to initiate Google login';
+    return { data: null, error: errorMessage };
   }
 };
 
@@ -116,15 +120,16 @@ export const handleOAuthCallback = async (code: string, provider: string) => {
     localStorage.removeItem(`oauth2_${provider}_verifier`);
 
     return {
-      user: authData.record as UserRecord,
+      user: authData.record as unknown as UserRecord,
       token: authData.token,
       error: null,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to complete OAuth login';
     return {
       user: null,
       token: null,
-      error: error.message || 'Failed to complete OAuth login',
+      error: errorMessage,
     };
   }
 };
@@ -136,8 +141,9 @@ export const signOut = async () => {
   try {
     pb.authStore.clear();
     return { error: null };
-  } catch (error: any) {
-    return { error: error.message || 'Failed to sign out' };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to sign out';
+    return { error: errorMessage };
   }
 };
 
@@ -147,8 +153,8 @@ export const signOut = async () => {
 export const getCurrentUser = async (): Promise<UserRecord | null> => {
   try {
     if (!pb.authStore.isValid) return null;
-    return pb.authStore.record as UserRecord;
-  } catch (error) {
+    return pb.authStore.record as unknown as UserRecord;
+  } catch {
     return null;
   }
 };
@@ -160,7 +166,7 @@ export const getCurrentSession = async (): Promise<string | null> => {
   try {
     if (!pb.authStore.isValid) return null;
     return pb.authStore.token;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -172,7 +178,7 @@ export const onAuthStateChange = (
   callback: (event: string, user: UserRecord | null) => void
 ) => {
   pb.authStore.onChange(() => {
-    const user = pb.authStore.record as UserRecord | null;
+    const user = pb.authStore.record as unknown as UserRecord | null;
     callback('auth_change', user);
   }, true);
 
@@ -193,34 +199,35 @@ export const onAuthStateChange = (
  * Note: PocketBase doesn't have built-in password reset via email
  * This would need backend support
  */
-export const resetPassword = async (email: string) => {
+export const resetPassword = async () => {
   try {
     // For now, just return success
     // In production, you'd need to implement this on the backend
     return { data: null, error: null };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: (error as Error).message };
   }
 };
 
 /**
  * Update user password
  */
-export const updatePassword = async (newPassword: string, currentPassword?: string) => {
+export const updatePassword = async (newPassword: string) => {
   try {
     const user = getCurrentUser();
     if (!user) {
       return { data: null, error: { message: 'No user logged in' } };
     }
 
-    const updatedUser = await pb.collection('users').update(user.id, {
+    const updatedUser = await pb.collection('users').update((await user).id, {
       password: newPassword,
       passwordConfirm: newPassword,
     });
 
     return { data: updatedUser, error: null };
-  } catch (error: any) {
-    return { data: null, error: { message: error.message || 'Failed to update password' } };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update password';
+    return { data: null, error: { message: errorMessage } };
   }
 };
 
@@ -240,30 +247,30 @@ export const setupMFA = async () => {
       },
       error: null,
     };
-  } catch (error: any) {
-    return { data: null, error };
+  } catch (error: unknown) {
+    return { data: null, error: (error as Error).message };
   }
 };
 
 /**
  * Verify TOTP code
  */
-export const verifyTOTPCode = async (code: string, secret?: string) => {
+export const verifyTOTPCode = async () => {
   try {
     return { data: null, error: null };
-  } catch (error: any) {
-    return { data: null, error };
+  } catch (error: unknown) {
+    return { data: null, error: (error as Error).message };
   }
 };
 
 /**
  * Confirm MFA setup
  */
-export const confirmMFASetup = async (code: string, totp_secret?: string, backup_codes?: string[]) => {
+export const confirmMFASetup = async () => {
   try {
     return { data: null, error: null };
-  } catch (error: any) {
-    return { data: null, error };
+  } catch (error: unknown) {
+    return { data: null, error: (error as Error).message };
   }
 };
 
@@ -273,8 +280,8 @@ export const confirmMFASetup = async (code: string, totp_secret?: string, backup
 export const disableMFA = async () => {
   try {
     return { data: null, error: null };
-  } catch (error: any) {
-    return { data: null, error };
+  } catch (error: unknown) {
+    return { data: null, error: (error as Error).message };
   }
 };
 
@@ -285,7 +292,7 @@ export const isMFAEnabled = async (): Promise<boolean> => {
   try {
     // Placeholder - MFA not yet implemented in PocketBase
     return false;
-  } catch (error) {
+  } catch {
     return false;
   }
 };
@@ -296,7 +303,7 @@ export const isMFAEnabled = async (): Promise<boolean> => {
 export const getMFABackupCodes = async (): Promise<string[] | null> => {
   try {
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -304,11 +311,11 @@ export const getMFABackupCodes = async (): Promise<string[] | null> => {
 /**
  * Verify backup code
  */
-export const verifyBackupCode = async (code: string) => {
+export const verifyBackupCode = async () => {
   try {
     return { data: null, error: null };
-  } catch (error: any) {
-    return { data: null, error };
+  } catch (error: unknown) {
+    return { data: null, error: (error as Error).message };
   }
 };
 
@@ -318,7 +325,7 @@ export const verifyBackupCode = async (code: string) => {
 export const getRemainingBackupCodes = async (): Promise<number | null> => {
   try {
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -326,10 +333,10 @@ export const getRemainingBackupCodes = async (): Promise<number | null> => {
 /**
  * Verify MFA login
  */
-export const verifyMFALogin = async (code: string) => {
+export const verifyMFALogin = async () => {
   try {
     return { data: null, error: null };
-  } catch (error: any) {
-    return { data: null, error };
+  } catch (error: unknown) {
+    return { data: null, error: (error as Error).message };
   }
 };

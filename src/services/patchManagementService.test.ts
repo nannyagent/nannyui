@@ -46,6 +46,18 @@ vi.mock("@/lib/pocketbase", () => {
         record: { id: "user-123" },
         isValid: true,
       },
+      files: {
+        getURL: vi.fn().mockReturnValue("http://localhost/file.json"),
+      },
+      filter: vi.fn((expr, params) => {
+        let res = expr;
+        if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+                res = res.replace(new RegExp(`{:\\s*${key}}`, 'g'), `"${value}"`);
+            });
+        }
+        return res;
+      }),
       collection: vi.fn((name) => {
         if (name === 'agents') {
           return {
@@ -67,9 +79,6 @@ vi.mock("@/lib/pocketbase", () => {
         }
         return defaultCollection;
       }),
-      files: {
-        getUrl: vi.fn().mockReturnValue("http://localhost:8090/api/files/..."),
-      },
     },
   };
 });
@@ -152,12 +161,11 @@ describe("patchManagementService", () => {
 
   describe("applyPatches", () => {
     it("should create update operation", async () => {
-      const result = await applyPatches("agent-123", ["pkg1"], "lxc-123");
+      const result = await applyPatches("agent-123", ["pkg1"]);
       expect(result).toBe("new-record-123");
       expect(pb.collection("patch_operations").create).toHaveBeenCalledWith({
         agent_id: "agent-123",
         user_id: "user-123",
-        lxc_id: "lxc-123",
         script_id: "script-123",
         mode: "apply",
         status: "pending",
@@ -192,9 +200,10 @@ describe("patchManagementService", () => {
     });
   });
 
+  
   describe("checkAgentWebSocketConnection", () => {
     it("should return true always", async () => {
-      const result = await checkAgentWebSocketConnection("agent-123");
+      const result = await checkAgentWebSocketConnection();
       expect(result).toBe(true);
     });
   });

@@ -9,7 +9,6 @@ import Footer from '@/components/Footer';
 import ErrorBanner from '@/components/ErrorBanner';
 import { useToast } from '@/hooks/use-toast';
 import { signInWithGitHub, signInWithGoogle, signInWithEmail, getCurrentUser, isMFAEnabled } from '@/services/authService';
-import { pb } from '@/integrations/pocketbase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
@@ -42,7 +41,6 @@ const Login = () => {
   const handleGitHubLogin = async () => {
     try {
       setIsLoading(true);
-      console.log("Initiating GitHub login. PocketBase URL:", pb.baseURL);
       const { data, error } = await signInWithGitHub();
       
       if (error) {
@@ -61,7 +59,7 @@ const Login = () => {
       setIsError(true);
       toast({
         title: "Authentication Error",
-        description: `Failed to initiate GitHub login: ${error.message || error}. URL: ${pb.baseURL}`,
+        description: `Failed to initiate GitHub login. Please try again later.`,
         variant: "destructive",
       });
     } finally {
@@ -90,7 +88,7 @@ const Login = () => {
       setIsError(true);
       toast({
         title: "Authentication Error",
-        description: `Failed to initiate Google login: ${error.message || error}. URL: ${pb.baseURL}`,
+        description: `Failed to initiate Google login. Please try again later.`,
         variant: "destructive",
       });
     } finally {

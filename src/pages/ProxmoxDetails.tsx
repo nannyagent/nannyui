@@ -1,23 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import {
   Server,
-  Cpu,
-  HardDrive,
-  Activity,
-  Box,
-  Layers,
   ArrowLeft,
   RefreshCw,
   Clock,
-  CheckCircle,
-  XCircle,
-  AlertTriangle
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
-import Footer from '@/components/Footer';
 import GlassMorphicCard from '@/components/GlassMorphicCard';
 import TransitionWrapper from '@/components/TransitionWrapper';
 import { Button } from '@/components/ui/button';
@@ -288,7 +278,7 @@ const ProxmoxDetails = () => {
                             ))}
                             {lxcs.length === 0 && (
                               <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                                   No LXC containers found
                                 </TableCell>
                               </TableRow>

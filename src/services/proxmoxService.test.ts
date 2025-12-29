@@ -5,6 +5,15 @@ import { pb } from '@/lib/pocketbase';
 // Mock the pocketbase client
 vi.mock('@/lib/pocketbase', () => ({
   pb: {
+    filter: vi.fn((expr, params) => {
+      let res = expr;
+      if (params) {
+          Object.entries(params).forEach(([key, value]) => {
+              res = res.replace(new RegExp(`{:\\s*${key}}`, 'g'), `"${value}"`);
+          });
+      }
+      return res;
+    }),
     collection: vi.fn(() => ({
       getList: vi.fn(),
       getFullList: vi.fn(),

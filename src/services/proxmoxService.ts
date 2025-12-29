@@ -49,7 +49,7 @@ export const getProxmoxNodes = async (agentId: string): Promise<ProxmoxNodeRecor
 export const getProxmoxLxcs = async (agentId: string): Promise<ProxmoxLxcRecord[]> => {
   try {
     const result = await pb.collection('proxmox_lxc').getFullList({
-      filter: `agent_id = "${agentId}"`,
+      filter: pb.filter('agent_id = {:agentId}', { agentId }),
       sort: 'vmid',
     });
     return result as unknown as ProxmoxLxcRecord[];
@@ -62,7 +62,7 @@ export const getProxmoxLxcs = async (agentId: string): Promise<ProxmoxLxcRecord[
 export const getProxmoxQemus = async (agentId: string): Promise<ProxmoxQemuRecord[]> => {
   try {
     const result = await pb.collection('proxmox_qemu').getFullList({
-      filter: `agent_id = "${agentId}"`,
+      filter: pb.filter('agent_id = {:agentId}', { agentId }),
       sort: 'vmid',
     });
     return result as unknown as ProxmoxQemuRecord[];
