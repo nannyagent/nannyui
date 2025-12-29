@@ -139,7 +139,6 @@ describe("patchManagementService", () => {
       expect(pb.collection("patch_operations").create).toHaveBeenCalledWith({
         agent_id: "agent-123",
         user_id: "user-123",
-        script_id: "script-123",
         mode: "dry-run",
         status: "pending",
       });
@@ -151,10 +150,8 @@ describe("patchManagementService", () => {
       expect(pb.collection("patch_operations").create).toHaveBeenCalledWith({
         agent_id: "agent-123",
         user_id: "user-123",
-        script_id: "script-123",
         mode: "dry-run",
         status: "pending",
-        lxc_id: "lxc-123",
       });
     });
   });
@@ -166,7 +163,6 @@ describe("patchManagementService", () => {
       expect(pb.collection("patch_operations").create).toHaveBeenCalledWith({
         agent_id: "agent-123",
         user_id: "user-123",
-        script_id: "script-123",
         mode: "apply",
         status: "pending",
         metadata: {
@@ -181,13 +177,11 @@ describe("patchManagementService", () => {
       expect(pb.collection("patch_operations").create).toHaveBeenCalledWith({
         agent_id: "agent-123",
         user_id: "user-123",
-        script_id: "script-123",
         mode: "apply",
         status: "pending",
         metadata: {
           packages: ["pkg1"],
         },
-        lxc_id: "lxc-123",
       });
     });
   });
@@ -227,6 +221,7 @@ describe("patchManagementService", () => {
       const result = await saveCronSchedule("agent-123", "0 0 * * *", true);
       expect(result).toBe(true);
       expect(createMock).toHaveBeenCalledWith({
+        user_id: "user-123",
         agent_id: "agent-123",
         cron_expression: "0 0 * * *",
         is_active: true,
@@ -245,6 +240,7 @@ describe("patchManagementService", () => {
       expect(updateMock).toHaveBeenCalledWith("sched-123", {
         agent_id: "agent-123",
         cron_expression: "0 0 * * *",
+        user_id: "user-123",
         is_active: false,
       });
     });
@@ -262,7 +258,7 @@ describe("patchManagementService", () => {
         agent_id: "agent-123",
         cron_expression: "0 0 * * *",
         is_active: true,
-        lxc_id: "lxc-123",
+        user_id: "user-123",
       });
     });
   });

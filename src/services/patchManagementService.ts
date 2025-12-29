@@ -155,32 +155,20 @@ export const runPatchCheck = async (agentId: string, lxcId?: string): Promise<st
     
     // Fetch agent to get platform_family
     const agent = await pb.collection('agents').getOne(agentId);
-    const platformFamily = agent.platform_family;
-
-    if (!platformFamily) {
-      throw new Error('Agent platform_family not found');
-    }
-
-    // Fetch script for this platform_family
-    const scripts = await pb.collection('scripts').getList(1, 1, {
-      filter: `platform_family = "${platformFamily}"`,
-    });
-
-    if (scripts.items.length === 0) {
-      throw new Error(`No script found for platform_family: ${platformFamily}`);
-    }
-    const scriptId = scripts.items[0].id;
 
     const payload: Record<string, unknown> = {
       agent_id: agentId,
       user_id: user?.id,
-      script_id: scriptId,
       mode: 'dry-run',
       status: 'pending',
     };
 
+    // Resolve lxc_id to proxmox_lxc record ID
     if (lxcId) {
-      payload.lxc_id = lxcId;
+      const proxmoxLxcId = await getProxmoxLxcId(agentId, lxcId);
+      if (proxmoxLxcId) {
+        payload.lxc_id = proxmoxLxcId;
+      }
     }
 
     const record = await pb.collection('patch_operations').create(payload);
@@ -200,26 +188,10 @@ export const applyPatches = async (agentId: string, packageNames: string[], lxcI
 
     // Fetch agent to get platform_family
     const agent = await pb.collection('agents').getOne(agentId);
-    const platformFamily = agent.platform_family;
-
-    if (!platformFamily) {
-      throw new Error('Agent platform_family not found');
-    }
-
-    // Fetch script for this platform_family
-    const scripts = await pb.collection('scripts').getList(1, 1, {
-      filter: `platform_family = "${platformFamily}"`,
-    });
-
-    if (scripts.items.length === 0) {
-      throw new Error(`No script found for platform_family: ${platformFamily}`);
-    }
-    const scriptId = scripts.items[0].id;
 
     const payload: Record<string, unknown> = {
       agent_id: agentId,
       user_id: user?.id,
-      script_id: scriptId,
       mode: 'apply',
       status: 'pending',
       metadata: {
@@ -227,8 +199,12 @@ export const applyPatches = async (agentId: string, packageNames: string[], lxcI
       },
     };
 
+    // Resolve lxc_id to proxmox_lxc record ID
     if (lxcId) {
-      payload.lxc_id = lxcId;
+      const proxmoxLxcId = await getProxmoxLxcId(agentId, lxcId);
+      if (proxmoxLxcId) {
+        payload.lxc_id = proxmoxLxcId;
+      }
     }
 
     const record = await pb.collection('patch_operations').create(payload);
@@ -388,7 +364,7 @@ export const saveCronSchedule = async (
     // Check if schedule exists
     const filter = pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId}', { 
       agentId, 
-      lxcId: lxcId || "" 
+      lxcId: lxcId || ""
     });
 
     const existing = await pb.collection('patch_schedules').getList(1, 1, {
@@ -396,13 +372,18 @@ export const saveCronSchedule = async (
     });
 
     const payload: Record<string, unknown> = {
+      user_id: pb.authStore.record?.id,
       agent_id: agentId,
       cron_expression: cronExpression,
       is_active: isActive,
     };
 
+    // Resolve lxc_id to proxmox_lxc record ID
     if (lxcId) {
-      payload.lxc_id = lxcId;
+      const proxmoxLxcId = await getProxmoxLxcId(agentId, lxcId);
+      if (proxmoxLxcId) {
+        payload.lxc_id = proxmoxLxcId;
+      }
     }
 
     if (existing.items.length > 0) {
@@ -481,3 +462,21 @@ export const getPatchManagementData = getPatchStatus;
 // Aliases for compatibility
 export const listPatchExecutions = getPatchHistory;
 export type PatchExecution = PatchOperation;
+
+/**
+ * Get the proxmox_lxc record ID from lxc_id
+ */
+export const getProxmoxLxcId = async (agentId: string, lxcId: string): Promise<string | null> => {
+  try {
+    const filter = pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId}', { agentId, lxcId });
+    const result = await pb.collection('proxmox_lxc').getList(1, 1, { filter });
+    
+    if (result.items.length > 0) {
+      return result.items[0].id;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching proxmox_lxc ID:', error);
+    return null;
+  }
+};
