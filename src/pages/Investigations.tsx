@@ -195,7 +195,7 @@ const Investigations = () => {
                                   </Badge>
                                 </div>
                                 <span className="text-xs text-muted-foreground">
-                                  {formatInvestigationTime(investigation.created_at)}
+                                  {formatInvestigationTime(investigation.initiated_at)}
                                 </span>
                                 <Button
                                   size="sm"

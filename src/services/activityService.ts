@@ -69,7 +69,7 @@ export const getActivities = async (
   filter: string = 'all'
 ): Promise<ActivitiesResponse> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     if (!user) {
       return {
         activities: [],
@@ -126,7 +126,7 @@ export const logActivity = async (
   agentId?: string
 ): Promise<void> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     if (!user) return;
 
     await pb.collection('activities').create({

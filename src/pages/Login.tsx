@@ -9,6 +9,7 @@ import Footer from '@/components/Footer';
 import ErrorBanner from '@/components/ErrorBanner';
 import { useToast } from '@/hooks/use-toast';
 import { signInWithGitHub, signInWithGoogle, signInWithEmail, getCurrentUser, isMFAEnabled } from '@/services/authService';
+import { pb } from '@/integrations/pocketbase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
@@ -41,6 +42,7 @@ const Login = () => {
   const handleGitHubLogin = async () => {
     try {
       setIsLoading(true);
+      console.log("Initiating GitHub login. PocketBase URL:", pb.baseURL);
       const { data, error } = await signInWithGitHub();
       
       if (error) {
@@ -54,12 +56,12 @@ const Login = () => {
         // Successfully authenticated, redirect to dashboard
         navigate('/dashboard', { replace: true });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error initiating GitHub login:", error);
       setIsError(true);
       toast({
         title: "Authentication Error",
-        description: "Failed to initiate GitHub login. Please try again later.",
+        description: `Failed to initiate GitHub login: ${error.message || error}. URL: ${pb.baseURL}`,
         variant: "destructive",
       });
     } finally {
@@ -83,12 +85,12 @@ const Login = () => {
         // Successfully authenticated, redirect to dashboard
         navigate('/dashboard', { replace: true });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error initiating Google login:", error);
       setIsError(true);
       toast({
         title: "Authentication Error",
-        description: "Failed to initiate Google login. Please try again later.",
+        description: `Failed to initiate Google login: ${error.message || error}. URL: ${pb.baseURL}`,
         variant: "destructive",
       });
     } finally {
@@ -116,7 +118,7 @@ const Login = () => {
         setIsError(true);
         toast({
           title: "Authentication Error",
-          description: error.message || "Failed to sign in with email.",
+          description: error || "Failed to sign in with email.",
           variant: "destructive",
         });
         return;

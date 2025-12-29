@@ -242,7 +242,7 @@ const Dashboard = () => {
                                   </span>
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  {formatInvestigationTime(investigation.created_at)}
+                                  {formatInvestigationTime(investigation.initiated_at)}
                                 </p>
                               </div>
                             </div>

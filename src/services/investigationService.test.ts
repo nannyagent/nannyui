@@ -122,7 +122,7 @@ describe("investigationService", () => {
   describe("createInvestigationFromAPI", () => {
     it("should throw error when not authenticated", async () => {
       // Mock authStore.model to be null
-      const originalModel = pb.authStore.model;
+      const originalModel = pb.authStore.record;
       Object.defineProperty(pb.authStore, "model", { value: null, configurable: true });
 
       await expect(

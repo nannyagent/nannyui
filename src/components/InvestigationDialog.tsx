@@ -331,7 +331,7 @@ const InvestigationDialog: React.FC<InvestigationDialogProps> = ({
               <div className="flex items-center space-x-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Created:</span>
-                <span>{formatInvestigationTime(investigation.created_at)}</span>
+                <span>{formatInvestigationTime(investigation.initiated_at)}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <User className="h-4 w-4 text-muted-foreground" />

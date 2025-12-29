@@ -154,7 +154,7 @@ export const getPatchOperationDetails = async (id: string): Promise<PatchOperati
  */
 export const runPatchCheck = async (agentId: string): Promise<string> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     
     // Fetch agent to get platform_family
     const agent = await pb.collection('agents').getOne(agentId);
@@ -193,7 +193,7 @@ export const runPatchCheck = async (agentId: string): Promise<string> => {
  */
 export const applyPatches = async (agentId: string, packageNames: string[]): Promise<string> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
 
     // Fetch agent to get platform_family
     const agent = await pb.collection('agents').getOne(agentId);
@@ -299,7 +299,7 @@ export interface PackageException {
   package_name: string;
   reason: string;
   expires_at: string;
-  created_by: string;
+  user_id: string;
   created: string;
   updated: string;
 }
@@ -348,15 +348,15 @@ export const addPackageException = async (
   expiresAt?: string
 ): Promise<PackageException | null> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     if (!user) throw new Error('User not authenticated');
 
     const record = await pb.collection('package_exceptions').create({
       agent_id: agentId,
       package_name: packageName,
       reason: reason,
+      user_id: user.id,
       expires_at: expiresAt,
-      created_by: user.id,
     });
 
     return {

@@ -84,7 +84,7 @@ export const getAgentsPaginated = async (
   statusFilter: 'active' | 'inactive' | 'all' = 'active'
 ): Promise<PaginatedAgents> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     if (!user) {
       return { agents: [], total: 0, page, pageSize, totalPages: 0 };
     }
@@ -173,7 +173,7 @@ export const getAgentMetrics = async (agentId: string): Promise<AgentMetric[]> =
  */
 export const getAgents = async (): Promise<Agent[]> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     if (!user) return [];
 
     const records = await pb.collection('agents').getFullList({
@@ -230,7 +230,7 @@ export const getUserAgents = async (userId: string): Promise<Agent[]> => {
  */
 export const getAgentsByStatus = async (status: 'active' | 'inactive'): Promise<Agent[]> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     if (!user) return [];
 
     // Simplified: return all agents for now as status filtering is not supported by backend yet
@@ -263,7 +263,7 @@ export const createAgent = async (
   agent: Omit<Agent, 'id' | 'created_at' | 'updated_at'>
 ): Promise<{ data: Agent | null; error: Error | null }> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     // Remove status from payload as it's computed
     const { status, ...agentData } = agent;
     

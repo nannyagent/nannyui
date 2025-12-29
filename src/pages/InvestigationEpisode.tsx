@@ -201,7 +201,7 @@ function InvestigationEpisode() {
             <div className="text-xs text-muted-foreground mb-1">Started</div>
             <div className="text-sm font-medium flex items-center gap-2">
               <Clock className="h-4 w-4" />
-              {formatDate(investigation.created_at)}
+              {formatDate(investigation.initiated_at)}
             </div>
           </div>
           <div className="p-4 border rounded-lg">
