@@ -41,6 +41,15 @@ export default defineConfig(({ mode }) => {
         exclude: [
           'node_modules/',
           'src/setupTests.ts',
+          'eslint.config.js',
+          'postcss.config.js',
+          'tailwind.config.ts',
+          'vite.config.ts',
+          'src/vite-env.d.ts',
+          'src/main.tsx',
+          'src/App.tsx',
+          'src/components/ui/**',
+          'src/integrations/**',
         ],
       },
     }

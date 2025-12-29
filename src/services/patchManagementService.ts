@@ -1,4 +1,5 @@
 import { pb } from '@/lib/pocketbase';
+import { PatchOperationRecord, PatchScheduleRecord, PackageExceptionRecord } from '@/integrations/pocketbase/types';
 
 export interface Vulnerability {
   cve_id?: string;
@@ -44,24 +45,13 @@ export interface PatchManagementData {
   kernel_upgrade: KernelUpgrade;
   os_upgrade: OsUpgrade;
   summary: Summary;
+  recommendations: string[];
   last_checked: string;
 }
 
-export interface PatchOperation {
-  id: string;
-  agent_id: string;
-  mode: 'dry-run' | 'apply' | 'rollback';
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  script_url: string;
-  stdout_file: string;
-  stderr_file: string;
-  exit_code: number;
-  metadata: Record<string, any>;
-  started_at: string;
-  completed_at: string;
-  created: string;
-  updated: string;
-}
+export type PatchOperation = PatchOperationRecord;
+export type PatchSchedule = PatchScheduleRecord;
+export type PackageException = PackageExceptionRecord;
 
 /**
  * Get the latest patch status for an agent
@@ -152,7 +142,7 @@ export const getPatchOperationDetails = async (id: string): Promise<PatchOperati
 /**
  * Run a patch check
  */
-export const runPatchCheck = async (agentId: string): Promise<string> => {
+export const runPatchCheck = async (agentId: string, lxcId?: string): Promise<string> => {
   try {
     const user = pb.authStore.record;
     
@@ -174,13 +164,19 @@ export const runPatchCheck = async (agentId: string): Promise<string> => {
     }
     const scriptId = scripts.items[0].id;
 
-    const record = await pb.collection('patch_operations').create({
+    const payload: any = {
       agent_id: agentId,
       user_id: user?.id,
       script_id: scriptId,
       mode: 'dry-run',
       status: 'pending',
-    });
+    };
+
+    if (lxcId) {
+      payload.lxc_id = lxcId;
+    }
+
+    const record = await pb.collection('patch_operations').create(payload);
     return record.id;
   } catch (error) {
     console.error('Error running patch check:', error);
@@ -191,7 +187,7 @@ export const runPatchCheck = async (agentId: string): Promise<string> => {
 /**
  * Apply patches
  */
-export const applyPatches = async (agentId: string, packageNames: string[]): Promise<string> => {
+export const applyPatches = async (agentId: string, packageNames: string[], lxcId?: string): Promise<string> => {
   try {
     const user = pb.authStore.record;
 
@@ -213,7 +209,7 @@ export const applyPatches = async (agentId: string, packageNames: string[]): Pro
     }
     const scriptId = scripts.items[0].id;
 
-    const record = await pb.collection('patch_operations').create({
+    const payload: any = {
       agent_id: agentId,
       user_id: user?.id,
       script_id: scriptId,
@@ -222,7 +218,13 @@ export const applyPatches = async (agentId: string, packageNames: string[]): Pro
       metadata: {
         packages: packageNames,
       },
-    });
+    };
+
+    if (lxcId) {
+      payload.lxc_id = lxcId;
+    }
+
+    const record = await pb.collection('patch_operations').create(payload);
     return record.id;
   } catch (error) {
     console.error('Error applying patches:', error);
@@ -283,34 +285,20 @@ export const waitForPatchOperation = async (
   return null;
 };
 
-export interface PatchSchedule {
-  id: string;
-  agent_id: string;
-  cron_expr: string;
-  next_run: string;
-  last_run: string;
-  enabled: boolean;
-  metadata: Record<string, any>;
-}
-
-export interface PackageException {
-  id: string;
-  agent_id: string;
-  package_name: string;
-  reason: string;
-  expires_at: string;
-  user_id: string;
-  created: string;
-  updated: string;
-}
-
 /**
  * Get scheduled patches
  */
-export const getScheduledPatches = async (agentId: string): Promise<PatchSchedule[]> => {
+export const getScheduledPatches = async (agentId: string, lxcId?: string): Promise<PatchSchedule[]> => {
   try {
+    let filter = `agent_id = "${agentId}"`;
+    if (lxcId) {
+      filter += ` && lxc_id = "${lxcId}"`;
+    } else {
+      filter += ` && lxc_id = ""`;
+    }
+
     const result = await pb.collection('patch_schedules').getList(1, 50, {
-      filter: `agent_id = "${agentId}"`,
+      filter: filter,
     });
     return result.items.map((record: any) => ({
       ...record,
@@ -345,7 +333,7 @@ export const addPackageException = async (
   agentId: string,
   packageName: string,
   reason: string,
-  expiresAt?: string
+  isActive: boolean = true
 ): Promise<PackageException | null> => {
   try {
     const user = pb.authStore.record;
@@ -356,7 +344,7 @@ export const addPackageException = async (
       package_name: packageName,
       reason: reason,
       user_id: user.id,
-      expires_at: expiresAt,
+      is_active: isActive,
     });
 
     return {
@@ -387,25 +375,36 @@ export const removePackageException = async (exceptionId: string): Promise<boole
 export const saveCronSchedule = async (
   agentId: string,
   cronExpression: string,
-  enabled: boolean = true
+  isActive: boolean = true,
+  lxcId?: string
 ): Promise<boolean> => {
   try {
     // Check if schedule exists
+    let filter = `agent_id = "${agentId}"`;
+    if (lxcId) {
+      filter += ` && lxc_id = "${lxcId}"`;
+    } else {
+      filter += ` && lxc_id = ""`;
+    }
+
     const existing = await pb.collection('patch_schedules').getList(1, 1, {
-      filter: `agent_id = "${agentId}"`,
+      filter: filter,
     });
 
+    const payload: any = {
+      agent_id: agentId,
+      cron_expression: cronExpression,
+      is_active: isActive,
+    };
+
+    if (lxcId) {
+      payload.lxc_id = lxcId;
+    }
+
     if (existing.items.length > 0) {
-      await pb.collection('patch_schedules').update(existing.items[0].id, {
-        cron_expression: cronExpression,
-        enabled: enabled,
-      });
+      await pb.collection('patch_schedules').update(existing.items[0].id, payload);
     } else {
-      await pb.collection('patch_schedules').create({
-        agent_id: agentId,
-        cron_expression: cronExpression,
-        enabled: enabled,
-      });
+      await pb.collection('patch_schedules').create(payload);
     }
     return true;
   } catch (error) {

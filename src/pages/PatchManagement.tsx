@@ -100,7 +100,7 @@ const PatchManagement = () => {
       const patchData = await getPatchManagementData(agentId);
       setData(patchData);
     } catch (error) {
-      setHasError(false);
+      setHasError(true);
       setData(null);
     } finally {
       setLoading(false);

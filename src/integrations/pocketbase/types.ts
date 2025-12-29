@@ -61,3 +61,101 @@ export interface AuthResponse {
   token?: string;
   error?: string;
 }
+
+export interface ProxmoxClusterRecord {
+  id: string;
+  cluster_name: string;
+  nodes: number;
+  quorate: number;
+  version: number;
+  px_cluster_id: string;
+  created: string;
+  updated: string;
+}
+
+export interface ProxmoxNodeRecord {
+  id: string;
+  agent_id: string;
+  cluster_id?: string;
+  ip: string;
+  level: string;
+  local: number;
+  name: string;
+  px_node_id: number;
+  online: number;
+  pve_version: string;
+  created: string;
+  updated: string;
+}
+
+export interface ProxmoxLxcRecord {
+  id: string;
+  agent_id: string;
+  cluster_id?: string;
+  node_id: string;
+  name: string;
+  lxc_id: string;
+  status: string;
+  ostype: string;
+  uptime: number;
+  vmid: number;
+  node: string;
+  created: string;
+  updated: string;
+}
+
+export interface ProxmoxQemuRecord {
+  id: string;
+  agent_id: string;
+  cluster_id?: string;
+  node_id: string;
+  name: string;
+  qemu_id: string;
+  status: string;
+  ostype: string;
+  uptime: number;
+  vmid: number;
+  vmgenid?: string;
+  kvm?: number;
+  boot?: string;
+  host_cpu?: string;
+  node: string;
+  created: string;
+  updated: string;
+}
+
+export interface PatchOperationRecord {
+  id: string;
+  user_id: string;
+  agent_id: string;
+  mode: 'dry-run' | 'apply';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'rolled_back';
+  script_url: string;
+  output_path: string;
+  error_msg: string;
+  started_at?: string;
+  completed_at?: string;
+  created: string;
+  updated: string;
+}
+
+export interface PatchScheduleRecord {
+  id: string;
+  agent_id: string;
+  lxc_id?: string;
+  cron_expression: string;
+  next_run?: string;
+  is_active: boolean;
+  created: string;
+  updated: string;
+}
+
+export interface PackageExceptionRecord {
+  id: string;
+  agent_id: string;
+  package_name: string;
+  reason?: string;
+  is_active: boolean;
+  created: string;
+  updated: string;
+}

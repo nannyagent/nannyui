@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Package,
@@ -45,6 +46,7 @@ export const PackageExceptionsDialog: React.FC<PackageExceptionsDialogProps> = (
   const [adding, setAdding] = useState(false);
   const [newPackages, setNewPackages] = useState('');
   const [reason, setReason] = useState('');
+  const [isActive, setIsActive] = useState(true);
   const { toast } = useToast();
 
   const loadExceptions = useCallback(async () => {
@@ -91,7 +93,7 @@ export const PackageExceptionsDialog: React.FC<PackageExceptionsDialogProps> = (
     try {
       // Add each package as a separate exception
       for (const packageName of packageNames) {
-        await addPackageException(agentId, packageName, reason || undefined);
+        await addPackageException(agentId, packageName, reason || '', isActive);
       }
 
       toast({
@@ -101,6 +103,7 @@ export const PackageExceptionsDialog: React.FC<PackageExceptionsDialogProps> = (
 
       setNewPackages('');
       setReason('');
+      setIsActive(true);
       await loadExceptions();
     } catch (error) {
       console.error('Error adding exception:', error);
@@ -173,6 +176,16 @@ export const PackageExceptionsDialog: React.FC<PackageExceptionsDialogProps> = (
               />
             </div>
 
+            <div className="flex items-center justify-between">
+              <Label htmlFor="active-exception">Active</Label>
+              <Switch
+                id="active-exception"
+                checked={isActive}
+                onCheckedChange={setIsActive}
+                disabled={adding}
+              />
+            </div>
+
             <Button 
               onClick={handleAdd} 
               disabled={adding || !newPackages.trim()}
@@ -216,6 +229,9 @@ export const PackageExceptionsDialog: React.FC<PackageExceptionsDialogProps> = (
                       <div className="flex items-center gap-2">
                         <Package className="h-4 w-4" />
                         <span className="font-mono font-medium">{exception.package_name}</span>
+                        {!exception.is_active && (
+                          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">Inactive</span>
+                        )}
                       </div>
                       {exception.reason && (
                         <p className="text-sm text-muted-foreground mt-1">{exception.reason}</p>

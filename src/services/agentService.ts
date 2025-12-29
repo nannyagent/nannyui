@@ -365,6 +365,38 @@ export const fetchAgentMetrics = async (
 };
 
 /**
+ * Get agent by ID
+ */
+export const getAgentById = async (id: string): Promise<Agent | null> => {
+  try {
+    const record = await pb.collection('agents').getOne(id);
+    return {
+      id: record.id,
+      user_id: record.user_id,
+      hostname: record.hostname,
+      os_type: record.os_type,
+      os_info: record.os_info,
+      os_version: record.os_version,
+      version: record.version,
+      primary_ip: record.primary_ip,
+      kernel_version: record.kernel_version,
+      arch: record.arch,
+      all_ips: record.all_ips,
+      platform_family: record.platform_family,
+      status: record.status,
+      last_seen: record.last_seen,
+      created_at: record.created,
+      updated_at: record.updated,
+      metadata: record.metadata,
+      websocket_connected: record.websocket_connected,
+    } as Agent;
+  } catch (error) {
+    console.error('Error fetching agent by ID:', error);
+    return null;
+  }
+};
+
+/**
  * Fetch agent details with metrics
  */
 export const getAgentDetails = async (agent: Agent): Promise<AgentWithRelations> => {

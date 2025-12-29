@@ -43,6 +43,7 @@ vi.mock("@/lib/pocketbase", () => {
     pb: {
       authStore: {
         model: { id: "user-123" },
+        record: { id: "user-123" },
         isValid: true,
       },
       collection: vi.fn((name) => {
@@ -134,11 +135,40 @@ describe("patchManagementService", () => {
         status: "pending",
       });
     });
+
+    it("should create check operation with lxcId", async () => {
+      const result = await runPatchCheck("agent-123", "lxc-123");
+      expect(result).toBe("new-record-123");
+      expect(pb.collection("patch_operations").create).toHaveBeenCalledWith({
+        agent_id: "agent-123",
+        user_id: "user-123",
+        script_id: "script-123",
+        mode: "dry-run",
+        status: "pending",
+        lxc_id: "lxc-123",
+      });
+    });
   });
 
   describe("applyPatches", () => {
     it("should create update operation", async () => {
-      const result = await applyPatches("agent-123", ["pkg1"]);
+      const result = await applyPatches("agent-123", ["pkg1"], "lxc-123");
+      expect(result).toBe("new-record-123");
+      expect(pb.collection("patch_operations").create).toHaveBeenCalledWith({
+        agent_id: "agent-123",
+        user_id: "user-123",
+        lxc_id: "lxc-123",
+        script_id: "script-123",
+        mode: "apply",
+        status: "pending",
+        metadata: {
+          packages: ["pkg1"],
+        },
+      });
+    });
+
+    it("should create update operation with lxcId", async () => {
+      const result = await applyPatches("agent-123", ["pkg1"], "lxc-123");
       expect(result).toBe("new-record-123");
       expect(pb.collection("patch_operations").create).toHaveBeenCalledWith({
         agent_id: "agent-123",
@@ -149,6 +179,7 @@ describe("patchManagementService", () => {
         metadata: {
           packages: ["pkg1"],
         },
+        lxc_id: "lxc-123",
       });
     });
   });
@@ -178,45 +209,96 @@ describe("patchManagementService", () => {
 
   describe("saveCronSchedule", () => {
     it("should create new schedule if not exists", async () => {
-      (pb.collection as any).mockReturnValueOnce({
-        getList: vi.fn().mockResolvedValue({
-          items: [],
-        }),
-        create: vi.fn().mockResolvedValue({}),
+      const createMock = vi.fn().mockResolvedValue({});
+      (pb.collection as any).mockReturnValue({
+        getList: vi.fn().mockResolvedValue({ items: [] }),
+        create: createMock,
       });
 
-      const result = await saveCronSchedule("agent-123", "0 0 * * *");
+      const result = await saveCronSchedule("agent-123", "0 0 * * *", true);
       expect(result).toBe(true);
-      expect(pb.collection).toHaveBeenCalledWith("patch_schedules");
+      expect(createMock).toHaveBeenCalledWith({
+        agent_id: "agent-123",
+        cron_expression: "0 0 * * *",
+        is_active: true,
+      });
     });
 
     it("should update existing schedule", async () => {
-      (pb.collection as any).mockReturnValueOnce({
-        getList: vi.fn().mockResolvedValue({
-          items: [{ id: "sched-123" }],
-        }),
-        update: vi.fn().mockResolvedValue({}),
+      const updateMock = vi.fn().mockResolvedValue({});
+      (pb.collection as any).mockReturnValue({
+        getList: vi.fn().mockResolvedValue({ items: [{ id: "sched-123" }] }),
+        update: updateMock,
       });
 
-      const result = await saveCronSchedule("agent-123", "0 0 * * *");
+      const result = await saveCronSchedule("agent-123", "0 0 * * *", false);
       expect(result).toBe(true);
+      expect(updateMock).toHaveBeenCalledWith("sched-123", {
+        agent_id: "agent-123",
+        cron_expression: "0 0 * * *",
+        is_active: false,
+      });
+    });
+
+    it("should handle lxcId", async () => {
+      const createMock = vi.fn().mockResolvedValue({});
+      (pb.collection as any).mockReturnValue({
+        getList: vi.fn().mockResolvedValue({ items: [] }),
+        create: createMock,
+      });
+
+      const result = await saveCronSchedule("agent-123", "0 0 * * *", true, "lxc-123");
+      expect(result).toBe(true);
+      expect(createMock).toHaveBeenCalledWith({
+        agent_id: "agent-123",
+        cron_expression: "0 0 * * *",
+        is_active: true,
+        lxc_id: "lxc-123",
+      });
     });
   });
 
-  describe("package exceptions", () => {
-    it("should get exceptions", async () => {
+  describe("getPackageExceptions", () => {
+    it("should return exceptions", async () => {
+      const mockExceptions = [{ id: "ex-1", package_name: "pkg1", is_active: true }];
+      (pb.collection as any).mockReturnValue({
+        getList: vi.fn().mockResolvedValue({ items: mockExceptions }),
+      });
+
       const result = await getPackageExceptions("agent-123");
-      expect(result).toEqual([]);
+      expect(result).toEqual(mockExceptions);
     });
+  });
 
+  describe("addPackageException", () => {
     it("should add exception", async () => {
-      const result = await addPackageException("agent-123", "pkg1", "reason");
-      expect(result).not.toBeNull();
-    });
+      const createMock = vi.fn().mockResolvedValue({});
+      (pb.collection as any).mockReturnValue({
+        create: createMock,
+      });
 
+      const result = await addPackageException("agent-123", "pkg1", "reason", true);
+      expect(result).toEqual({});
+      expect(createMock).toHaveBeenCalledWith({
+        agent_id: "agent-123",
+        package_name: "pkg1",
+        reason: "reason",
+        user_id: "user-123",
+        is_active: true,
+      });
+    });
+  });
+
+  describe("removePackageException", () => {
     it("should remove exception", async () => {
-      const result = await removePackageException("exc-123");
+      const deleteMock = vi.fn().mockResolvedValue(true);
+      (pb.collection as any).mockReturnValue({
+        delete: deleteMock,
+      });
+
+      const result = await removePackageException("ex-123");
       expect(result).toBe(true);
+      expect(deleteMock).toHaveBeenCalledWith("ex-123");
     });
   });
 });

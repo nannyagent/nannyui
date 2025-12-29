@@ -63,7 +63,7 @@ describe('PatchExecutionDialog', () => {
     renderWithRouter(<PatchExecutionDialog {...defaultProps} />);
 
     await waitFor(() => {
-      expect(patchManagementService.runPatchCheck).toHaveBeenCalledWith('agent-123');
+      expect(patchManagementService.runPatchCheck).toHaveBeenCalledWith('agent-123', undefined);
     });
   });
 

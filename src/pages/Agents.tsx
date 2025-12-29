@@ -436,6 +436,16 @@ const Agents = () => {
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
+                                onClick={() => window.location.href = `/agents/${agent.id}/proxmox`}
+                                className="h-8 px-2 text-xs text-orange-600 hover:text-orange-700"
+                                title="View Proxmox Cluster Details"
+                              >
+                                <Server className="h-3 w-3 mr-1" />
+                                Proxmox
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
                                 onClick={() => window.location.href = `/patch-management/${agent.id}`}
                                 className="h-8 px-2 text-xs text-green-600 hover:text-green-700"
                                 title="View patch management and vulnerabilities"

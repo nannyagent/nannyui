@@ -24,19 +24,7 @@ import { pb } from "@/integrations/pocketbase/client";
 // Mock dependencies
 vi.mock("@/integrations/pocketbase/client", () => ({
   pb: {
-    collection: vi.fn().mockReturnValue({
-      create: vi.fn().mockResolvedValue({ id: "user-123", email: "test@example.com" }),
-      authWithPassword: vi.fn().mockResolvedValue({
-        record: { id: "user-123", email: "test@example.com" },
-        token: "token-123",
-      }),
-      authWithOAuth2: vi.fn().mockResolvedValue({
-        record: { id: "user-123", email: "test@example.com" },
-        token: "token-123",
-      }),
-      requestPasswordReset: vi.fn().mockResolvedValue(true),
-      update: vi.fn().mockResolvedValue({ id: "user-123" }),
-    }),
+    collection: vi.fn(),
     authStore: {
       clear: vi.fn(),
       model: { id: "user-123", email: "test@example.com" },
@@ -51,6 +39,21 @@ vi.mock("@/integrations/pocketbase/client", () => ({
 describe("authService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    // Reset collection mock to default success state
+    (pb.collection as any).mockReturnValue({
+      create: vi.fn().mockResolvedValue({ id: "user-123", email: "test@example.com" }),
+      authWithPassword: vi.fn().mockResolvedValue({
+        record: { id: "user-123", email: "test@example.com" },
+        token: "token-123",
+      }),
+      authWithOAuth2: vi.fn().mockResolvedValue({
+        record: { id: "user-123", email: "test@example.com" },
+        token: "token-123",
+      }),
+      requestPasswordReset: vi.fn().mockResolvedValue(true),
+      update: vi.fn().mockResolvedValue({ id: "user-123" }),
+    });
   });
 
   describe("signUpWithEmail", () => {
@@ -102,6 +105,45 @@ describe("authService", () => {
     it("should handle isMFAEnabled", async () => {
       const result = await isMFAEnabled();
       expect(result).toBe(false);
+    });
+  });
+
+  describe("Error handling", () => {
+    it("should handle signUpWithEmail error", async () => {
+      (pb.collection as any).mockReturnValue({
+        create: vi.fn().mockRejectedValue(new Error("Email taken")),
+      });
+      const result = await signUpWithEmail("test@example.com", "password");
+      expect(result.error).toBe("Email taken");
+    });
+
+    it("should handle signInWithEmail error", async () => {
+      (pb.collection as any).mockReturnValue({
+        authWithPassword: vi.fn().mockRejectedValue(new Error("Invalid credentials")),
+      });
+      const result = await signInWithEmail("test@example.com", "password");
+      expect(result.error).toBe("Invalid credentials");
+    });
+
+    it("should handle signInWithGitHub error", async () => {
+      (pb.collection as any).mockReturnValue({
+        authWithOAuth2: vi.fn().mockRejectedValue(new Error("OAuth failed")),
+      });
+      const result = await signInWithGitHub();
+      expect(result.error).toBe("OAuth failed");
+    });
+  });
+
+  describe("Password Management", () => {
+    it("should request password reset", async () => {
+      const result = await resetPassword("test@example.com");
+      expect(result.error).toBeNull();
+    });
+
+    it("should update password", async () => {
+      const result = await updatePassword("newPass", "oldPass");
+      expect(result.error).toBeNull();
+      expect(pb.collection).toHaveBeenCalledWith("users");
     });
   });
 });
