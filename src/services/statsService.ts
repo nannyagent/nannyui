@@ -3,7 +3,6 @@ import { getAgentStats } from './agentService';
 
 export interface DashboardStats {
   totalAgents: number;
-  activeTokens: number;
   totalUsers: number;
   uptime: string;
 }
@@ -25,9 +24,8 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
       }
     };
 
-    const [agentStats, activeTokens, totalUsers] = await Promise.all([
+    const [agentStats, totalUsers] = await Promise.all([
       getAgentStats(),
-      safeCount('tokens'), // Assuming 'tokens' collection exists
       safeCount('users'),
     ]);
     
@@ -35,7 +33,6 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
 
     return {
       totalAgents,
-      activeTokens,
       totalUsers,
       uptime: '99.9%', // Placeholder
     };
@@ -43,7 +40,6 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
     console.error('Error fetching dashboard stats:', error);
     return {
       totalAgents: 0,
-      activeTokens: 0,
       totalUsers: 0,
       uptime: '0%',
     };

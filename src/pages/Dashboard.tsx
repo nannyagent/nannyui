@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Server, Key, Users, Clock, ArrowUpRight, Activity } from 'lucide-react';
+import { Server, Users, Clock, ArrowUpRight, Activity, Key } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
 import Footer from '@/components/Footer';
@@ -91,12 +91,6 @@ const Dashboard = () => {
                 value: String(stats.totalAgents), 
                 icon: 'Server', 
                 change: '+15%' 
-              },
-              { 
-                title: 'Active Tokens', 
-                value: String(stats.activeTokens), 
-                icon: 'Key', 
-                change: '+20%' 
               },
               { 
                 title: 'Total Users', 

@@ -77,17 +77,6 @@ export const mockActivity: Activity = {
   icon: 'CheckCircle'
 }
 
-// Mock Token data
-export const mockToken = {
-  id: 'token-1',
-  name: 'Test Token',
-  token: 'mock-jwt-token',
-  expires_at: '2024-12-12T10:00:00Z',
-  created_at: '2023-12-12T10:00:00Z',
-  last_used_at: '2023-12-12T10:00:00Z',
-  is_active: true
-}
-
 // Mock Dashboard stats
 export const mockDashboardStats = {
   total_agents: 5,
@@ -135,7 +124,6 @@ export const mockApiResponses = {
   investigations: [mockInvestigation],
   patches: [mockPatch],
   activities: [mockActivity],
-  tokens: [mockToken],
   stats: mockDashboardStats,
   pricingTiers: mockPricingTiers
 }
@@ -165,9 +153,5 @@ export const mockFormData = {
     package_name: 'new-package',
     target_version: '2.0.0',
     description: 'Test patch update'
-  },
-  token: {
-    name: 'New Token',
-    expires_in: 30 // days
   }
 }

@@ -14,8 +14,17 @@ import withAuth from '@/utils/withAuth';
 import { getCurrentUser, getCurrentSession, isMFAEnabled } from '@/services/authService';
 import type { UserRecord } from '@/integrations/pocketbase/types';
 
-const Account = () => {
-  const [user, setUser] = useState<UserRecord | null>(null);
+// Extended user record to include fields not yet in the backend type definition
+interface ExtendedUserRecord extends UserRecord {
+  email_confirmed_at?: string;
+  phone?: string;
+  phone_confirmed_at?: string;
+  role?: string;
+  last_sign_in_at?: string;
+}
+
+export const Account = () => {
+  const [user, setUser] = useState<ExtendedUserRecord | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -36,7 +45,7 @@ const Account = () => {
         ]);
 
         if (currentUser && currentToken) {
-          setUser(currentUser);
+          setUser(currentUser as ExtendedUserRecord);
           setToken(currentToken);
           setMfaEnabled(mfaStatus);
           setHasError(false);
@@ -62,7 +71,7 @@ const Account = () => {
         isMFAEnabled()
       ]);
       if (currentUser) {
-        setUser(currentUser);
+        setUser(currentUser as ExtendedUserRecord);
         setMfaEnabled(mfaStatus);
       }
     } catch (error) {
@@ -174,14 +183,14 @@ const Account = () => {
                       <Calendar className="h-4 w-4 text-muted-foreground mr-3 mt-0.5" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">Joined</p>
-                        <p className="text-xs text-muted-foreground">{formatDate(user?.created_at)}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(user?.created)}</p>
                       </div>
                     </div>
                     <div className="flex items-start">
                       <Clock className="h-4 w-4 text-muted-foreground mr-3 mt-0.5" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">Last Sign In</p>
-                        <p className="text-xs text-muted-foreground">{formatDate(user?.last_sign_in_at)}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(user?.updated)}</p>
                       </div>
                     </div>
                     {user?.email_confirmed_at && (
@@ -244,7 +253,7 @@ const Account = () => {
                       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                         Account Created
                       </label>
-                      <p className="text-sm">{formatDate(user?.created_at)}</p>
+                      <p className="text-sm">{formatDate(user?.created)}</p>
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">

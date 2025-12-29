@@ -50,6 +50,7 @@ export default defineConfig(({ mode }) => {
           'src/App.tsx',
           'src/components/ui/**',
           'src/integrations/**',
+          'dist/assets/**',
         ],
       },
     }
