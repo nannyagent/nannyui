@@ -1,4 +1,5 @@
 import { pb } from '@/lib/pocketbase';
+import { PatchOperationRecord, PatchScheduleRecord, PackageExceptionRecord } from '@/integrations/pocketbase/types';
 
 export interface Vulnerability {
   cve_id?: string;
@@ -44,24 +45,19 @@ export interface PatchManagementData {
   kernel_upgrade: KernelUpgrade;
   os_upgrade: OsUpgrade;
   summary: Summary;
+  recommendations: string[];
   last_checked: string;
+  os_distribution?: string;
+  os_version?: string;
+  architecture?: string;
+  kernel_version?: string;
+  package_manager?: string;
+  analysis_timestamp?: string;
 }
 
-export interface PatchOperation {
-  id: string;
-  agent_id: string;
-  mode: 'dry-run' | 'apply' | 'rollback';
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  script_url: string;
-  stdout_file: string;
-  stderr_file: string;
-  exit_code: number;
-  metadata: Record<string, any>;
-  started_at: string;
-  completed_at: string;
-  created: string;
-  updated: string;
-}
+export type PatchOperation = PatchOperationRecord;
+export type PatchSchedule = PatchScheduleRecord;
+export type PackageException = PackageExceptionRecord;
 
 /**
  * Get the latest patch status for an agent
@@ -69,8 +65,9 @@ export interface PatchOperation {
 export const getPatchStatus = async (agentId: string): Promise<PatchManagementData | null> => {
   try {
     // Get the latest completed 'check' operation
+    const filter = pb.filter('agent_id = {:agentId} && mode = "dry-run" && status = "completed"', { agentId });
     const result = await pb.collection('patch_operations').getList(1, 1, {
-      filter: `agent_id = "${agentId}" && mode = "dry-run" && status = "completed"`,
+      filter,
       sort: '-id', // Changed from -created
     });
 
@@ -82,7 +79,7 @@ export const getPatchStatus = async (agentId: string): Promise<PatchManagementDa
     
     // Fetch the stdout file content
     if (operation.stdout_file) {
-      const url = pb.files.getUrl(operation, operation.stdout_file);
+      const url = pb.files.getURL(operation, operation.stdout_file);
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
@@ -103,13 +100,13 @@ export const getPatchStatus = async (agentId: string): Promise<PatchManagementDa
 /**
  * Get patch operation details including parsed stdout
  */
-export const getPatchOperationDetails = async (id: string): Promise<PatchOperation & { parsedOutput?: any }> => {
+export const getPatchOperationDetails = async (id: string): Promise<PatchOperation & { parsedOutput?: unknown }> => {
   try {
     const operation = await pb.collection('patch_operations').getOne(id);
     
     let parsedOutput = null;
     if (operation.stdout_file) {
-      const url = pb.files.getUrl(operation, operation.stdout_file);
+      const url = pb.files.getURL(operation, operation.stdout_file);
       const response = await fetch(url);
       if (response.ok) {
         const text = await response.text();
@@ -129,7 +126,7 @@ export const getPatchOperationDetails = async (id: string): Promise<PatchOperati
             // Fallback: try parsing the whole text
             try {
                 parsedOutput = JSON.parse(text);
-            } catch (e) {
+            } catch {
                 // ignore
             }
         }
@@ -141,7 +138,7 @@ export const getPatchOperationDetails = async (id: string): Promise<PatchOperati
       parsedOutput,
       created: operation.created,
       updated: operation.updated,
-    } as unknown as PatchOperation & { parsedOutput?: any };
+    } as unknown as PatchOperation & { parsedOutput?: unknown };
   } catch (error) {
     console.error('Error fetching patch operation details:', error);
     throw error;
@@ -152,35 +149,29 @@ export const getPatchOperationDetails = async (id: string): Promise<PatchOperati
 /**
  * Run a patch check
  */
-export const runPatchCheck = async (agentId: string): Promise<string> => {
+export const runPatchCheck = async (agentId: string, lxcId?: string): Promise<string> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     
     // Fetch agent to get platform_family
     const agent = await pb.collection('agents').getOne(agentId);
-    const platformFamily = agent.platform_family;
 
-    if (!platformFamily) {
-      throw new Error('Agent platform_family not found');
-    }
-
-    // Fetch script for this platform_family
-    const scripts = await pb.collection('scripts').getList(1, 1, {
-      filter: `platform_family = "${platformFamily}"`,
-    });
-
-    if (scripts.items.length === 0) {
-      throw new Error(`No script found for platform_family: ${platformFamily}`);
-    }
-    const scriptId = scripts.items[0].id;
-
-    const record = await pb.collection('patch_operations').create({
+    const payload: Record<string, unknown> = {
       agent_id: agentId,
       user_id: user?.id,
-      script_id: scriptId,
       mode: 'dry-run',
       status: 'pending',
-    });
+    };
+
+    // Resolve lxc_id to proxmox_lxc record ID
+    if (lxcId) {
+      const proxmoxLxcId = await getProxmoxLxcId(agentId, lxcId);
+      if (proxmoxLxcId) {
+        payload.lxc_id = proxmoxLxcId;
+      }
+    }
+
+    const record = await pb.collection('patch_operations').create(payload);
     return record.id;
   } catch (error) {
     console.error('Error running patch check:', error);
@@ -191,38 +182,32 @@ export const runPatchCheck = async (agentId: string): Promise<string> => {
 /**
  * Apply patches
  */
-export const applyPatches = async (agentId: string, packageNames: string[]): Promise<string> => {
+export const applyPatches = async (agentId: string, packageNames: string[], lxcId?: string): Promise<string> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
 
     // Fetch agent to get platform_family
     const agent = await pb.collection('agents').getOne(agentId);
-    const platformFamily = agent.platform_family;
 
-    if (!platformFamily) {
-      throw new Error('Agent platform_family not found');
-    }
-
-    // Fetch script for this platform_family
-    const scripts = await pb.collection('scripts').getList(1, 1, {
-      filter: `platform_family = "${platformFamily}"`,
-    });
-
-    if (scripts.items.length === 0) {
-      throw new Error(`No script found for platform_family: ${platformFamily}`);
-    }
-    const scriptId = scripts.items[0].id;
-
-    const record = await pb.collection('patch_operations').create({
+    const payload: Record<string, unknown> = {
       agent_id: agentId,
       user_id: user?.id,
-      script_id: scriptId,
       mode: 'apply',
       status: 'pending',
       metadata: {
         packages: packageNames,
       },
-    });
+    };
+
+    // Resolve lxc_id to proxmox_lxc record ID
+    if (lxcId) {
+      const proxmoxLxcId = await getProxmoxLxcId(agentId, lxcId);
+      if (proxmoxLxcId) {
+        payload.lxc_id = proxmoxLxcId;
+      }
+    }
+
+    const record = await pb.collection('patch_operations').create(payload);
     return record.id;
   } catch (error) {
     console.error('Error applying patches:', error);
@@ -235,12 +220,13 @@ export const applyPatches = async (agentId: string, packageNames: string[]): Pro
  */
 export const getPatchHistory = async (agentId: string, limit: number = 10): Promise<PatchOperation[]> => {
   try {
+    const filter = pb.filter('agent_id = {:agentId}', { agentId });
     const result = await pb.collection('patch_operations').getList(1, limit, {
-      filter: `agent_id = "${agentId}"`,
+      filter,
       sort: '-id', // Changed from -created
     });
     
-    return result.items.map((record: any) => ({
+    return result.items.map((record) => ({
       ...record,
       created: record.created,
       updated: record.updated,
@@ -283,36 +269,20 @@ export const waitForPatchOperation = async (
   return null;
 };
 
-export interface PatchSchedule {
-  id: string;
-  agent_id: string;
-  cron_expr: string;
-  next_run: string;
-  last_run: string;
-  enabled: boolean;
-  metadata: Record<string, any>;
-}
-
-export interface PackageException {
-  id: string;
-  agent_id: string;
-  package_name: string;
-  reason: string;
-  expires_at: string;
-  created_by: string;
-  created: string;
-  updated: string;
-}
-
 /**
  * Get scheduled patches
  */
-export const getScheduledPatches = async (agentId: string): Promise<PatchSchedule[]> => {
+export const getScheduledPatches = async (agentId: string, lxcId?: string): Promise<PatchSchedule[]> => {
   try {
-    const result = await pb.collection('patch_schedules').getList(1, 50, {
-      filter: `agent_id = "${agentId}"`,
+    const filter = pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId}', { 
+      agentId, 
+      lxcId: lxcId || "" 
     });
-    return result.items.map((record: any) => ({
+
+    const result = await pb.collection('patch_schedules').getList(1, 50, {
+      filter,
+    });
+    return result.items.map((record) => ({
       ...record,
     })) as unknown as PatchSchedule[];
   } catch (error) {
@@ -329,7 +299,7 @@ export const getPackageExceptions = async (agentId: string): Promise<PackageExce
     const result = await pb.collection('package_exceptions').getList(1, 50, {
       filter: `agent_id = "${agentId}"`,
     });
-    return result.items.map((record: any) => ({
+    return result.items.map((record) => ({
       ...record,
     })) as unknown as PackageException[];
   } catch (error) {
@@ -345,18 +315,18 @@ export const addPackageException = async (
   agentId: string,
   packageName: string,
   reason: string,
-  expiresAt?: string
+  isActive: boolean = true
 ): Promise<PackageException | null> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     if (!user) throw new Error('User not authenticated');
 
     const record = await pb.collection('package_exceptions').create({
       agent_id: agentId,
       package_name: packageName,
       reason: reason,
-      expires_at: expiresAt,
-      created_by: user.id,
+      user_id: user.id,
+      is_active: isActive,
     });
 
     return {
@@ -387,25 +357,39 @@ export const removePackageException = async (exceptionId: string): Promise<boole
 export const saveCronSchedule = async (
   agentId: string,
   cronExpression: string,
-  enabled: boolean = true
+  isActive: boolean = true,
+  lxcId?: string
 ): Promise<boolean> => {
   try {
     // Check if schedule exists
-    const existing = await pb.collection('patch_schedules').getList(1, 1, {
-      filter: `agent_id = "${agentId}"`,
+    const filter = pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId}', { 
+      agentId, 
+      lxcId: lxcId || ""
     });
 
+    const existing = await pb.collection('patch_schedules').getList(1, 1, {
+      filter,
+    });
+
+    const payload: Record<string, unknown> = {
+      user_id: pb.authStore.record?.id,
+      agent_id: agentId,
+      cron_expression: cronExpression,
+      is_active: isActive,
+    };
+
+    // Resolve lxc_id to proxmox_lxc record ID
+    if (lxcId) {
+      const proxmoxLxcId = await getProxmoxLxcId(agentId, lxcId);
+      if (proxmoxLxcId) {
+        payload.lxc_id = proxmoxLxcId;
+      }
+    }
+
     if (existing.items.length > 0) {
-      await pb.collection('patch_schedules').update(existing.items[0].id, {
-        cron_expression: cronExpression,
-        enabled: enabled,
-      });
+      await pb.collection('patch_schedules').update(existing.items[0].id, payload);
     } else {
-      await pb.collection('patch_schedules').create({
-        agent_id: agentId,
-        cron_expression: cronExpression,
-        enabled: enabled,
-      });
+      await pb.collection('patch_schedules').create(payload);
     }
     return true;
   } catch (error) {
@@ -433,8 +417,9 @@ export const triggerAgentReboot = async (agentId: string): Promise<boolean> => {
 
 /**
  * Check agent connection
+ * TO-DO : TO BE IMPLEMENTED BASED ON METRICS INGESTION timestamp
  */
-export const checkAgentWebSocketConnection = async (agentId: string): Promise<boolean> => {
+export const checkAgentWebSocketConnection = async (): Promise<boolean> => {
   // Simplified: always return true as per user request
   return true;
 };
@@ -454,7 +439,7 @@ export const listAllPatchExecutions = async (
       expand: 'agent_id',
     });
 
-    const executions = result.items.map((record: any) => ({
+    const executions = result.items.map((record) => ({
       ...record,
       created: record.created,
       updated: record.updated,
@@ -477,3 +462,21 @@ export const getPatchManagementData = getPatchStatus;
 // Aliases for compatibility
 export const listPatchExecutions = getPatchHistory;
 export type PatchExecution = PatchOperation;
+
+/**
+ * Get the proxmox_lxc record ID from lxc_id
+ */
+export const getProxmoxLxcId = async (agentId: string, lxcId: string): Promise<string | null> => {
+  try {
+    const filter = pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId}', { agentId, lxcId });
+    const result = await pb.collection('proxmox_lxc').getList(1, 1, { filter });
+    
+    if (result.items.length > 0) {
+      return result.items[0].id;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching proxmox_lxc ID:', error);
+    return null;
+  }
+};

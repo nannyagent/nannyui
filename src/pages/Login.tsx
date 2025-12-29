@@ -54,12 +54,12 @@ const Login = () => {
         // Successfully authenticated, redirect to dashboard
         navigate('/dashboard', { replace: true });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error initiating GitHub login:", error);
       setIsError(true);
       toast({
         title: "Authentication Error",
-        description: "Failed to initiate GitHub login. Please try again later.",
+        description: `Failed to initiate GitHub login. Please try again later.`,
         variant: "destructive",
       });
     } finally {
@@ -83,12 +83,12 @@ const Login = () => {
         // Successfully authenticated, redirect to dashboard
         navigate('/dashboard', { replace: true });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error initiating Google login:", error);
       setIsError(true);
       toast({
         title: "Authentication Error",
-        description: "Failed to initiate Google login. Please try again later.",
+        description: `Failed to initiate Google login. Please try again later.`,
         variant: "destructive",
       });
     } finally {
@@ -116,7 +116,7 @@ const Login = () => {
         setIsError(true);
         toast({
           title: "Authentication Error",
-          description: error.message || "Failed to sign in with email.",
+          description: error || "Failed to sign in with email.",
           variant: "destructive",
         });
         return;

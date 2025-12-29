@@ -1,5 +1,4 @@
 import { pb } from '@/lib/pocketbase';
-import { getCurrentUser } from './authService';
 
 export interface Agent {
   id: string;
@@ -18,13 +17,14 @@ export interface Agent {
   last_seen: string;
   created_at: string;
   updated_at: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   websocket_connected?: boolean;
 }
 
 export interface FilesystemStats {
   device: string;
   mount_path: string;
+  fstype: string;
   used_gb: number;
   free_gb: number;
   total_gb: number;
@@ -80,11 +80,10 @@ export interface PaginatedAgents {
  */
 export const getAgentsPaginated = async (
   page: number = 1,
-  pageSize: number = 10,
-  statusFilter: 'active' | 'inactive' | 'all' = 'active'
+  pageSize: number = 10
 ): Promise<PaginatedAgents> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     if (!user) {
       return { agents: [], total: 0, page, pageSize, totalPages: 0 };
     }
@@ -97,7 +96,7 @@ export const getAgentsPaginated = async (
       sort: '-id', // Changed from -created to -id as created is not sortable
     });
 
-    const agents = result.items.map((record: any) => {
+    const agents = result.items.map((record) => {
       return {
         id: record.id,
         user_id: record.user_id,
@@ -143,7 +142,7 @@ export const getAgentMetrics = async (agentId: string): Promise<AgentMetric[]> =
       sort: '-created',
     });
 
-    return result.items.map((record: any) => ({
+    return result.items.map((record) => ({
       id: record.id,
       agent_id: record.agent_id,
       cpu_percent: record.cpu_percent,
@@ -173,7 +172,7 @@ export const getAgentMetrics = async (agentId: string): Promise<AgentMetric[]> =
  */
 export const getAgents = async (): Promise<Agent[]> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     if (!user) return [];
 
     const records = await pb.collection('agents').getFullList({
@@ -181,7 +180,7 @@ export const getAgents = async (): Promise<Agent[]> => {
       sort: '-id', // Changed from -created
     });
 
-    return records.map((record: any) => {
+    return records.map((record) => {
       // Simplified status logic
       const isActive = true;
       
@@ -208,7 +207,7 @@ export const getUserAgents = async (userId: string): Promise<Agent[]> => {
       sort: '-id', // Changed from -created
     });
 
-    return records.map((record: any) => {
+    return records.map((record) => {
       // Simplified status logic
       const isActive = true;
       
@@ -228,9 +227,9 @@ export const getUserAgents = async (userId: string): Promise<Agent[]> => {
 /**
  * Fetch agents by status
  */
-export const getAgentsByStatus = async (status: 'active' | 'inactive'): Promise<Agent[]> => {
+export const getAgentsByStatus = async (): Promise<Agent[]> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     if (!user) return [];
 
     // Simplified: return all agents for now as status filtering is not supported by backend yet
@@ -239,7 +238,7 @@ export const getAgentsByStatus = async (status: 'active' | 'inactive'): Promise<
       sort: '-id', // Changed from -created
     });
 
-    return records.map((record: any) => {
+    return records.map((record) => {
       // Simplified status logic
       const isActive = true;
       
@@ -263,9 +262,10 @@ export const createAgent = async (
   agent: Omit<Agent, 'id' | 'created_at' | 'updated_at'>
 ): Promise<{ data: Agent | null; error: Error | null }> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     // Remove status from payload as it's computed
-    const { status, ...agentData } = agent;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { status: _, ...agentData } = agent;
     
     const record = await pb.collection('agents').create({
       ...agentData,
@@ -295,7 +295,8 @@ export const updateAgent = async (
 ): Promise<{ data: Agent | null; error: Error | null }> => {
   try {
     // Remove status from updates as it's computed
-    const { status, ...updateData } = updates;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { status: _, ...updateData } = updates;
     
     const record = await pb.collection('agents').update(id, updateData);
 
@@ -339,7 +340,7 @@ export const fetchAgentMetrics = async (
       sort: '-id', // Changed from -created
     });
 
-    return result.items.map((record: any) => ({
+    return result.items.map((record) => ({
       id: record.id,
       agent_id: record.agent_id,
       cpu_percent: record.cpu_percent,
@@ -361,6 +362,38 @@ export const fetchAgentMetrics = async (
   } catch (error) {
     console.error('Error fetching agent metrics:', error);
     return [];
+  }
+};
+
+/**
+ * Get agent by ID
+ */
+export const getAgentById = async (id: string): Promise<Agent | null> => {
+  try {
+    const record = await pb.collection('agents').getOne(id);
+    return {
+      id: record.id,
+      user_id: record.user_id,
+      hostname: record.hostname,
+      os_type: record.os_type,
+      os_info: record.os_info,
+      os_version: record.os_version,
+      version: record.version,
+      primary_ip: record.primary_ip,
+      kernel_version: record.kernel_version,
+      arch: record.arch,
+      all_ips: record.all_ips,
+      platform_family: record.platform_family,
+      status: record.status,
+      last_seen: record.last_seen,
+      created_at: record.created,
+      updated_at: record.updated,
+      metadata: record.metadata,
+      websocket_connected: record.websocket_connected,
+    } as Agent;
+  } catch (error) {
+    console.error('Error fetching agent by ID:', error);
+    return null;
   }
 };
 
@@ -407,7 +440,7 @@ export const getAgentStats = async () => {
 /**
  * Determine real-time agent status
  */
-export const getAgentRealTimeStatus = (agent: Agent): 'active' | 'inactive' => {
+export const getAgentRealTimeStatus = (): 'active' | 'inactive' => {
   // Simplified: always return active as per user request
   return 'active';
 };

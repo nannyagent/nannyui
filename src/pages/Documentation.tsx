@@ -32,7 +32,7 @@ const Documentation = () => {
         title: 'Copied to clipboard',
         description: 'Command copied successfully',
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Failed to copy',
         description: 'Could not copy to clipboard',

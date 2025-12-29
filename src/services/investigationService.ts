@@ -62,7 +62,7 @@ export const getInvestigationsPaginated = async (
   onlyWithEpisodes: boolean = true // Kept for compatibility
 ): Promise<InvestigationsResponse> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     if (!user) {
       return {
         investigations: [],
@@ -172,7 +172,7 @@ export const createInvestigationFromAPI = async (params: {
   application_group: string;
 }): Promise<{ investigation_id: string; episode_id?: string; status?: string }> => {
   try {
-    const user = pb.authStore.model;
+    const user = pb.authStore.record;
     if (!user) throw new Error('User not authenticated');
 
     const priority = params.priority === 'critical' ? 'high' : params.priority;

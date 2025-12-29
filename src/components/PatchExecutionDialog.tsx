@@ -38,6 +38,7 @@ interface PatchExecutionDialogProps {
   executionType: 'dry_run' | 'apply';
   shouldReboot?: boolean;
   onComplete?: () => void;
+  lxcId?: string;
 }
 
 type ExecutionStatus = 'idle' | 'checking' | 'triggering' | 'polling' | 'completed' | 'failed' | 'timeout';
@@ -49,6 +50,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
   agentName,
   executionType,
   shouldReboot = false,
+  lxcId,
   // onComplete // Unused
 }) => {
   const navigate = useNavigate();
@@ -72,10 +74,10 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
       
       let id: string;
       if (executionType === 'dry_run') {
-        id = await runPatchCheck(agentId);
+        id = await runPatchCheck(agentId, lxcId);
       } else {
         // Assuming apply means update all if no packages specified
-        id = await applyPatches(agentId, []); 
+        id = await applyPatches(agentId, [], lxcId); 
       }
 
       setExecutionId(id);

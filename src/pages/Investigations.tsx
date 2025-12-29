@@ -9,7 +9,7 @@ import GlassMorphicCard from '@/components/GlassMorphicCard';
 import TransitionWrapper from '@/components/TransitionWrapper';
 import ErrorBanner from '@/components/ErrorBanner';
 import withAuth from '@/utils/withAuth';
-import { getInvestigationsPaginated, getApplicationGroupIcon, formatInvestigationTime, getPriorityColor, getStatusColor, type Investigation, type InvestigationsResponse } from '@/services/investigationService';
+import { getInvestigationsPaginated, formatInvestigationTime, type Investigation, type InvestigationsResponse } from '@/services/investigationService';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -195,7 +195,7 @@ const Investigations = () => {
                                   </Badge>
                                 </div>
                                 <span className="text-xs text-muted-foreground">
-                                  {formatInvestigationTime(investigation.created_at)}
+                                  {formatInvestigationTime(investigation.initiated_at)}
                                 </span>
                                 <Button
                                   size="sm"

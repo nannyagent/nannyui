@@ -152,7 +152,7 @@ const PatchExecutionDetail = () => {
 
       // Load stdout and parse JSON
       if (execData.stdout_file) {
-        const url = pb.files.getUrl(execData, execData.stdout_file);
+        const url = pb.files.getURL(execData, execData.stdout_file);
         try {
             const response = await fetch(url);
             if (response.ok) {
@@ -188,7 +188,7 @@ const PatchExecutionDetail = () => {
 
       // Load stderr
       if (execData.stderr_file) {
-        const url = pb.files.getUrl(execData, execData.stderr_file);
+        const url = pb.files.getURL(execData, execData.stderr_file);
         try {
             const response = await fetch(url);
             if (response.ok) {

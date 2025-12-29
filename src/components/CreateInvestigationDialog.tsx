@@ -106,8 +106,6 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
         application_group: 'system',
       });
 
-      console.log('Investigation created:', result);
-
       if (result?.investigation_id) {
         setProgress(50);
         

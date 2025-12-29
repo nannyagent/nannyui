@@ -9,33 +9,6 @@ export const placeholderProfile = {
   id: "demo-user-id"
 };
 
-export const placeholderTokens = [
-  { 
-    id: "placeholder-1",
-    name: 'Development API Key', 
-    token: 'sk_dev_placeholder123456789012345678901234', 
-    type: 'Development',
-    created_at: 'Jan 1, 2023',
-    lastUsed: '5 mins ago'
-  },
-  { 
-    id: "placeholder-2",
-    name: 'Production API Key', 
-    token: 'sk_prod_placeholder123456789012345678901234',
-    type: 'Production',
-    created_at: 'Jan 1, 2023',
-    lastUsed: '2 hours ago'
-  },
-  { 
-    id: "placeholder-3",
-    name: 'Staging API Key', 
-    token: 'sk_staging_placeholder123456789012345678901234',
-    type: 'Staging',
-    created_at: 'Mar 15, 2023',
-    lastUsed: '1 day ago'
-  }
-];
-
 export const placeholderAgents = [
   { 
     id: "placeholder-1",
@@ -82,7 +55,6 @@ export const placeholderUserAuthToken = "placeholder-user-id";
 
 export const placeholderStats = [
   { title: 'Total Agents', value: '3', icon: 'Server', change: '+15%' },
-  { title: 'Active Tokens', value: '5', icon: 'Key', change: '+20%' },
   { title: 'Total Users', value: '12', icon: 'Users', change: '+8%' },
   { title: 'Uptime', value: '99.9%', icon: 'Clock', change: '+0.2%' },
 ];
@@ -90,7 +62,6 @@ export const placeholderStats = [
 export const placeholderActivities = [
   { title: 'System initialized', time: 'just now', icon: 'Activity' },
   { title: 'New agent connected', time: '2 hours ago', icon: 'Server' },
-  { title: 'API token created', time: '5 hours ago', icon: 'Key' },
   { title: 'User logged in', time: '1 day ago', icon: 'Users' },
   { title: 'System update completed', time: '3 days ago', icon: 'Activity' }
 ];

@@ -11,12 +11,9 @@ import {
   Server,
   ChevronLeft,
   ChevronRight,
-  Activity,
-  FileText,
   Clock,
   AlertCircle,
   ShieldAlert,
-  ShieldCheck,
   Loader2,
   Play,
   Eye,
@@ -26,14 +23,20 @@ import {
   CalendarClock,
   Ban,
   Cpu,
-  HardDrive
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
 import Footer from '@/components/Footer';
 import TransitionWrapper from '@/components/TransitionWrapper';
 import ErrorBanner from '@/components/ErrorBanner';
-import { getPatchManagementData, type PatchManagementData, type Package as PatchPackage, getScheduledPatches, getPackageExceptions } from '@/services/patchManagementService';
+import { 
+  getPatchManagementData, 
+  type PatchManagementData, 
+  getScheduledPatches, 
+  getPackageExceptions,
+  type PatchSchedule,
+  type PackageException
+} from '@/services/patchManagementService';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,7 +47,7 @@ import { CronScheduleDialog } from '@/components/CronScheduleDialog';
 import { RebootDialog } from '@/components/RebootDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const PatchManagement = () => {
+export const PatchManagement = () => {
   const { agentId } = useParams<{ agentId: string }>();
   const [data, setData] = useState<PatchManagementData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,14 +67,15 @@ const PatchManagement = () => {
   const [checkingConnection, setCheckingConnection] = useState(true);
   
   // Schedule and exceptions data
-  const [schedules, setSchedules] = useState<any[]>([]);
-  const [exceptions, setExceptions] = useState<any[]>([]);
+  const [schedules, setSchedules] = useState<PatchSchedule[]>([]);
+  const [exceptions, setExceptions] = useState<PackageException[]>([]);
   const [loadingExtras, setLoadingExtras] = useState(true);
 
   useEffect(() => {
     loadPatchData();
     checkAgentConnection();
     loadSchedulesAndExceptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId]);
 
   const checkAgentConnection = async () => {
@@ -80,7 +84,7 @@ const PatchManagement = () => {
     setCheckingConnection(true);
     try {
       const { checkAgentWebSocketConnection } = await import('@/services/patchManagementService');
-      const isOnline = await checkAgentWebSocketConnection(agentId);
+      const isOnline = await checkAgentWebSocketConnection();
       setIsAgentOnline(isOnline);
     } catch (error) {
       console.error('Error checking agent connection:', error);
@@ -99,8 +103,8 @@ const PatchManagement = () => {
     try {
       const patchData = await getPatchManagementData(agentId);
       setData(patchData);
-    } catch (error) {
-      setHasError(false);
+    } catch {
+      setHasError(true);
       setData(null);
     } finally {
       setLoading(false);
@@ -151,15 +155,6 @@ const PatchManagement = () => {
       case 'medium': return 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30';
       case 'low': return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30';
       default: return 'text-muted-foreground bg-muted';
-    }
-  };
-
-  const getSeverityIcon = (severity?: string) => {
-    switch (severity) {
-      case 'critical': return <ShieldAlert className="h-4 w-4" />;
-      case 'high': return <AlertTriangle className="h-4 w-4" />;
-      case 'medium': return <AlertCircle className="h-4 w-4" />;
-      default: return <ShieldCheck className="h-4 w-4" />;
     }
   };
 
@@ -446,7 +441,7 @@ const PatchManagement = () => {
                                   <button
                                     key={filter}
                                     onClick={() => {
-                                      setSeverityFilter(filter as any);
+                                      setSeverityFilter(filter as 'all' | 'critical' | 'high' | 'medium');
                                       setCurrentPage(1);
                                     }}
                                     className={`px-3 py-1 rounded-md text-xs font-medium transition-all capitalize ${
@@ -628,9 +623,9 @@ const PatchManagement = () => {
                                     <Badge variant="outline" className="text-xs">Paused</Badge>
                                   )}
                                 </div>
-                                {schedule.next_run_at && (
+                                {schedule.next_run && (
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    Next: {new Date(schedule.next_run_at).toLocaleString()}
+                                    Next: {new Date(schedule.next_run).toLocaleString()}
                                   </p>
                                 )}
                               </div>
@@ -760,4 +755,5 @@ const PatchManagement = () => {
   );
 };
 
-export default withAuth(PatchManagement);
+const PatchManagementWithAuth = withAuth(PatchManagement);
+export default PatchManagementWithAuth;

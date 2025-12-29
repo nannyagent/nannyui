@@ -40,14 +40,14 @@ export interface AgentMetricRecord {
   disk_percent?: number;
   network_in_kbps?: number;
   network_out_kbps?: number;
-  extra?: Record<string, any>;
+  extra?: Record<string, unknown>;
   ip_address?: string;
   location?: string;
   agent_version?: string;
-  os_info?: Record<string, any>;
+  os_info?: Record<string, unknown>;
   kernel_version?: string;
-  filesystem_info?: Record<string, any>[];
-  block_devices?: Record<string, any>[];
+  filesystem_info?: Record<string, unknown>[];
+  block_devices?: Record<string, unknown>[];
   device_fingerprint?: string;
   load_averages?: Record<string, number>;
   load1?: number;
@@ -60,4 +60,103 @@ export interface AuthResponse {
   record?: UserRecord;
   token?: string;
   error?: string;
+}
+
+export interface ProxmoxClusterRecord {
+  id: string;
+  cluster_name: string;
+  nodes: number;
+  quorate: number;
+  version: number;
+  px_cluster_id: string;
+  created: string;
+  updated: string;
+}
+
+export interface ProxmoxNodeRecord {
+  id: string;
+  agent_id: string;
+  cluster_id?: string;
+  ip: string;
+  level: string;
+  local: number;
+  name: string;
+  px_node_id: number;
+  online: number;
+  pve_version: string;
+  created: string;
+  updated: string;
+}
+
+export interface ProxmoxLxcRecord {
+  id: string;
+  agent_id: string;
+  cluster_id?: string;
+  node_id: string;
+  name: string;
+  lxc_id: string;
+  status: string;
+  ostype: string;
+  uptime: number;
+  vmid: number;
+  node: string;
+  created: string;
+  updated: string;
+}
+
+export interface ProxmoxQemuRecord {
+  id: string;
+  agent_id: string;
+  cluster_id?: string;
+  node_id: string;
+  name: string;
+  qemu_id: string;
+  status: string;
+  ostype: string;
+  uptime: number;
+  vmid: number;
+  vmgenid?: string;
+  kvm?: number;
+  boot?: string;
+  host_cpu?: string;
+  node: string;
+  created: string;
+  updated: string;
+}
+
+export interface PatchOperationRecord {
+  id: string;
+  user_id: string;
+  agent_id: string;
+  mode: 'dry-run' | 'apply';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'rolled_back';
+  script_url: string;
+  output_path: string;
+  error_msg: string;
+  started_at?: string;
+  completed_at?: string;
+  created: string;
+  updated: string;
+}
+
+export interface PatchScheduleRecord {
+  id: string;
+  agent_id: string;
+  lxc_id?: string;
+  cron_expression: string;
+  next_run?: string;
+  is_active: boolean;
+  execution_type?: 'dry_run' | 'apply';
+  created: string;
+  updated: string;
+}
+
+export interface PackageExceptionRecord {
+  id: string;
+  agent_id: string;
+  package_name: string;
+  reason?: string;
+  is_active: boolean;
+  created: string;
+  updated: string;
 }

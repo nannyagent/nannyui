@@ -11,13 +11,13 @@ import Login from "./pages/Login";
 import MFAVerification from "./pages/MFAVerification";
 import Dashboard from "./pages/Dashboard";
 import Account from "./pages/Account";
-import Tokens from "./pages/Tokens";
 import Agents from "./pages/Agents";
 import Activities from "./pages/Activities";
 import Investigations from "./pages/Investigations";
 import InvestigationEpisode from "./pages/InvestigationEpisode";
 import InferenceDetail from "./pages/InferenceDetail";
 import AgentRegistration from "./pages/AgentRegistration";
+import ProxmoxDetails from "./pages/ProxmoxDetails";
 import Documentation from "./pages/Documentation";
 import Contact from "./pages/Contact";
 import Cookies from "./pages/Cookies";
@@ -65,8 +65,8 @@ const App = () => (
               <Route path="/mfa-verification" element={<MFAVerification />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/account" element={<Account />} />
-              <Route path="/tokens" element={<Tokens />} />
               <Route path="/agents" element={<Agents />} />
+              <Route path="/agents/:id/proxmox" element={<ProxmoxDetails />} />
               <Route path="/patch-management/:agentId" element={<PatchManagement />} />
               <Route path="/patch-history/:agentId" element={<PatchHistory />} />
               <Route path="/patch-history" element={<PatchHistory />} />

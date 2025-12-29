@@ -25,6 +25,7 @@ vi.mock('@/lib/pocketbase', () => {
     pb: {
       authStore: {
         model: { id: 'user-123' },
+        record: { id: 'user-123' },
         isValid: true,
       },
       collection: vi.fn(() => collectionMock),

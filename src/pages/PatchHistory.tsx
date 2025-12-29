@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Search,
   TrendingUp,
-  AlertTriangle,
   BarChart3,
   Activity,
   ChevronLeft,

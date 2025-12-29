@@ -20,6 +20,7 @@ vi.mock("@/lib/pocketbase", () => ({
   pb: {
     authStore: {
       model: { id: "user-123" },
+      record: { id: "user-123" },
       isValid: true,
     },
     collection: vi.fn().mockReturnValue({
@@ -121,9 +122,9 @@ describe("investigationService", () => {
 
   describe("createInvestigationFromAPI", () => {
     it("should throw error when not authenticated", async () => {
-      // Mock authStore.model to be null
-      const originalModel = pb.authStore.model;
-      Object.defineProperty(pb.authStore, "model", { value: null, configurable: true });
+      // Mock authStore.record to be null
+      const originalRecord = pb.authStore.record;
+      Object.defineProperty(pb.authStore, "record", { value: null, configurable: true });
 
       await expect(
         createInvestigationFromAPI({
@@ -135,8 +136,8 @@ describe("investigationService", () => {
         })
       ).rejects.toThrow("User not authenticated");
 
-      // Restore model
-      Object.defineProperty(pb.authStore, "model", { value: originalModel, configurable: true });
+      // Restore record
+      Object.defineProperty(pb.authStore, "record", { value: originalRecord, configurable: true });
     });
 
     it("should create investigation successfully", async () => {
