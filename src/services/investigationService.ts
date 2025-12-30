@@ -226,7 +226,7 @@ export const waitForInvestigationInProgress = async (
       } else {
         const result = await pb.collection('investigations').getList(1, 1, {
           filter: `agent_id = "${agentId}"`,
-          sort: '-created',
+          sort: '-completed_at',
         });
         record = result.items[0];
       }
@@ -434,7 +434,7 @@ export const getRecentInvestigationsForAgent = async (agentId: string, limit: nu
   try {
     const result = await pb.collection('investigations').getList(1, limit, {
       filter: `agent_id = "${agentId}"`,
-      sort: '-created',
+      sort: '-completed_at',
     });
 
     return result.items.map((record: any) => ({
