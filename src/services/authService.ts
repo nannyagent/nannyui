@@ -273,7 +273,7 @@ export const isMFAEnabled = async (): Promise<boolean> => {
   try {
     // Placeholder - MFA not yet implemented in PocketBase
     return false;
-  } catch (error) {
+  } catch {
     return false;
   }
 };

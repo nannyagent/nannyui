@@ -134,7 +134,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
       setStatus('failed');
       setProgress(0);
     }
-  }, [agentId, executionType, navigate, onOpenChange, toast]);
+  }, [agentId, executionType, navigate, onOpenChange, toast, lxcId]);
 
   // Start execution when dialog opens
   useEffect(() => {

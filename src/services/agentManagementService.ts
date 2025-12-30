@@ -18,7 +18,7 @@ export const deleteAgent = async (agentId: string): Promise<AgentDeleteResponse>
     try {
       const agent = await pb.collection('agents').getOne(agentId);
       agentName = agent.hostname;
-    } catch (e) {
+    } catch {
       // Ignore if not found
     }
 

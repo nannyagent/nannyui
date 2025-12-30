@@ -248,7 +248,7 @@ function InvestigationEpisode() {
                   </div>
                 );
               }
-            } catch (e) {
+            } catch {
               // Not JSON
             }
             return <p className="text-sm">{investigation.user_prompt}</p>;

@@ -71,7 +71,7 @@ export const CronScheduleDialog: React.FC<CronScheduleDialogProps> = ({
       });
       
       onOpenChange(false);
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to save schedule',

@@ -25,6 +25,7 @@ export const getProxmoxCluster = async (agentId: string): Promise<ProxmoxCluster
     const result = await pb.collection('proxmox_cluster').getList(1, 1, {
       filter: `px_cluster_id = "${node.cluster_id}"`,
       sort: '-created',
+      requestKey: null, // Disable auto-cancellation
     });
     return result.items.length > 0 ? (result.items[0] as unknown as ProxmoxClusterRecord) : null;
   } catch (error) {
@@ -38,6 +39,7 @@ export const getProxmoxNodes = async (agentId: string): Promise<ProxmoxNodeRecor
     const result = await pb.collection('proxmox_nodes').getFullList({
       filter: `agent_id = "${agentId}"`,
       sort: 'name',
+      requestKey: null, // Disable auto-cancellation
     });
     return result as unknown as ProxmoxNodeRecord[];
   } catch (error) {

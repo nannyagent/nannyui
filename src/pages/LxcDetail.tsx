@@ -141,7 +141,6 @@ const LxcDetail = () => {
       case 'failed':
         return 'bg-red-500/10 text-red-600 border-red-500/20';
       case 'pending':
-      case 'running':
         return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
       default:
         return 'bg-muted text-muted-foreground border-border';

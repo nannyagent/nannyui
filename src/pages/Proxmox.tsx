@@ -11,13 +11,9 @@ import {
   RefreshCw,
   ChevronRight,
   Clock,
-  CheckCircle2,
-  XCircle,
-  Activity,
-  ToggleLeft,
-  ToggleRight,
   ChevronLeft,
-  Layers
+  Layers,
+  ExternalLink
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
@@ -292,7 +288,19 @@ const Proxmox = () => {
                     <Card>
                       <CardContent className="py-12 text-center">
                         <Server className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">No clusters found</p>
+                        <h3 className="text-lg font-semibold mb-2">No Proxmox Clusters Found</h3>
+                        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                          It looks like you haven't connected any Proxmox clusters yet. 
+                          Install the NannyML agent on your Proxmox host to get started.
+                        </p>
+                        <div className="flex justify-center gap-4">
+                          <Button variant="outline" onClick={() => navigate('/documentation')}>
+                            View Documentation
+                          </Button>
+                          <Button onClick={() => navigate('/agent-registration')}>
+                            Register Agent
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   ) : (
@@ -346,7 +354,13 @@ const Proxmox = () => {
                     <Card>
                       <CardContent className="py-12 text-center">
                         <Monitor className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">No nodes found</p>
+                        <h3 className="text-lg font-semibold mb-2">No Proxmox Nodes Found</h3>
+                        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                          Connect your Proxmox nodes by installing the agent.
+                        </p>
+                        <Button onClick={() => navigate('/agent-registration')}>
+                          Register Agent
+                        </Button>
                       </CardContent>
                     </Card>
                   ) : (
@@ -389,6 +403,20 @@ const Proxmox = () => {
                                   <span className="text-muted-foreground">Level</span>
                                   <span className="capitalize">{node.level}</span>
                                 </div>
+                                {node.agent_id && (
+                                  <div className="mt-2 pt-2 border-t flex justify-end">
+                                    <Button 
+                                      variant="link" 
+                                      className="p-0 h-auto text-xs text-primary"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/agents/${node.agent_id}`);
+                                      }}
+                                    >
+                                      View Agent <ExternalLink className="h-3 w-3 ml-1" />
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             </CardContent>
                           </Card>
@@ -437,7 +465,10 @@ const Proxmox = () => {
                     <Card>
                       <CardContent className="py-12 text-center">
                         <Box className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">No LXC containers found</p>
+                        <h3 className="text-lg font-semibold mb-2">No LXC Containers Found</h3>
+                        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                          LXC containers will appear here once your Proxmox nodes are connected.
+                        </p>
                       </CardContent>
                     </Card>
                   ) : groupByNode && lxcsByNode ? (
@@ -539,7 +570,10 @@ const Proxmox = () => {
                     <Card>
                       <CardContent className="py-12 text-center">
                         <Cpu className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">No virtual machines found</p>
+                        <h3 className="text-lg font-semibold mb-2">No Virtual Machines Found</h3>
+                        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                          Virtual machines will appear here once your Proxmox nodes are connected.
+                        </p>
                       </CardContent>
                     </Card>
                   ) : groupByNode && qemusByNode ? (
@@ -553,7 +587,7 @@ const Proxmox = () => {
                           </h3>
                           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             {nodeQemus.map((qemu) => (
-                              <QemuCard key={qemu.id} qemu={qemu} getStatusColor={getStatusColor} formatUptime={formatUptime} />
+                              <QemuCard key={qemu.id} qemu={qemu} navigate={navigate} getStatusColor={getStatusColor} formatUptime={formatUptime} />
                             ))}
                           </div>
                         </div>
@@ -569,7 +603,7 @@ const Proxmox = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.03 }}
                           >
-                            <QemuCard qemu={qemu} getStatusColor={getStatusColor} formatUptime={formatUptime} />
+                            <QemuCard qemu={qemu} navigate={navigate} getStatusColor={getStatusColor} formatUptime={formatUptime} />
                           </motion.div>
                         ))}
                       </div>
@@ -655,6 +689,20 @@ const LxcCard: React.FC<LxcCardProps> = ({ lxc, navigate, getStatusColor, format
           <span className="text-muted-foreground">Node</span>
           <span>{lxc.node}</span>
         </div>
+        {lxc.agent_id && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Agent</span>
+            <span 
+              className="text-primary cursor-pointer hover:underline flex items-center"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/agents/${lxc.agent_id}`);
+              }}
+            >
+              View <ExternalLink className="h-3 w-3 ml-1" />
+            </span>
+          </div>
+        )}
       </div>
       <div className="mt-4 pt-3 border-t flex items-center justify-end text-xs text-primary group-hover:underline">
         View Details <ChevronRight className="h-3 w-3 ml-1" />
@@ -666,11 +714,12 @@ const LxcCard: React.FC<LxcCardProps> = ({ lxc, navigate, getStatusColor, format
 // QEMU Card Component
 interface QemuCardProps {
   qemu: ProxmoxQemuRecord;
+  navigate: (path: string) => void;
   getStatusColor: (status: string) => string;
   formatUptime: (seconds: number) => string;
 }
 
-const QemuCard: React.FC<QemuCardProps> = ({ qemu, getStatusColor, formatUptime }) => (
+const QemuCard: React.FC<QemuCardProps> = ({ qemu, navigate, getStatusColor, formatUptime }) => (
   <Card className="hover:shadow-lg transition-all">
     <CardHeader className="pb-2">
       <div className="flex items-center justify-between">
@@ -708,6 +757,20 @@ const QemuCard: React.FC<QemuCardProps> = ({ qemu, getStatusColor, formatUptime 
           <div className="flex justify-between">
             <span className="text-muted-foreground">Host CPU</span>
             <span className="truncate max-w-[120px]">{qemu.host_cpu}</span>
+          </div>
+        )}
+        {qemu.agent_id && (
+          <div className="mt-2 pt-2 border-t flex justify-end">
+            <Button 
+              variant="link" 
+              className="p-0 h-auto text-xs text-primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/agents/${qemu.agent_id}`);
+              }}
+            >
+              View Agent <ExternalLink className="h-3 w-3 ml-1" />
+            </Button>
           </div>
         )}
       </div>

@@ -58,8 +58,6 @@ export interface InvestigationsResponse {
 export const getInvestigationsPaginated = async (
   page: number = 1, 
   limit: number = 5,
-  withEpisodes: boolean = true, // Kept for compatibility
-  onlyWithEpisodes: boolean = true // Kept for compatibility
 ): Promise<InvestigationsResponse> => {
   try {
     const user = pb.authStore.record;

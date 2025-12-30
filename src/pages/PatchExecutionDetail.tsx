@@ -167,7 +167,17 @@ const PatchExecutionDetail = () => {
                     try {
                         setParsedOutput(JSON.parse(jsonText));
                     } catch (e) {
-                        console.error("Error parsing JSON from stdout", e);
+                        console.error("Error parsing JSON from stdout section", e);
+                        // Try to find the last valid JSON object if direct parsing fails
+                        try {
+                            const lastBrace = jsonText.lastIndexOf('}');
+                            if (lastBrace !== -1) {
+                                const cleanJson = jsonText.substring(0, lastBrace + 1);
+                                setParsedOutput(JSON.parse(cleanJson));
+                            }
+                        } catch (e2) {
+                             console.error("Error parsing cleaned JSON", e2);
+                        }
                     }
                 } else {
                     // Fallback: try parsing the whole text if it looks like JSON
