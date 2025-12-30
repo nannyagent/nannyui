@@ -139,7 +139,7 @@ export const getAgentMetrics = async (agentId: string): Promise<AgentMetric[]> =
   try {
     const result = await pb.collection('agent_metrics').getList(1, 50, {
       filter: `agent_id = "${agentId}"`,
-      sort: '-created',
+      sort: '-recorded_at',
     });
 
     return result.items.map((record) => ({

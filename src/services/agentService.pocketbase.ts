@@ -201,7 +201,7 @@ export const getAgentsPaginated = async (
 
     const records = await pb.collection('agents').getList(page, pageSize, {
       filter,
-      sort: '-created',
+      sort: '-last_seen',
     });
 
     // For each agent, try to get their latest metric
@@ -268,7 +268,7 @@ export const getAgents = async (): Promise<Agent[]> => {
 
     const records = await pb.collection('agents').getFullList({
       filter: `owner = "${user.id}"`,
-      sort: '-created',
+      sort: '-last_seen',
     });
 
     return records.map((agent: any) => ({
@@ -303,7 +303,7 @@ export const getUserAgents = async (userId: string): Promise<Agent[]> => {
   try {
     const records = await pb.collection('agents').getFullList({
       filter: `owner = "${userId}"`,
-      sort: '-created',
+      sort: '-last_seen',
     });
 
     return records.map((agent: any) => ({
@@ -336,7 +336,7 @@ export const getAgentsByStatus = async (status: 'online' | 'offline'): Promise<A
 
     const records = await pb.collection('agents').getFullList({
       filter: `owner = "${user.id}" && status = "${statusMap[status] || status}"`,
-      sort: '-created',
+      sort: '-last_seen',
     });
 
     return records.map((agent: any) => ({
