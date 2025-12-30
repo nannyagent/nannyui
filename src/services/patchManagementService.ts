@@ -82,7 +82,38 @@ export const getPatchStatus = async (agentId: string): Promise<PatchManagementDa
       const url = pb.files.getURL(operation, operation.stdout_file);
       const response = await fetch(url);
       if (response.ok) {
-        const data = await response.json();
+        const text = await response.text();
+        // Extract JSON from text if marker exists, otherwise try parsing full text
+        const marker = '=== JSON Output (for UI parsing) ===';
+        const jsonStart = text.indexOf(marker);
+        
+        let data;
+        if (jsonStart !== -1) {
+          const jsonText = text.substring(jsonStart + marker.length).trim();
+          try {
+            data = JSON.parse(jsonText);
+          } catch (e) {
+            console.warn('Failed to parse extracted JSON, trying full text fallback', e);
+            // Fallback to parsing full text if extraction fails (though unlikely if marker exists)
+             try {
+                data = JSON.parse(text);
+             } catch (e2) {
+                 console.error('Failed to parse JSON from stdout', e2);
+                 return null;
+             }
+          }
+        } else {
+             try {
+                data = JSON.parse(text);
+             } catch (e) {
+                 // If it's not JSON, it might be raw text output. 
+                 // For getPatchStatus we expect JSON structure for PatchManagementData.
+                 // If we can't parse it, we can't return valid data.
+                 console.error('Failed to parse JSON from stdout (no marker)', e);
+                 return null;
+             }
+        }
+
         return {
           ...data,
           last_checked: operation.created,
@@ -125,7 +156,7 @@ export const getPatchOperationDetails = async (id: string): Promise<PatchOperati
         } else {
             // Fallback: try parsing the whole text
             try {
-                parsedOutput = JSON.parse(text);
+                parsedOutput = parseStdoutJson(text);
             } catch {
                 // ignore
             }
@@ -479,4 +510,44 @@ export const getProxmoxLxcId = async (agentId: string, lxcId: string): Promise<s
     console.error('Error fetching proxmox_lxc ID:', error);
     return null;
   }
+};
+
+/**
+ * Parse JSON output from stdout text
+ * @param text 
+ * @returns parsed json
+ */
+const parseStdoutJson = (text: string) => {
+  const marker = '=== JSON Output (for UI parsing) ===';
+  const jsonStart = text.indexOf(marker);
+  if (jsonStart !== -1) {
+    const jsonTextStart = jsonStart + marker.length;
+    
+    // Find the end marker
+    const possibleEndMarkers = ['=== Dry Run Complete ===', '=== Performing Update ===', '=== Update Complete ==='];
+    let jsonEnd = text.length;
+    
+    for (const endMarker of possibleEndMarkers) {
+      const endPos = text.indexOf(endMarker, jsonTextStart);
+      if (endPos !== -1 && endPos < jsonEnd) {
+        jsonEnd = endPos;
+      }
+    }
+    
+    // Extract and parse JSON
+    const jsonText = text.substring(jsonTextStart, jsonEnd).trim();
+    return JSON.parse(jsonText);
+  }
+  
+  // Fallback: try parsing whole text if it looks like JSON
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch {
+    console.error('Error parsing json from stdout to fetch packages')
+  }
+  
+  throw new Error('No valid JSON found in stdout');
 };

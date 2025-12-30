@@ -2,6 +2,7 @@ import React from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthContext, AuthContextType } from '../contexts/AuthContext'
+import { NotificationContext, NotificationContextType } from '../contexts/NotificationContext'
 import { BrowserRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 
@@ -9,51 +10,27 @@ import { vi } from 'vitest'
 export const mockAuthContext: AuthContextType = {
   user: {
     id: 'mock-user-id',
+    username: 'testuser',
     email: 'test@example.com',
-    user_metadata: {
-      full_name: 'Test User'
-    },
-    app_metadata: {},
-    aud: 'authenticated',
-    created_at: '2023-01-01T00:00:00.000Z',
-    updated_at: '2023-01-01T00:00:00.000Z',
-    email_confirmed_at: '2023-01-01T00:00:00.000Z',
-    phone_confirmed_at: null,
-    confirmed_at: '2023-01-01T00:00:00.000Z',
-    last_sign_in_at: '2023-01-01T00:00:00.000Z',
-    role: 'authenticated',
-    identities: [],
-    factors: []
+    emailVisibility: true,
+    verified: true,
+    created: '2023-01-01T00:00:00.000Z',
+    updated: '2023-01-01T00:00:00.000Z',
+    name: 'Test User',
+    avatar: ''
   },
-  session: {
-    access_token: 'mock-access-token',
-    refresh_token: 'mock-refresh-token',
-    expires_at: 9999999999,
-    expires_in: 3600,
-    token_type: 'bearer',
-    user: {
-      id: 'mock-user-id',
-      email: 'test@example.com',
-      user_metadata: {
-        full_name: 'Test User'
-      },
-      app_metadata: {},
-      aud: 'authenticated',
-      created_at: '2023-01-01T00:00:00.000Z',
-      updated_at: '2023-01-01T00:00:00.000Z',
-      email_confirmed_at: '2023-01-01T00:00:00.000Z',
-      phone_confirmed_at: null,
-      confirmed_at: '2023-01-01T00:00:00.000Z',
-      last_sign_in_at: '2023-01-01T00:00:00.000Z',
-      role: 'authenticated',
-      identities: [],
-      factors: []
-    }
-  },
+  token: 'mock-token',
   signOut: vi.fn(),
   signIn: vi.fn(),
   loading: false
 }
+
+export const mockNotificationContext: NotificationContextType = {
+  notifications: [],
+  unreadCount: 0,
+  markAsRead: vi.fn(),
+  markAllAsRead: vi.fn(),
+};
 
 // Create a custom render function that includes providers
 const createTestQueryClient = () => new QueryClient({
@@ -66,6 +43,7 @@ const createTestQueryClient = () => new QueryClient({
 
 interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
   authContext?: Partial<AuthContextType>
+  notificationContext?: Partial<NotificationContextType>
   queryClient?: QueryClient
   route?: string
 }
@@ -74,13 +52,15 @@ export function renderWithProviders(
   ui: React.ReactElement,
   {
     authContext = {},
+    notificationContext = {},
     queryClient = createTestQueryClient(),
     route = '/',
     ...renderOptions
   }: CustomRenderOptions = {}
 ) {
   // Combine default auth context with overrides
-  const contextValue = { ...mockAuthContext, ...authContext }
+  const authContextValue = { ...mockAuthContext, ...authContext }
+  const notificationContextValue = { ...mockNotificationContext, ...notificationContext }
   
   // Navigate to the specified route
   window.history.pushState({}, 'Test page', route)
@@ -89,8 +69,10 @@ export function renderWithProviders(
     return (
       <BrowserRouter>
         <QueryClientProvider client={queryClient}>
-          <AuthContext.Provider value={contextValue}>
-            {children}
+          <AuthContext.Provider value={authContextValue}>
+            <NotificationContext.Provider value={notificationContextValue}>
+              {children}
+            </NotificationContext.Provider>
           </AuthContext.Provider>
         </QueryClientProvider>
       </BrowserRouter>

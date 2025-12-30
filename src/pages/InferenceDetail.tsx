@@ -345,7 +345,7 @@ function InferenceDetail() {
           </div>
         );
       }
-    } catch (e) {
+    } catch {
       // Not JSON or different format
     }
     
@@ -637,7 +637,7 @@ function InferenceDetail() {
             if (parsed.command_results || parsed.ebpf_results || parsed.response_type) {
               hasCommandResults = true;
             }
-          } catch (e) {
+          } catch {
             // Not JSON, check string patterns
             if (text && (text.includes('command_results') || text.includes('response_type'))) {
               hasCommandResults = true;

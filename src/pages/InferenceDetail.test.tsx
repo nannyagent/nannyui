@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { screen, waitFor } from '@testing-library/react';
+import { Routes, Route } from 'react-router-dom';
+import { renderWithProviders } from '@/test-utils/test-utils';
 import InferenceDetail from './InferenceDetail';
 import * as investigationService from '@/services/investigationService';
 
@@ -62,12 +63,13 @@ describe('InferenceDetail Page', () => {
   it('should render inference details from investigation metadata', async () => {
     (investigationService.getInvestigation as any).mockResolvedValue(mockInvestigation);
 
-    render(
-      <MemoryRouter initialEntries={['/investigations/inv-1/inference/019b5089-c7a0-72c2-86ee-52c0a7604394']}>
-        <Routes>
-          <Route path="/investigations/:investigationId/inference/:inferenceId" element={<InferenceDetail />} />
-        </Routes>
-      </MemoryRouter>
+    renderWithProviders(
+      <Routes>
+        <Route path="/investigations/:investigationId/inference/:inferenceId" element={<InferenceDetail />} />
+      </Routes>,
+      {
+        route: '/investigations/inv-1/inference/019b5089-c7a0-72c2-86ee-52c0a7604394'
+      }
     );
 
     await waitFor(() => {

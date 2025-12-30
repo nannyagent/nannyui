@@ -106,7 +106,7 @@ describe("patchManagementService", () => {
 
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ packages: [] }),
+        text: async () => JSON.stringify({ packages: [] }),
       });
 
       const result = await getPatchStatus("agent-123");

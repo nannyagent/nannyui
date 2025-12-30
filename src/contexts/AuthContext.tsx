@@ -32,14 +32,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Get initial auth state
     if (pb.authStore.isValid) {
-      setUser(pb.authStore.record as UserRecord);
+      setUser(pb.authStore.record as unknown as UserRecord);
       setToken(pb.authStore.token);
     }
     setLoading(false);
 
     // Listen for auth changes
     const unsubscribe = pb.authStore.onChange((_token, record) => {
-      setUser(record as UserRecord | null);
+      setUser(record as unknown as UserRecord | null);
       setToken(_token || null);
     }) as unknown as (() => void) | undefined;
 

@@ -159,9 +159,7 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
   };
 
   const handleClose = () => {
-    if (status === 'launching' || status === 'waiting') {
-      return; // Don't allow closing during processing
-    }
+    // Allow closing during processing
     setIssueDescription('');
     setPriority('medium');
     setError(null);
@@ -199,7 +197,7 @@ const CreateInvestigationDialog: React.FC<CreateInvestigationDialogProps> = ({
           </div>
           <Progress value={progress} className="h-2" />
           <p className="text-xs text-center text-muted-foreground">
-            Please do not close this dialog
+            This process may take a few minutes. You can close this dialog; we will notify you when it completes.
           </p>
         </div>
       );

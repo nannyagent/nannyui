@@ -1,7 +1,8 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
+import { renderWithProviders } from '@/test-utils/test-utils';
 import ProxmoxDetails from './ProxmoxDetails';
 import * as proxmoxService from '@/services/proxmoxService';
 import * as agentService from '@/services/agentService';
@@ -56,23 +57,21 @@ describe('ProxmoxDetails', () => {
   });
 
   it('should render loading state initially', () => {
-    render(
-      <MemoryRouter initialEntries={[`/agents/${mockAgentId}/proxmox`]}>
-        <Routes>
-          <Route path="/agents/:id/proxmox" element={<ProxmoxDetails />} />
-        </Routes>
-      </MemoryRouter>
+    renderWithProviders(
+      <Routes>
+        <Route path="/agents/:id/proxmox" element={<ProxmoxDetails />} />
+      </Routes>,
+      { route: `/agents/${mockAgentId}/proxmox` }
     );
     // It might be too fast to catch loading, but we can check if it eventually renders content
   });
 
   it('should render cluster details', async () => {
-    render(
-      <MemoryRouter initialEntries={[`/agents/${mockAgentId}/proxmox`]}>
-        <Routes>
-          <Route path="/agents/:id/proxmox" element={<ProxmoxDetails />} />
-        </Routes>
-      </MemoryRouter>
+    renderWithProviders(
+      <Routes>
+        <Route path="/agents/:id/proxmox" element={<ProxmoxDetails />} />
+      </Routes>,
+      { route: `/agents/${mockAgentId}/proxmox` }
     );
 
     await waitFor(() => {
@@ -82,12 +81,11 @@ describe('ProxmoxDetails', () => {
   });
 
   it('should render nodes tab content', async () => {
-    render(
-      <MemoryRouter initialEntries={[`/agents/${mockAgentId}/proxmox`]}>
-        <Routes>
-          <Route path="/agents/:id/proxmox" element={<ProxmoxDetails />} />
-        </Routes>
-      </MemoryRouter>
+    renderWithProviders(
+      <Routes>
+        <Route path="/agents/:id/proxmox" element={<ProxmoxDetails />} />
+      </Routes>,
+      { route: `/agents/${mockAgentId}/proxmox` }
     );
 
     await waitFor(() => {
@@ -96,12 +94,11 @@ describe('ProxmoxDetails', () => {
   });
 
   it('should render lxc tab content', async () => {
-    render(
-      <MemoryRouter initialEntries={[`/agents/${mockAgentId}/proxmox`]}>
-        <Routes>
-          <Route path="/agents/:id/proxmox" element={<ProxmoxDetails />} />
-        </Routes>
-      </MemoryRouter>
+    renderWithProviders(
+      <Routes>
+        <Route path="/agents/:id/proxmox" element={<ProxmoxDetails />} />
+      </Routes>,
+      { route: `/agents/${mockAgentId}/proxmox` }
     );
 
     // Click on LXC tab

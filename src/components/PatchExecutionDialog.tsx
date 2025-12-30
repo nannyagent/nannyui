@@ -134,7 +134,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
       setStatus('failed');
       setProgress(0);
     }
-  }, [agentId, executionType, navigate, onOpenChange, toast]);
+  }, [agentId, executionType, navigate, onOpenChange, toast, lxcId]);
 
   // Start execution when dialog opens
   useEffect(() => {
@@ -265,8 +265,7 @@ export const PatchExecutionDialog: React.FC<PatchExecutionDialogProps> = ({
           <Alert className="bg-muted/50">
             <Terminal className="h-4 w-4" />
             <AlertDescription>
-              This may take a few minutes depending on the number of packages. 
-              Timeout in {60 - elapsedTime > 0 ? 60 - elapsedTime : 0}s.
+              This process may take a few minutes. You can close this dialog; we will notify you when it completes.
             </AlertDescription>
           </Alert>
 

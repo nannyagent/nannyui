@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Github, Calendar, Clock, CheckCircle, XCircle, Key, Shield, Smartphone } from 'lucide-react';
+import { User, Mail, Calendar, Clock, CheckCircle, XCircle, Key, Shield, Smartphone } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
 import Footer from '@/components/Footer';

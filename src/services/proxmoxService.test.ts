@@ -89,6 +89,7 @@ describe('proxmoxService', () => {
       expect(pb.collection).toHaveBeenCalledWith('proxmox_nodes');
       expect(getFullListMock).toHaveBeenCalledWith({
         filter: `agent_id = "${mockAgentId}"`,
+        "requestKey": null,
         sort: 'name',
       });
       expect(result).toEqual(mockNodes);

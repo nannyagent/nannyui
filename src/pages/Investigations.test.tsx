@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { screen, waitFor } from '@testing-library/react';
+import { renderWithProviders } from '@/test-utils/test-utils';
 import Investigations from './Investigations';
 import * as investigationService from '@/services/investigationService';
 
@@ -26,11 +26,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 const renderWithRouter = (component: React.ReactElement) => {
-  return render(
-    <BrowserRouter>
-      {component}
-    </BrowserRouter>
-  );
+  return renderWithProviders(component);
 };
 
 describe('Investigations Page', () => {
