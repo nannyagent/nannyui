@@ -1,4 +1,5 @@
 import { pb } from '@/lib/pocketbase';
+import { getProxmoxLxcId } from './patchManagementService';  // Add this import
 import { 
   ProxmoxClusterRecord, 
   ProxmoxNodeRecord, 
@@ -24,7 +25,7 @@ export const getProxmoxCluster = async (agentId: string): Promise<ProxmoxCluster
 
     const result = await pb.collection('proxmox_cluster').getList(1, 1, {
       filter: `px_cluster_id = "${node.cluster_id}"`,
-      sort: '-created',
+      sort: '-recorded_at',
       requestKey: null, // Disable auto-cancellation
     });
     return result.items.length > 0 ? (result.items[0] as unknown as ProxmoxClusterRecord) : null;
@@ -192,11 +193,18 @@ export const hasProxmoxInstalled = async (agentId: string): Promise<boolean> => 
 };
 
 // Get LXC patch history
-export const getLxcPatchHistory = async (lxcId: string, limit: number = 10) => {
+export const getLxcPatchHistory = async (agentID: string, lxcId: string, limit: number = 10) => {
   try {
+    // Resolve lxc_id to proxmox_lxc record ID
+    if (lxcId) {
+      const proxmoxLxcId = await getProxmoxLxcId(agentID, lxcId);
+      if (proxmoxLxcId) {
+        lxcId = proxmoxLxcId;
+      }
+    }
     const result = await pb.collection('patch_operations').getList(1, limit, {
       filter: pb.filter('lxc_id = {:lxcId}', { lxcId }),
-      sort: '-created',
+      sort: '-started_at',
     });
     return result.items;
   } catch (error) {
@@ -206,10 +214,17 @@ export const getLxcPatchHistory = async (lxcId: string, limit: number = 10) => {
 };
 
 // Get LXC patch schedule
-export const getLxcPatchSchedule = async (agentId: string, lxcId: string) => {
+export const getLxcPatchSchedule = async (agentID: string, lxcId: string) => {
   try {
+    // Resolve lxc_id to proxmox_lxc record ID
+    if (lxcId) {
+      const proxmoxLxcId = await getProxmoxLxcId(agentID, lxcId);
+      if (proxmoxLxcId) {
+        lxcId = proxmoxLxcId;
+      }
+    }
     const result = await pb.collection('patch_schedules').getList(1, 1, {
-      filter: pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId}', { agentId, lxcId }),
+      filter: pb.filter('agent_id = {:agentID} && lxc_id = {:lxcId}', { agentID, lxcId }),
     });
     return result.items.length > 0 ? result.items[0] : null;
   } catch (error) {
@@ -219,10 +234,17 @@ export const getLxcPatchSchedule = async (agentId: string, lxcId: string) => {
 };
 
 // Check if LXC already has a schedule
-export const hasExistingSchedule = async (agentId: string, lxcId: string): Promise<boolean> => {
+export const hasExistingSchedule = async (agentID: string, lxcId: string): Promise<boolean> => {
   try {
+    // Resolve lxc_id to proxmox_lxc record ID
+    if (lxcId) {
+      const proxmoxLxcId = await getProxmoxLxcId(agentID, lxcId);
+      if (proxmoxLxcId) {
+        lxcId = proxmoxLxcId;
+      }
+    }
     const result = await pb.collection('patch_schedules').getList(1, 1, {
-      filter: pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId} && is_active = true', { agentId, lxcId }),
+      filter: pb.filter('agent_id = {:agentID} && lxc_id = {:lxcId} && is_active = true', { agentID, lxcId }),
     });
     return result.items.length > 0;
   } catch (error) {

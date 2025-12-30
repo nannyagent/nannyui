@@ -125,7 +125,7 @@ export const getPatchOperationDetails = async (id: string): Promise<PatchOperati
         } else {
             // Fallback: try parsing the whole text
             try {
-                parsedOutput = JSON.parse(text);
+                parsedOutput = parseStdoutJson(text);
             } catch {
                 // ignore
             }
@@ -479,4 +479,42 @@ export const getProxmoxLxcId = async (agentId: string, lxcId: string): Promise<s
     console.error('Error fetching proxmox_lxc ID:', error);
     return null;
   }
+};
+
+/**
+ * Parse JSON output from stdout text
+ * @param text 
+ * @returns parsed json
+ */
+const parseStdoutJson = (text: string) => {
+  const marker = '=== JSON Output (for UI parsing) ===';
+  const jsonStart = text.indexOf(marker);
+  if (jsonStart !== -1) {
+    const jsonTextStart = jsonStart + marker.length;
+    
+    // Find the end marker
+    const possibleEndMarkers = ['=== Dry Run Complete ===', '=== Performing Update ===', '=== Update Complete ==='];
+    let jsonEnd = text.length;
+    
+    for (const endMarker of possibleEndMarkers) {
+      const endPos = text.indexOf(endMarker, jsonTextStart);
+      if (endPos !== -1 && endPos < jsonEnd) {
+        jsonEnd = endPos;
+      }
+    }
+    
+    // Extract and parse JSON
+    const jsonText = text.substring(jsonTextStart, jsonEnd).trim();
+    return JSON.parse(jsonText);
+  }
+  
+  // Fallback: try parsing whole text if it looks like JSON
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch {}
+  
+  throw new Error('No valid JSON found in stdout');
 };

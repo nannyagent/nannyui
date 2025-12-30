@@ -163,7 +163,22 @@ const PatchExecutionDetail = () => {
                 const marker = '=== JSON Output (for UI parsing) ===';
                 const jsonStart = text.indexOf(marker);
                 if (jsonStart !== -1) {
-                    const jsonText = text.substring(jsonStart + marker.length).trim();
+                    const jsonTextStart = jsonStart + marker.length;
+
+                    // Find the end marker (could be "=== Dry Run Complete ===" or "=== Performing Update ===" etc.)
+                    const possibleEndMarkers = ['=== Dry Run Complete ===', '=== Performing Update ===', '=== Update Complete ==='];
+                    let jsonEnd = text.length; // Default to end of text
+
+                    for (const endMarker of possibleEndMarkers) {
+                      const endPos = text.indexOf(endMarker, jsonTextStart);
+                      if (endPos !== -1 && endPos < jsonEnd) {
+                        jsonEnd = endPos;
+                      }
+                    }
+
+                    // Extract JSON text between markers
+                    const jsonText = text.substring(jsonTextStart, jsonEnd).trim();
+
                     try {
                         setParsedOutput(JSON.parse(jsonText));
                     } catch (e) {

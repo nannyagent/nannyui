@@ -131,7 +131,7 @@ export const fetchAgentMetrics = async (
       sort: '-recorded_at',
     });
 
-    return records.items as AgentMetric[];
+    return records.items as unknown as AgentMetric[];
   } catch (error) {
     console.error('Error fetching agent metrics:', error);
     return [];
@@ -213,7 +213,7 @@ export const getAgentsPaginated = async (
             sort: '-recorded_at',
           });
 
-          const lastMetric = metrics.items.length > 0 ? metrics.items[0] as AgentMetric : undefined;
+          const lastMetric = metrics.items.length > 0 ? metrics.items[0] as unknown as AgentMetric : undefined;
 
           return {
             ...agent,
@@ -364,7 +364,7 @@ export const createAgent = async (
       owner: agent.owner || (await getCurrentUser())?.id,
     });
 
-    return { data: data as Agent, error: null };
+    return { data: data as unknown as Agent, error: null };
   } catch (error) {
     console.error('Exception creating agent:', error);
     return { data: null, error: error as Error };
@@ -380,7 +380,7 @@ export const updateAgent = async (
 ): Promise<{ data: Agent | null; error: Error | null }> => {
   try {
     const data = await pb.collection('agents').update(id, updates);
-    return { data: data as Agent, error: null };
+    return { data: data as unknown as Agent, error: null };
   } catch (error) {
     console.error('Exception updating agent:', error);
     return { data: null, error: error as Error };

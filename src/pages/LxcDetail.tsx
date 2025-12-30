@@ -93,12 +93,12 @@ const LxcDetail = () => {
       const lxcRecord = await pb.collection('proxmox_lxc').getOne(lxcId);
       setLxc(lxcRecord as unknown as LxcDetails);
       
-      // Fetch patch history
-      const history = await getLxcPatchHistory(lxcId, 20);
-      setPatchHistory(history as unknown as PatchOperation[]);
-      
       // Fetch schedule if exists
       if (lxcRecord.agent_id) {
+        // Fetch patch history
+        const history = await getLxcPatchHistory(lxcRecord.agent_id ,lxcId, 20);
+        setPatchHistory(history as unknown as PatchOperation[]);
+
         const schedule = await getLxcPatchSchedule(lxcRecord.agent_id, lxcId);
         setPatchSchedule(schedule as unknown as PatchScheduleData);
         
