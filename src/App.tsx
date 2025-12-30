@@ -17,6 +17,7 @@ import Investigations from "./pages/Investigations";
 import InvestigationEpisode from "./pages/InvestigationEpisode";
 import InferenceDetail from "./pages/InferenceDetail";
 import AgentRegistration from "./pages/AgentRegistration";
+import AgentDetail from "./pages/AgentDetail";
 import ProxmoxDetails from "./pages/ProxmoxDetails";
 import Proxmox from "./pages/Proxmox";
 import LxcDetail from "./pages/LxcDetail";
@@ -68,6 +69,7 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/account" element={<Account />} />
               <Route path="/agents" element={<Agents />} />
+              <Route path="/agents/:id" element={<AgentDetail />} />
               <Route path="/agents/:id/proxmox" element={<ProxmoxDetails />} />
               <Route path="/proxmox" element={<Proxmox />} />
               <Route path="/proxmox/lxc/:lxcId" element={<LxcDetail />} />
