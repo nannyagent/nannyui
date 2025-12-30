@@ -39,6 +39,7 @@ import Support from "./pages/Support";
 import NotFound from "./pages/NotFound";
 import ServerError from "./pages/ServerError";
 import CookieConsent from "./components/CookieConsent";
+import { NotificationProvider } from "./contexts/NotificationContext";
 
 import PatchManagement from "./pages/PatchManagement";
 import PatchHistory from "./pages/PatchHistory";
@@ -59,49 +60,51 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <CookieConsent />
-          <AnimatePresence mode="wait">
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/mfa-verification" element={<MFAVerification />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/account" element={<Account />} />
-              <Route path="/agents" element={<Agents />} />
-              <Route path="/agents/:id" element={<AgentDetail />} />
-              <Route path="/agents/:id/proxmox" element={<ProxmoxDetails />} />
-              <Route path="/proxmox" element={<Proxmox />} />
-              <Route path="/proxmox/lxc/:lxcId" element={<LxcDetail />} />
-              <Route path="/patch-management/:agentId" element={<PatchManagement />} />
-              <Route path="/patch-history/:agentId" element={<PatchHistory />} />
-              <Route path="/patch-history" element={<PatchHistory />} />
-              <Route path="/patch-execution/:executionId" element={<PatchExecutionDetail />} />
-              <Route path="/activities" element={<Activities />} />
-              <Route path="/investigations" element={<Investigations />} />
-              <Route path="/investigations/:investigationId" element={<InvestigationEpisode />} />
-              <Route path="/investigations/:investigationId/inference/:inferenceId" element={<InferenceDetail />} />
-              <Route path="/agents/register" element={<AgentRegistration />} />
-              <Route path="/documentation" element={<Documentation />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/cookies" element={<Cookies />} />
-              <Route path="/status" element={<Status />} />
-              <Route path="/pricing" element={<Pricing />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/privacy" element={<PrivacyPolicy />} />
-              <Route path="/terms" element={<TermsOfService />} />
-              <Route path="/license" element={<License />} />
-              <Route path="/security" element={<Security />} />
-              <Route path="/features" element={<Features />} />
-              <Route path="/use-cases" element={<UseCases />} />
-              <Route path="/how-it-works" element={<HowItWorks />} />
-              <Route path="/trademarks" element={<Trademarks />} />
-              <Route path="/support" element={<Support />} />
-              <Route path="/500" element={<ServerError />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AnimatePresence>
-        </BrowserRouter>
+        <NotificationProvider>
+          <BrowserRouter>
+            <CookieConsent />
+            <AnimatePresence mode="wait">
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/mfa-verification" element={<MFAVerification />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/account" element={<Account />} />
+                <Route path="/agents" element={<Agents />} />
+                <Route path="/agents/:id" element={<AgentDetail />} />
+                <Route path="/agents/:id/proxmox" element={<ProxmoxDetails />} />
+                <Route path="/proxmox" element={<Proxmox />} />
+                <Route path="/proxmox/lxc/:lxcId" element={<LxcDetail />} />
+                <Route path="/patch-management/:agentId" element={<PatchManagement />} />
+                <Route path="/patch-history/:agentId" element={<PatchHistory />} />
+                <Route path="/patch-history" element={<PatchHistory />} />
+                <Route path="/patch-execution/:executionId" element={<PatchExecutionDetail />} />
+                <Route path="/activities" element={<Activities />} />
+                <Route path="/investigations" element={<Investigations />} />
+                <Route path="/investigations/:investigationId" element={<InvestigationEpisode />} />
+                <Route path="/investigations/:investigationId/inference/:inferenceId" element={<InferenceDetail />} />
+                <Route path="/agents/register" element={<AgentRegistration />} />
+                <Route path="/documentation" element={<Documentation />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/cookies" element={<Cookies />} />
+                <Route path="/status" element={<Status />} />
+                <Route path="/pricing" element={<Pricing />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/license" element={<License />} />
+                <Route path="/security" element={<Security />} />
+                <Route path="/features" element={<Features />} />
+                <Route path="/use-cases" element={<UseCases />} />
+                <Route path="/how-it-works" element={<HowItWorks />} />
+                <Route path="/trademarks" element={<Trademarks />} />
+                <Route path="/support" element={<Support />} />
+                <Route path="/500" element={<ServerError />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AnimatePresence>
+          </BrowserRouter>
+        </NotificationProvider>
       </TooltipProvider>
     </HelmetProvider>
   </QueryClientProvider>

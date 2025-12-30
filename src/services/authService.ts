@@ -137,7 +137,7 @@ export const getCurrentUser = async (): Promise<UserRecord | null> => {
   try {
     if (!pb.authStore.isValid) return null;
     return pb.authStore.record as unknown as UserRecord;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -149,7 +149,7 @@ export const getCurrentSession = async (): Promise<string | null> => {
   try {
     if (!pb.authStore.isValid) return null;
     return pb.authStore.token;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -285,7 +285,7 @@ export const getMFABackupCodes = async (): Promise<string[] | null> => {
   try {
     // Placeholder for backup codes retrieval
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 };

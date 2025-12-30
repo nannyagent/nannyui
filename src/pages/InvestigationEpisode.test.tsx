@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { screen, waitFor } from '@testing-library/react';
+import { Routes, Route } from 'react-router-dom';
+import { renderWithProviders } from '@/test-utils/test-utils';
 import InvestigationEpisode from './InvestigationEpisode';
 import * as investigationService from '@/services/investigationService';
 
@@ -81,12 +82,13 @@ describe('InvestigationEpisode Page', () => {
   it('should render investigation details and inferences from metadata', async () => {
     (investigationService.getInvestigation as any).mockResolvedValue(mockInvestigation);
 
-    render(
-      <MemoryRouter initialEntries={['/investigations/35hg22pih957389']}>
-        <Routes>
-          <Route path="/investigations/:investigationId" element={<InvestigationEpisode />} />
-        </Routes>
-      </MemoryRouter>
+    renderWithProviders(
+      <Routes>
+        <Route path="/investigations/:investigationId" element={<InvestigationEpisode />} />
+      </Routes>,
+      {
+        route: '/investigations/35hg22pih957389'
+      }
     );
 
     // Verify loading state
