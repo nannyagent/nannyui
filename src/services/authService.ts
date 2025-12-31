@@ -183,6 +183,7 @@ export const onAuthStateChange = (
 export const resetPassword = async (email: string) => {
   try {
     // Placeholder for password reset functionality
+    console.log('Reset password for:', email);
     return { data: null, error: null };
   } catch (error: any) {
     return { data: null, error: error.message };
@@ -192,7 +193,7 @@ export const resetPassword = async (email: string) => {
 /**
  * Update user password
  */
-export const updatePassword = async (newPassword: string, _currentPassword?: string) => {
+export const updatePassword = async (newPassword: string) => {
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -236,6 +237,7 @@ export const setupMFA = async () => {
 export const verifyTOTPCode = async (_code: string, _secret?: string) => {
   try {
     // Placeholder for TOTP verification
+    console.log('Verifying TOTP:', _code, _secret);
     return { data: null, error: null };
   } catch (error: any) {
     return { data: null, error };
@@ -248,6 +250,7 @@ export const verifyTOTPCode = async (_code: string, _secret?: string) => {
 export const confirmMFASetup = async (_code: string, _totp_secret?: string, _backup_codes?: string[]) => {
   try {
     // Placeholder for MFA confirmation
+    console.log('Confirming MFA:', _code, _totp_secret, _backup_codes);
     return { data: null, error: null };
   } catch (error: any) {
     return { data: null, error };
@@ -296,6 +299,7 @@ export const getMFABackupCodes = async (): Promise<string[] | null> => {
 export const verifyBackupCode = async (_code: string) => {
   try {
     // Placeholder for backup code verification
+    console.log('Verifying backup code:', _code);
     return { data: null, error: null };
   } catch (error: any) {
     return { data: null, error };
@@ -309,7 +313,7 @@ export const getRemainingBackupCodes = async (): Promise<number | null> => {
   try {
     // Placeholder for remaining backup codes count
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -320,6 +324,7 @@ export const getRemainingBackupCodes = async (): Promise<number | null> => {
 export const verifyMFALogin = async (_code: string) => {
   try {
     // Placeholder for MFA login verification
+    console.log('Verifying MFA login:', _code);
     return { data: null, error: null };
   } catch (error: any) {
     return { data: null, error };

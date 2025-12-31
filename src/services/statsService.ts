@@ -18,7 +18,7 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
           fields: 'id',
         });
         return result.totalItems;
-      } catch (err) {
+      } catch {
         // console.warn(`Error querying ${collectionName}:`, err);
         return 0;
       }

@@ -405,7 +405,6 @@ function InferenceDetail() {
 
   const renderEbpfProgram = (program: any) => {
     const hasError = program.error || program.verified === false || (program.exit_code && program.exit_code !== 0);
-    const isSuccess = !hasError && (program.success || program.verified === true || program.exit_code === 0);
     
     return (
       <div className="border rounded-lg overflow-hidden bg-slate-950 border-indigo-500/40">
@@ -606,13 +605,13 @@ function InferenceDetail() {
       
       // If it's just a plain object, return as is
       return [{ role: 'assistant', content: JSON.stringify(parsed, null, 2), index: 0 }];
-    } catch (e) {
+    } catch {
       // If parsing fails, treat as plain text
       return [{ role: 'assistant', content: String(content), index: 0 }];
     }
   };
 
-  const renderBashContent = (content: string | any, isInput: boolean = true) => {
+  const renderBashContent = (content: string | any) => {
     const messages = extractBashContent(content);
     
     if (!messages || messages.length === 0) {
@@ -848,8 +847,7 @@ function InferenceDetail() {
               renderBashContent(
                 typeof inference.input === 'string' 
                   ? inference.input 
-                  : JSON.stringify(inference.input, null, 2),
-                true
+                  : JSON.stringify(inference.input, null, 2)
               )
             ) : (
               <div className="text-center py-8 text-muted-foreground">
@@ -860,7 +858,7 @@ function InferenceDetail() {
           
           <TabsContent value="output" className="mt-6">
             {inference.output ? (
-              renderBashContent(inference.output, false)
+              renderBashContent(inference.output)
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 No output data available

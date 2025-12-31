@@ -110,22 +110,7 @@ const Investigations = () => {
     }
   };
 
-  const getApplicationGroupIcon = (applicationGroup: string) => {
-    switch (applicationGroup) {
-      case 'database':
-        return <Database className="h-4 w-4" />;
-      case 'backend-api':
-        return <Server className="h-4 w-4" />;
-      case 'mobile-app':
-        return <Smartphone className="h-4 w-4" />;
-      case 'infrastructure':
-        return <Network className="h-4 w-4" />;
-      case 'web-app':
-        return <Globe className="h-4 w-4" />;
-      default:
-        return <ActivityIcon className="h-4 w-4" />;
-    }
-  };
+
 
   return (
     <div className="min-h-screen flex flex-col">

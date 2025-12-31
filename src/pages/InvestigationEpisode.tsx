@@ -91,7 +91,7 @@ function InvestigationEpisode() {
           inference: lastInference
         };
       }
-    } catch (e) {
+    } catch {
       // Not a resolution inference
     }
     

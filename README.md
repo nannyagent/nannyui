@@ -48,6 +48,12 @@ npm run dev
 - Click on the "Code" button (green button) near the top right.
 - Select the "Codespaces" tab.
 - Click on "New codespace" to launch a new Codespace environment.
+
+## Documentation
+
+- [CI/CD & Deployment Guide](docs/CICD.md) - Learn about the build, test, and deployment pipelines.
+- [Project Documentation](docs/README.md) - General project documentation.
+
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
 ## What technologies are used for this project?
