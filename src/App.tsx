@@ -22,6 +22,7 @@ import ProxmoxDetails from "./pages/ProxmoxDetails";
 import Proxmox from "./pages/Proxmox";
 import LxcDetail from "./pages/LxcDetail";
 import Documentation from "./pages/Documentation";
+import DocDetail from "./pages/DocDetail";
 import Contact from "./pages/Contact";
 import Cookies from "./pages/Cookies";
 import Status from "./pages/Status";
@@ -84,7 +85,8 @@ const App = () => (
                 <Route path="/investigations/:investigationId" element={<InvestigationEpisode />} />
                 <Route path="/investigations/:investigationId/inference/:inferenceId" element={<InferenceDetail />} />
                 <Route path="/agents/register" element={<AgentRegistration />} />
-                <Route path="/documentation" element={<Documentation />} />
+                <Route path="/docs" element={<Documentation />} />
+                <Route path="/docs/:slug" element={<DocDetail />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/cookies" element={<Cookies />} />
                 <Route path="/status" element={<Status />} />

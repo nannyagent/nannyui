@@ -44,7 +44,7 @@ const Footer: React.FC = () => {
             <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider text-sidebar-foreground">Resources</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="/documentation" className="text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
+                <Link to="/docs" className="text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
                   Documentation
                 </Link>
               </li>

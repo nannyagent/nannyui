@@ -201,7 +201,7 @@ const PatchExecutionDetail = () => {
                         if (parsed && typeof parsed === 'object') {
                             setParsedOutput(parsed);
                         }
-                    } catch (e) {
+                    } catch {
                         // Not JSON
                     }
                 }
@@ -296,7 +296,7 @@ const PatchExecutionDetail = () => {
         title: 'Copied to clipboard',
         description: `${type === 'stdout' ? 'Standard output' : 'Error output'} copied successfully`,
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Failed to copy',
         description: 'Could not copy to clipboard',

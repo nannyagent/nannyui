@@ -12,7 +12,7 @@ const NavigationHeader = () => {
 
   const navLinks = [
     { label: "Features", path: "#features" },
-    { label: "Documentation", path: "/documentation" },
+    { label: "Documentation", path: "/docs" },
     { label: "Pricing", path: "/pricing" },
     { label: "API Status", path: "/status" },
     { label: "Contact", path: "/contact" },

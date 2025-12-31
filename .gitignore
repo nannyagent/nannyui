@@ -29,3 +29,7 @@ coverage
 
 # supabase specific
 supabase
+# Documentation (fetched dynamically, not committed)
+docs/nannyapi/
+docs/nannyagent/
+public/docs/

@@ -87,7 +87,7 @@ const MFAVerification = () => {
       } else {
         setTotpError(data?.error || 'Invalid TOTP code. Please try again.');
       }
-    } catch (error) {
+    } catch {
       setTotpError('Failed to verify TOTP. Please try again.');
     } finally {
       setVerifyingTotp(false);
@@ -126,7 +126,7 @@ const MFAVerification = () => {
       } else {
         setBackupError(data?.error || 'Invalid backup code');
       }
-    } catch (error) {
+    } catch {
       setBackupError('Failed to verify backup code. Please try again.');
     } finally {
       setVerifyingBackup(false);

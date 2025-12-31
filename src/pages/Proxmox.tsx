@@ -294,7 +294,7 @@ const Proxmox = () => {
                           Install the NannyML agent on your Proxmox host to get started.
                         </p>
                         <div className="flex justify-center gap-4">
-                          <Button variant="outline" onClick={() => navigate('/documentation')}>
+                          <Button variant="outline" onClick={() => navigate('/docs')}>
                             View Documentation
                           </Button>
                           <Button onClick={() => navigate('/agent-registration')}>

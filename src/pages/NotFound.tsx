@@ -136,7 +136,7 @@ const NotFound = () => {
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center items-center text-sm">
                     <a 
-                      href="/documentation" 
+                      href="/docs" 
                       className="text-primary hover:underline inline-flex items-center gap-2"
                     >
                       <Search className="h-4 w-4" />

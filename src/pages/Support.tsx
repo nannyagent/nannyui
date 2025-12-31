@@ -40,7 +40,7 @@ const Support = () => {
                     Comprehensive guides, tutorials, and API references to help you get started and master NannyAI.
                   </p>
                   <a 
-                    href="/documentation" 
+                    href="/docs" 
                     className="text-primary hover:underline inline-flex items-center gap-2"
                   >
                     Browse Documentation <ExternalLink className="h-4 w-4" />
@@ -230,7 +230,7 @@ const Support = () => {
                   <h3 className="text-lg font-semibold mb-2">How do I install the NannyAI agent?</h3>
                   <p className="text-muted-foreground text-sm">
                     Run our one-line installer: <code className="bg-secondary px-2 py-1 rounded text-xs">curl -sSL https://download.nannyai.dev | sudo bash</code>. 
-                    See our <a href="/documentation" className="text-primary hover:underline">installation guide</a> for detailed instructions.
+                    See our <a href="/docs" className="text-primary hover:underline">installation guide</a> for detailed instructions.
                   </p>
                 </GlassMorphicCard>
 
@@ -238,7 +238,7 @@ const Support = () => {
                   <h3 className="text-lg font-semibold mb-2">Which Linux distributions are supported?</h3>
                   <p className="text-muted-foreground text-sm">
                     NannyAI supports all major Linux distributions with kernel 4.14 or newer, including Ubuntu, CentOS, RHEL, 
-                    Debian, Amazon Linux, SUSE, and more. See our <a href="/documentation" className="text-primary hover:underline">compatibility matrix</a>.
+                    Debian, Amazon Linux, SUSE, and more. See our <a href="/docs" className="text-primary hover:underline">compatibility matrix</a>.
                   </p>
                 </GlassMorphicCard>
 
@@ -294,7 +294,7 @@ const Support = () => {
                   <h3 className="text-lg font-semibold mb-2">How do I integrate NannyAI with my existing tools?</h3>
                   <p className="text-muted-foreground text-sm">
                     We provide native integrations with popular tools like Slack, PagerDuty, Jira, and Grafana. 
-                    Our comprehensive REST API allows custom integrations. See our <a href="/documentation" className="text-primary hover:underline">API documentation</a>.
+                    Our comprehensive REST API allows custom integrations. See our <a href="/docs" className="text-primary hover:underline">API documentation</a>.
                   </p>
                 </GlassMorphicCard>
 

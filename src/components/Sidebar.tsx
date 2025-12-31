@@ -68,7 +68,7 @@ const Sidebar: React.FC = () => {
     { to: '/investigations', icon: Search, label: 'Investigations' },
     { to: '/patch-history', icon: PackageCheck, label: 'Patch Management' },
     { to: '/pricing', icon: DollarSign, label: 'Pricing' },
-    { to: '/documentation', icon: BookOpen, label: 'Documentation' },
+    { to: '/docs', icon: BookOpen, label: 'Documentation' },
     { to: '/contact', icon: Mail, label: 'Contact' },
   ];
 
@@ -115,11 +115,11 @@ const Sidebar: React.FC = () => {
         <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
           {!collapsed && (
             <>
-              <NannyAILogo size="md" />
-              <span className="font-bold text-sidebar-foreground">NANNYAI</span>
+              <NannyAILogo size="sm" />
+              <span className="font-bold text-sidebar-foreground text-sm">Nanny AI</span>
             </>
           )}
-          {collapsed && <NannyAILogo size="md" />}
+          {collapsed && <NannyAILogo size="sm" />}
         </Link>
         
         <button
