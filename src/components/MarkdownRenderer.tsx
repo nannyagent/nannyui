@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Loader2, AlertCircle, Info, AlertTriangle, CheckCircle, XCircle, Lightbulb, Copy, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';

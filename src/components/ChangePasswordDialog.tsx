@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -27,6 +27,15 @@ export const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const passwordValidation = validatePassword(newPassword);
   
@@ -74,7 +83,7 @@ export const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
       setConfirmPassword('');
 
       // Close dialog after success
-      setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         onOpenChange(false);
         setSuccess(false);
       }, 2000);
