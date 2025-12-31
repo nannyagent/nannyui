@@ -83,23 +83,72 @@ const MermaidDiagram: React.FC<{ chart: string }> = ({ chart }) => {
       </div>
 
       {/* Zoom overlay */}
-      {isZoomed && (
+      {isZoomed && svg && (
         <div 
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8"
+          className="fixed inset-0 z-[9999]"
           onClick={handleOverlayClick}
+          style={{ 
+            background: 'rgba(0, 0, 0, 0.92)',
+            backdropFilter: 'blur(4px)'
+          }}
         >
           <div 
-            className="relative max-w-[95vw] max-h-[95vh] overflow-auto bg-white rounded-lg shadow-2xl p-6"
+            className="relative"
             onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              background: '#ffffff',
+              borderRadius: '12px',
+              padding: '2rem',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              minWidth: '60vw',
+              minHeight: '60vh',
+              overflow: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+            }}
           >
             <button
               onClick={handleOverlayClick}
-              className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg z-10"
-              title="Close (or click outside)"
+              style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                background: '#ef4444',
+                color: 'white',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '24px',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
+                zIndex: 10
+              }}
+              title="Close (Esc or click outside)"
+              onMouseOver={(e) => e.currentTarget.style.background = '#dc2626'}
+              onMouseOut={(e) => e.currentTarget.style.background = '#ef4444'}
             >
               ×
             </button>
-            <div dangerouslySetInnerHTML={{ __html: svg }} />
+            <div 
+              style={{ 
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '400px',
+                width: '100%',
+                height: '100%'
+              }}
+              dangerouslySetInnerHTML={{ __html: svg }} 
+            />
           </div>
         </div>
       )}
@@ -270,6 +319,28 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           border-color: hsl(var(--border));
           margin: 2rem 0;
         }
+        /* Force strict styling for flowcharts to fix alignment issues */
+        .flowchart-fix {
+          font-family: Menlo, Monaco, "Courier New", monospace !important;
+          font-size: 13px !important;
+          line-height: 1.4 !important;
+          white-space: pre !important;
+          background-color: #ffffff !important;
+          color: #000000 !important;
+          border: 1px solid #e5e7eb !important;
+          border-radius: 0.5rem !important;
+          padding: 1rem !important;
+          margin: 1.5rem 0 !important;
+          overflow-x: auto !important;
+          display: block !important;
+          font-variant-ligatures: none !important;
+          font-feature-settings: "liga" 0 !important;
+          letter-spacing: 0 !important;
+          -webkit-font-smoothing: auto !important;
+          box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+          width: 100% !important;
+          text-align: left !important;
+        }
       `}</style>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
@@ -277,14 +348,15 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           code({ className, children, ...props }: any) {
             const match = /language-(\w+)/.exec(className || '');
             const isInline = !className;
-            const codeString = String(children).replace(/\n$/, '');
+            // Remove leading and trailing newlines to prevent layout shifts
+            const codeString = String(children).replace(/^\n/, '').replace(/\n$/, '');
             const codeId = `code-${Math.random().toString(36).substr(2, 9)}`;
             const language = match ? match[1] : 'text';
             
-            // Mermaid diagrams should be rendered visually
-            const isMermaid = language === 'mermaid';
-            // Flowcharts are ASCII art and should be plain text
-            const isFlowchart = language === 'flowchart';
+            // Robust detection for mermaid and flowchart
+            // Check both the extracted language and the raw className
+            const isMermaid = language === 'mermaid' || (className && className.includes('mermaid'));
+            const isFlowchart = language === 'flowchart' || (className && className.includes('flowchart'));
             
             // Handle both with and without language specification
             return !isInline ? (
@@ -292,20 +364,31 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
                 // Render mermaid diagrams visually with zoom
                 <MermaidDiagram chart={codeString} />
               ) : isFlowchart ? (
-                // Render flowchart ASCII art as plain text - NO STYLING like GitHub
-                <pre className="my-4 overflow-x-auto" style={{ 
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  padding: 0,
-                  margin: '1rem 0'
-                }}>
-                  <code className="font-mono text-sm" style={{
-                    backgroundColor: 'transparent',
-                    color: 'inherit',
-                    padding: 0
-                  }}>
-                    {codeString}
-                  </code>
+                // Render flowchart ASCII art as completely plain text - NO backgrounds, NO colors
+                <pre 
+                  className="flowchart-fix"
+                  style={{
+                    fontFamily: 'Menlo, Monaco, Consolas, "Courier New", monospace',
+                    fontSize: '13px',
+                    lineHeight: '1.3',
+                    whiteSpace: 'pre',
+                    overflowX: 'auto',
+                    margin: '1.5rem 0',
+                    padding: '1rem',
+                    background: '#ffffff',
+                    color: '#000000',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '0.5rem',
+                    display: 'block',
+                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    textAlign: 'left',
+                    width: '100%',
+                    fontVariantLigatures: 'none',
+                    fontFeatureSettings: '"liga" 0, "calt" 0',
+                    letterSpacing: '0'
+                  }}
+                >
+                  {codeString}
                 </pre>
               ) : (
                 // Regular code blocks with dark blue background
@@ -352,7 +435,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
                 </div>
               )
             ) : (
-              <code className="px-1.5 py-0.5 rounded text-sm bg-slate-800 text-blue-400 font-mono border border-slate-700" {...props}>
+              <code className="px-1.5 py-0.5 rounded text-sm bg-muted text-foreground font-mono border border-border" {...props}>
                 {children}
               </code>
             );
@@ -522,18 +605,16 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           },
           pre({ children, ...props }: any) {
             // Check if this contains a mermaid or flowchart code block
-            const codeChild = children?.props;
+            // Safely access props of the child element (which should be the code element)
+            const codeChild = React.isValidElement(children) ? (children.props as any) : {};
             const className = codeChild?.className || '';
-            const isMermaid = className.includes('language-mermaid');
-            const isFlowchart = className.includes('language-flowchart');
             
-            // For mermaid diagrams, don't wrap in pre tag - the MermaidDiagram component handles it
-            if (isMermaid) {
-              return <>{children}</>;
-            }
+            // Robust detection using includes
+            const isMermaid = className.includes('mermaid');
+            const isFlowchart = className.includes('flowchart');
             
-            // For flowcharts, don't add extra pre wrapper - code component handles it
-            if (isFlowchart) {
+            // For mermaid diagrams and flowcharts, don't wrap in pre tag
+            if (isMermaid || isFlowchart) {
               return <>{children}</>;
             }
             

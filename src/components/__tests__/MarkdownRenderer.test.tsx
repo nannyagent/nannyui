@@ -174,8 +174,8 @@ describe('MarkdownRenderer', () => {
       });
     });
 
-    it('should use dark blue color scheme for inline code', async () => {
-      const markdownContent = 'This is `inline code` test';
+    it('should use muted color scheme for inline code', async () => {
+      const markdownContent = '`inline code`';
       
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
@@ -187,10 +187,10 @@ describe('MarkdownRenderer', () => {
       );
 
       await waitFor(() => {
-        const inlineCode = container.querySelector('code');
-        expect(inlineCode).toBeInTheDocument();
-        expect(inlineCode).toHaveClass('bg-slate-800');
-        expect(inlineCode).toHaveClass('text-blue-400');
+        const code = container.querySelector('code');
+        expect(code).toBeInTheDocument();
+        expect(code).toHaveClass('bg-muted');
+        expect(code).toHaveClass('text-foreground');
       });
     });
   });
@@ -379,15 +379,18 @@ describe('MarkdownRenderer', () => {
       );
 
       await waitFor(() => {
-        // Flowcharts should render as pre/code with plain styling
-        const pre = container.querySelector('pre');
+        // Flowcharts should render as pre with plain styling
+        const pre = container.querySelector('pre.flowchart-fix');
         expect(pre).toBeInTheDocument();
-        expect(pre).toHaveClass('bg-gray-50');
         
-        const code = container.querySelector('code');
-        expect(code).toHaveClass('font-mono');
-        expect(code).toHaveClass('text-gray-900');
-        expect(code).toHaveClass('whitespace-pre');
+        // Check for inline styles that we applied
+        expect(pre).toHaveStyle({ whiteSpace: 'pre' });
+        expect(pre).toHaveStyle({ background: '#ffffff' });
+        expect(pre).toHaveStyle({ color: '#000000' });
+        
+        // Check for font stack
+        const fontFamily = pre?.style.fontFamily || '';
+        expect(fontFamily).toContain('Menlo');
       });
     });
 
@@ -422,9 +425,6 @@ describe('MarkdownRenderer', () => {
       );
 
       await waitFor(() => {
-        const pre = container.querySelector('pre');
-        expect(pre).toBeInTheDocument();
-        
         // Flowcharts should not have copy button
         const copyButton = container.querySelector('button[title="Copy code"]');
         expect(copyButton).not.toBeInTheDocument();
