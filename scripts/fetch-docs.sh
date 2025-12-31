@@ -5,7 +5,7 @@
 
 set -e
 
-BRANCH="${1:-add-docs}"  # Default to add-docs branch, but can specify main
+BRANCH="${1:-main}"  # Default to main branch
 DOCS_DIR="$(dirname "$0")/../docs"
 
 echo "Fetching documentation from branch: $BRANCH"

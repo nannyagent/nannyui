@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "docs:fetch": "chmod +x scripts/fetch-docs.sh && ./scripts/fetch-docs.sh main && cp -r docs public/",
-    "docs:fetch:dev": "chmod +x scripts/fetch-docs.sh && ./scripts/fetch-docs.sh add-docs && cp -r docs public/"
+    "docs:fetch:dev": "chmod +x scripts/fetch-docs.sh && ./scripts/fetch-docs.sh main && cp -r docs public/"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -67,7 +67,6 @@
     "react-dom": "^19.0.0",
     "react-helmet-async": "^2.0.5",
     "react-hook-form": "^7.53.0",
-    "react-mermaid2": "^0.1.4",
     "react-resizable-panels": "^2.1.3",
     "react-router-dom": "^6.26.2",
     "react-syntax-highlighter": "^16.1.0",
