@@ -23,11 +23,10 @@ mermaid.initialize({
   fontFamily: 'inherit'
 });
 
-// Mermaid component for rendering diagrams with zoom capability
+// Mermaid component for rendering diagrams
 const MermaidDiagram: React.FC<{ chart: string }> = ({ chart }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string>('');
-  const [isZoomed, setIsZoomed] = useState(false);
 
   useEffect(() => {
     if (ref.current && chart) {
@@ -45,15 +44,6 @@ const MermaidDiagram: React.FC<{ chart: string }> = ({ chart }) => {
     }
   }, [chart]);
 
-  const handleDiagramClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsZoomed(true);
-  };
-
-  const handleOverlayClick = () => {
-    setIsZoomed(false);
-  };
-
   const handleOpenInNewTab = (e: React.MouseEvent) => {
     e.stopPropagation();
     const blob = new Blob([svg], { type: 'image/svg+xml' });
@@ -62,97 +52,21 @@ const MermaidDiagram: React.FC<{ chart: string }> = ({ chart }) => {
   };
 
   return (
-    <>
-      <div className="my-6">
-        <div 
-          ref={ref} 
-          className="mermaid-diagram flex justify-center items-center p-4 bg-white rounded border border-gray-200 overflow-auto cursor-pointer hover:border-blue-400 transition-colors"
-          onClick={handleDiagramClick}
-          dangerouslySetInnerHTML={{ __html: svg }}
-          title="Click to zoom"
-        />
-        <div className="flex gap-3 mt-2">
-          <button
-            onClick={handleOpenInNewTab}
-            className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-          >
-            📂 Open in new tab
-          </button>
-          <span className="text-sm text-gray-500">💡 Click diagram to zoom</span>
-        </div>
-      </div>
-
-      {/* Zoom overlay */}
-      {isZoomed && svg && (
-        <div 
-          className="fixed inset-0 z-[9999]"
-          onClick={handleOverlayClick}
-          style={{ 
-            background: 'rgba(0, 0, 0, 0.92)',
-            backdropFilter: 'blur(4px)'
-          }}
+    <div className="my-6">
+      <div 
+        ref={ref} 
+        className="mermaid-diagram flex justify-center items-center p-4 bg-white rounded border border-gray-200 overflow-auto"
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+      <div className="flex gap-3 mt-2">
+        <button
+          onClick={handleOpenInNewTab}
+          className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
         >
-          <div 
-            className="relative"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'fixed',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              background: '#ffffff',
-              borderRadius: '12px',
-              padding: '2rem',
-              maxWidth: '90vw',
-              maxHeight: '90vh',
-              minWidth: '60vw',
-              minHeight: '60vh',
-              overflow: 'auto',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-            }}
-          >
-            <button
-              onClick={handleOverlayClick}
-              style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                background: '#ef4444',
-                color: 'white',
-                borderRadius: '50%',
-                width: '40px',
-                height: '40px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '24px',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
-                zIndex: 10
-              }}
-              title="Close (Esc or click outside)"
-              onMouseOver={(e) => e.currentTarget.style.background = '#dc2626'}
-              onMouseOut={(e) => e.currentTarget.style.background = '#ef4444'}
-            >
-              ×
-            </button>
-            <div 
-              style={{ 
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minHeight: '400px',
-                width: '100%',
-                height: '100%'
-              }}
-              dangerouslySetInnerHTML={{ __html: svg }} 
-            />
-          </div>
-        </div>
-      )}
-    </>
+          📂 Open in new tab
+        </button>
+      </div>
+    </div>
   );
 };
 
@@ -192,15 +106,28 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       setError(null);
       
       try {
-        // Try to fetch from local docs first
-        const localPath = `/docs/${source}/${filename}`;
-        const response = await fetch(localPath);
+        let text = '';
         
-        if (!response.ok) {
-          throw new Error(`Failed to fetch documentation: ${response.statusText}`);
+        // Try to fetch from GitHub first (add-docs branch)
+        try {
+          const githubUrl = `https://raw.githubusercontent.com/nannyagent/${source}/add-docs/docs/${filename}`;
+          const response = await fetch(githubUrl);
+          if (response.ok) {
+            text = await response.text();
+          } else {
+            throw new Error('GitHub fetch failed');
+          }
+        } catch (err) {
+          console.log('Falling back to local docs:', err);
+          // Fallback to local docs
+          const localPath = `/docs/${source}/${filename}`;
+          const response = await fetch(localPath);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch documentation: ${response.statusText}`);
+          }
+          text = await response.text();
         }
-        
-        let text = await response.text();
         
         // Fix broken HTML image tags in markdown and make them smaller
         text = text.replace(
@@ -361,7 +288,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             // Handle both with and without language specification
             return !isInline ? (
               isMermaid ? (
-                // Render mermaid diagrams visually with zoom
+                // Render mermaid diagrams visually
                 <MermaidDiagram chart={codeString} />
               ) : isFlowchart ? (
                 // Render flowchart ASCII art as completely plain text - NO backgrounds, NO colors
@@ -414,8 +341,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
                       margin: 0,
                       padding: '1.25rem',
                       paddingTop: '1.5rem',
-                      background: '#0f172a',
-                      border: '1px solid #1e293b',
+                      background: 'hsl(var(--sidebar-background))',
+                      border: '1px solid hsl(var(--sidebar-border))',
                       borderRadius: '0.5rem',
                       fontSize: '0.875rem',
                       color: '#e2e8f0',

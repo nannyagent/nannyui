@@ -185,7 +185,7 @@ export const runPatchCheck = async (agentId: string, lxcId?: string): Promise<st
     const user = pb.authStore.record;
     
     // Fetch agent to get platform_family
-    const agent = await pb.collection('agents').getOne(agentId);
+    // const agent = await pb.collection('agents').getOne(agentId);
 
     const payload: Record<string, unknown> = {
       agent_id: agentId,
@@ -218,7 +218,7 @@ export const applyPatches = async (agentId: string, packageNames: string[], lxcI
     const user = pb.authStore.record;
 
     // Fetch agent to get platform_family
-    const agent = await pb.collection('agents').getOne(agentId);
+    // const agent = await pb.collection('agents').getOne(agentId);
 
     const payload: Record<string, unknown> = {
       agent_id: agentId,
