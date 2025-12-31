@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   BookOpen, 
@@ -9,19 +10,31 @@ import {
   Shield,
   Copy,
   Check,
-  ExternalLink,
   Search,
-  ChevronRight
+  ChevronRight,
+  Package,
+  Settings,
+  Link,
+  Cpu,
+  Activity,
+  Cloud,
+  Download,
+  Rocket,
+  Network,
+  GitPullRequest
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Sidebar from '@/components/Sidebar';
 import GlassMorphicCard from '@/components/GlassMorphicCard';
 import TransitionWrapper from '@/components/TransitionWrapper';
 import { useToast } from '@/hooks/use-toast';
+import { getDocsByCategory, DocMetadata } from '@/lib/docRegistry';
 
 const Documentation = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const copyToClipboard = async (text: string, index: number) => {
     try {
@@ -40,20 +53,62 @@ const Documentation = () => {
       });
     }
   };
-  const categories = [
-    { title: 'Getting Started', icon: BookOpen, count: 5 },
-    { title: 'API Reference', icon: Code, count: 12 },
-    { title: 'Agent Installation', icon: Server, count: 3 },
-    { title: 'CLI Commands', icon: Terminal, count: 8 },
-    { title: 'Security', icon: Shield, count: 4 },
-  ];
+
+  const categorizedDocs = getDocsByCategory();
   
-  const popularArticles = [
-    'Agent Installation Guide',
-    'Authentication and API Keys',
-    'API Request Rate Limits',
-    'Monitoring Your Agents',
-    'Troubleshooting Common Issues',
+  // Filter docs based on search
+  const filteredCategorizedDocs = React.useMemo(() => {
+    if (!searchQuery.trim()) return categorizedDocs;
+    
+    const query = searchQuery.toLowerCase();
+    const filtered: Record<string, DocMetadata[]> = {};
+    
+    Object.entries(categorizedDocs).forEach(([category, docs]) => {
+      const matchingDocs = docs.filter(doc => 
+        doc.title.toLowerCase().includes(query) ||
+        doc.description.toLowerCase().includes(query) ||
+        category.toLowerCase().includes(query) ||
+        doc.filename.toLowerCase().includes(query)
+      );
+      
+      if (matchingDocs.length > 0) {
+        filtered[category] = matchingDocs;
+      }
+    });
+    
+    return filtered;
+  }, [categorizedDocs, searchQuery]);
+  
+  const totalResults = Object.values(filteredCategorizedDocs).reduce((acc, docs) => acc + docs.length, 0);
+  
+  const iconMap: Record<string, typeof BookOpen> = {
+    BookOpen, Terminal, Code, Server, Shield, Package, Settings,
+    Link, Cpu, Activity, Cloud, Download, Rocket, Network, GitPullRequest
+  };
+
+  const getCategoryIcon = (category: string) => {
+    const iconMapping: Record<string, typeof BookOpen> = {
+      'Getting Started': BookOpen,
+      'API Documentation': Code,
+      'Agent Setup': Terminal,
+      'Features': Package,
+      'Advanced': Cpu,
+      'Community': GitPullRequest,
+    };
+    return iconMapping[category] || BookOpen;
+  };
+
+  const handleDocClick = (doc: DocMetadata) => {
+    const slug = doc.filename.replace('.md', '').toLowerCase();
+    navigate(`/docs/${slug}`);
+  };
+  
+  const popularDocs = [
+    { title: 'Quick Start Guide', slug: 'quickstart' },
+    { title: 'Agent Installation', slug: 'installation' },
+    { title: 'API Reference', slug: 'api_reference' },
+    { title: 'Configuration Guide', slug: 'configuration' },
+    { title: 'Proxmox Integration', slug: 'proxmox' },
   ];
 
   return (
@@ -72,49 +127,112 @@ const Documentation = () => {
               </p>
             </div>
             
+
             <div className="relative max-w-2xl mx-auto mb-10">
               <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search documentation..."
-                className="w-full h-14 pl-14 pr-4 rounded-xl bg-muted/50 border border-border/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-14 pl-14 pr-4 rounded-xl bg-muted/50 border border-border/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-foreground placeholder:text-muted-foreground"
               />
-              <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
-                Press <kbd className="px-2 py-1 bg-muted rounded text-xs">⌘ K</kbd>
-              </div>
+              {searchQuery && (
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    {totalResults} {totalResults === 1 ? 'result' : 'results'}
+                  </span>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-              {categories.map((category, i) => (
-                <motion.div
-                  key={category.title}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 * i, duration: 0.3 }}
+            {/* Documentation Categories */}
+            {totalResults === 0 && searchQuery ? (
+              <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/50 mb-4">
+                  <Search className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No results found</h3>
+                <p className="text-muted-foreground mb-4">
+                  Try searching with different keywords or browse all documentation below.
+                </p>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
                 >
-                  <GlassMorphicCard className="h-full" hoverEffect>
-                    <div className="flex items-start">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <category.icon className="h-5 w-5 text-primary" />
+                  Clear Search
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-8 mb-12">
+                {Object.entries(filteredCategorizedDocs).map(([category, docs], categoryIndex) => {
+                const CategoryIcon = getCategoryIcon(category);
+                const docsCount = docs.length;
+                
+                return (
+                  <motion.div
+                    key={category}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 * categoryIndex, duration: 0.3 }}
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <CategoryIcon className="h-4 w-4 text-primary" />
                       </div>
-                      <div className="ml-4">
-                        <h3 className="font-medium">{category.title}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {category.count} articles
-                        </p>
-                      </div>
+                      <h2 className="text-xl font-semibold">{category}</h2>
+                      <span className="text-sm text-muted-foreground">({docsCount} {docsCount === 1 ? 'article' : 'articles'})</span>
                     </div>
                     
-                    <div className="mt-4 pt-4 border-t border-border/40">
-                      <a href="#" className="flex items-center justify-between text-sm text-primary hover:text-primary/80 transition-colors">
-                        <span>Browse {category.title}</span>
-                        <ChevronRight className="h-4 w-4" />
-                      </a>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {docs.map((doc, docIndex) => {
+                        const DocIcon = doc.icon && iconMap[doc.icon] ? iconMap[doc.icon] : BookOpen;
+                        
+                        return (
+                          <motion.div
+                            key={doc.filename}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.05 * docIndex, duration: 0.3 }}
+                            onClick={() => handleDocClick(doc)}
+                            className="cursor-pointer"
+                          >
+                            <GlassMorphicCard 
+                              className="h-full" 
+                              hoverEffect
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                  <DocIcon className="h-5 w-5 text-primary" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-medium mb-1 truncate">{doc.title}</h3>
+                                  <p className="text-sm text-muted-foreground line-clamp-2">
+                                    {doc.description}
+                                  </p>
+                                  <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span className="px-2 py-1 rounded bg-muted">
+                                      {doc.source === 'nannyapi' ? 'API' : 'Agent'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </GlassMorphicCard>
+                          </motion.div>
+                        );
+                      })}
                     </div>
-                  </GlassMorphicCard>
-                </motion.div>
-              ))}
-            </div>
+                  </motion.div>
+                );
+              })}
+              </div>
+            )}
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
@@ -129,10 +247,10 @@ const Documentation = () => {
                       </p>
                       <div className="relative">
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
-                          curl -sSL https://download.nannyai.dev/install.sh | sudo bash
+                          curl -fsSL https://raw.githubusercontent.com/nannyagent/nannyagent/main/install.sh | sudo bash
                         </div>
                         <button 
-                          onClick={() => copyToClipboard('curl -sSL https://download.nannyai.dev/install.sh | sudo bash', 0)}
+                          onClick={() => copyToClipboard('curl -fsSL https://raw.githubusercontent.com/nannyagent/nannyagent/main/install.sh | sudo bash', 0)}
                           className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground"
                         >
                           {copiedIndex === 0 ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
@@ -183,10 +301,10 @@ const Documentation = () => {
                       </p>
                       <div className="relative">
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
-                          nannyagent register
+                          nannyagent --register
                         </div>
                         <button 
-                          onClick={() => copyToClipboard('nannyagent register', 3)}
+                          onClick={() => copyToClipboard('nannyagent --register', 3)}
                           className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground"
                         >
                           {copiedIndex === 3 ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
@@ -204,10 +322,10 @@ const Documentation = () => {
                       </p>
                       <div className="relative">
                         <div className="bg-sidebar p-3 rounded-md font-mono text-sm text-sidebar-foreground">
-                          nannyagent status
+                          nannyagent --status
                         </div>
                         <button 
-                          onClick={() => copyToClipboard('nannyagent status', 4)}
+                          onClick={() => copyToClipboard('nannyagent --status', 4)}
                           className="absolute top-2 right-2 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground"
                         >
                           {copiedIndex === 4 ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
@@ -217,10 +335,13 @@ const Documentation = () => {
                   </div>
                   
                   <div className="mt-6 text-center">
-                    <a href="#" className="inline-flex items-center py-2 px-4 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors">
+                    <button 
+                      onClick={() => navigate('/docs/quickstart')}
+                      className="inline-flex items-center py-2 px-4 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                    >
                       <BookOpen className="h-4 w-4 mr-2" />
                       Read Full Documentation
-                    </a>
+                    </button>
                   </div>
                 </GlassMorphicCard>
               </div>
@@ -230,15 +351,15 @@ const Documentation = () => {
                   <h3 className="font-medium mb-6">Popular Articles</h3>
                   
                   <div className="space-y-4">
-                    {popularArticles.map((article, i) => (
-                      <a 
+                    {popularDocs.map((article, i) => (
+                      <button 
                         key={i} 
-                        href="#" 
-                        className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors"
+                        onClick={() => navigate(`/docs/${article.slug}`)}
+                        className="w-full flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors"
                       >
-                        <span className="text-sm">{article}</span>
-                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                      </a>
+                        <span className="text-sm text-left">{article.title}</span>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
                     ))}
                   </div>
                 </GlassMorphicCard>

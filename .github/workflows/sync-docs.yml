@@ -1,0 +1,59 @@
+name: Sync Documentation (Scheduled)
+
+on:
+  # Run every 6 hours
+  schedule:
+    - cron: '0 */6 * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: Fetch latest documentation
+        run: |
+          echo "🔄 Syncing documentation from nannyapi and nannyagent repositories..."
+          chmod +x scripts/fetch-docs.sh
+          ./scripts/fetch-docs.sh main
+      
+      - name: Copy to public directory
+        run: |
+          rm -rf public/docs
+          cp -r docs public/
+      
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet docs/ public/docs/; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No documentation changes detected"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "✅ Documentation changes detected"
+          fi
+      
+      - name: Commit and push changes
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "NannyUI Docs Bot"
+          git config user.email "docs-bot@nannyai.dev"
+          git add docs/ public/docs/
+          git commit -m "docs: Auto-sync documentation $(date +'%Y-%m-%d %H:%M UTC')" -m "Synced from nannyapi and nannyagent repositories"
+          git push
+      
+      - name: Create summary
+        run: |
+          echo "### Documentation Sync Summary 📚" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ steps.changes.outputs.changed == 'true' && '✅ Updated' || 'ℹ️ No changes' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source**: nannyapi & nannyagent (main branch)" >> $GITHUB_STEP_SUMMARY

@@ -117,7 +117,7 @@ const HowItWorks = () => {
                       </p>
                       <div className="bg-secondary/50 p-4 rounded-lg font-mono text-sm">
                         <p className="text-muted-foreground mb-2"># Quick install with curl:</p>
-                        <code className="text-primary">curl -sSL https://download.nannyai.dev/install.sh | sudo bash</code>
+                        <code className="text-primary">curl -fsSL https://raw.githubusercontent.com/nannyagent/nannyagent/main/install.sh | sudo bash</code>
                         <p className="text-muted-foreground mt-4 mb-2"># Or with authentication token:</p>
                         <code className="text-primary">curl -sSL https://download.nannyai.dev/install.sh | sudo NANNYAI_TOKEN=your_token bash</code>
                       </div>
@@ -424,7 +424,7 @@ const HowItWorks = () => {
                     Start Free Trial
                   </a>
                   <a 
-                    href="/documentation" 
+                    href="/docs" 
                     className="px-8 py-3 border border-primary text-primary rounded-lg font-semibold hover:bg-primary/10 transition-colors"
                   >
                     Read Documentation
