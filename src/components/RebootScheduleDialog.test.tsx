@@ -109,11 +109,8 @@ describe('RebootScheduleDialog', () => {
     
     render(<RebootScheduleDialog {...defaultProps} />);
     
-    await waitFor(() => {
-      expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument();
-    });
-
-    const saveButton = screen.getByRole('button', { name: /save schedule/i });
+    // Wait for form to load
+    const saveButton = await screen.findByRole('button', { name: /save schedule/i });
     fireEvent.click(saveButton);
     
     await waitFor(() => {
@@ -126,11 +123,8 @@ describe('RebootScheduleDialog', () => {
     
     render(<RebootScheduleDialog {...defaultProps} />);
     
-    await waitFor(() => {
-      expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument();
-    });
-
-    const saveButton = screen.getByRole('button', { name: /save schedule/i });
+    // Wait for form to load
+    const saveButton = await screen.findByRole('button', { name: /save schedule/i });
     fireEvent.click(saveButton);
     
     await waitFor(() => {
@@ -146,11 +140,8 @@ describe('RebootScheduleDialog', () => {
     
     render(<RebootScheduleDialog {...defaultProps} />);
     
-    await waitFor(() => {
-      expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument();
-    });
-
-    const saveButton = screen.getByRole('button', { name: /save schedule/i });
+    // Wait for form to load
+    const saveButton = await screen.findByRole('button', { name: /save schedule/i });
     fireEvent.click(saveButton);
     
     await waitFor(() => {
@@ -171,11 +162,8 @@ describe('RebootScheduleDialog', () => {
       />
     );
     
-    await waitFor(() => {
-      expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument();
-    });
-
-    const cancelButton = screen.getByRole('button', { name: /cancel/i });
+    // Wait for form to load
+    const cancelButton = await screen.findByRole('button', { name: /cancel/i });
     fireEvent.click(cancelButton);
     
     expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -196,24 +184,19 @@ describe('RebootScheduleDialog', () => {
     it('should generate daily cron expression', async () => {
       render(<RebootScheduleDialog {...defaultProps} />);
       
+      // Wait for form to load and check frequency label
       await waitFor(() => {
-        expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument();
+        expect(screen.getByText(/Frequency/i)).toBeInTheDocument();
       });
-
-      // The default frequency should be weekly, but we'll test daily
-      // This tests that the component properly handles different frequencies
-      expect(screen.getByText(/Frequency/i)).toBeInTheDocument();
     });
 
     it('should show day of week selector for weekly frequency', async () => {
       render(<RebootScheduleDialog {...defaultProps} />);
       
+      // Wait for form to load - Weekly is the default
       await waitFor(() => {
-        expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument();
+        expect(screen.getByText(/Day of Week/i)).toBeInTheDocument();
       });
-
-      // Weekly is the default
-      expect(screen.getByText(/Day of Week/i)).toBeInTheDocument();
     });
   });
 
@@ -245,11 +228,10 @@ describe('RebootScheduleDialog', () => {
     it('should render active toggle switch', async () => {
       render(<RebootScheduleDialog {...defaultProps} />);
       
+      // Wait for the Enable Schedule text to appear (loading is done)
       await waitFor(() => {
-        expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument();
-      });
-
-      expect(screen.getByText(/Enable Schedule/i)).toBeInTheDocument();
+        expect(screen.getByText(/Enable Schedule/i)).toBeInTheDocument();
+      }, { timeout: 3000 });
     });
   });
 });
