@@ -110,7 +110,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // Subscribe to reboot_operations
     const subscribeToRebootOperations = async () => {
       try {
-        await pb.collection('reboot_operations').subscribe('*', (e) => {
+        await pb.collection('reboot_operations').subscribe('*', async (e) => {
           if (e.action === 'update') {
             const record = e.record as unknown as RebootOperationRecord;
             // Notify when status changes to completed, failed, or timeout
@@ -120,10 +120,24 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 : record.status === 'timeout' 
                   ? 'Timed Out' 
                   : 'Failed';
+              // Try to get agent hostname from expanded record or fetch it
+              let agentDisplayName = 'Unknown Agent';
+              try {
+                const expandedRecord = record as unknown as { expand?: { agent_id?: { hostname?: string } } };
+                if (expandedRecord.expand?.agent_id?.hostname) {
+                  agentDisplayName = expandedRecord.expand.agent_id.hostname;
+                } else {
+                  // Fetch agent details if not expanded
+                  const agent = await pb.collection('agents').getOne(record.agent_id);
+                  agentDisplayName = agent.hostname || record.agent_id.substring(0, 8);
+                }
+              } catch {
+                agentDisplayName = record.agent_id.substring(0, 8);
+              }
               addNotification({
                 id: `reboot-${record.id}-${Date.now()}`,
                 title: `Reboot ${statusText}`,
-                message: `Reboot operation for agent ${record.agent_id} has ${record.status}.${record.error_message ? ` Error: ${record.error_message}` : ''}`,
+                message: `Reboot operation for ${agentDisplayName} has ${record.status}.${record.error_message ? ` Error: ${record.error_message}` : ''}`,
                 link: `/reboot-history`,
                 read: false,
                 timestamp: new Date(),

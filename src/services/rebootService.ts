@@ -1,28 +1,11 @@
 import { pb } from '@/lib/pocketbase';
 import { RebootOperationRecord, RebootScheduleRecord } from '@/integrations/pocketbase/types';
+import { getProxmoxLxcId } from './lxcUtils';
 
 export type RebootOperation = RebootOperationRecord;
 export type RebootSchedule = RebootScheduleRecord;
 
 export type RebootStatus = 'pending' | 'sent' | 'rebooting' | 'completed' | 'failed' | 'timeout';
-
-/**
- * Get the proxmox_lxc record ID from lxc_id
- */
-export const getProxmoxLxcId = async (agentId: string, lxcId: string): Promise<string | null> => {
-  try {
-    const filter = pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId}', { agentId, lxcId });
-    const result = await pb.collection('proxmox_lxc').getList(1, 1, { filter });
-    
-    if (result.items.length > 0) {
-      return result.items[0].id;
-    }
-    return null;
-  } catch (error) {
-    console.error('Error fetching proxmox_lxc ID:', error);
-    return null;
-  }
-};
 
 /**
  * Create a reboot operation for an agent or LXC container
@@ -95,16 +78,20 @@ export const getRebootHistory = async (
   lxcId?: string
 ): Promise<RebootOperation[]> => {
   try {
-    let filterStr = `agent_id = "${agentId}"`;
+    let filter: string;
     if (lxcId) {
       const proxmoxLxcId = await getProxmoxLxcId(agentId, lxcId);
       if (proxmoxLxcId) {
-        filterStr += ` && lxc_id = "${proxmoxLxcId}"`;
+        filter = pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId}', { agentId, lxcId: proxmoxLxcId });
+      } else {
+        filter = pb.filter('agent_id = {:agentId}', { agentId });
       }
+    } else {
+      filter = pb.filter('agent_id = {:agentId}', { agentId });
     }
 
     const result = await pb.collection('reboot_operations').getList(1, limit, {
-      filter: filterStr,
+      filter,
       sort: '-id',
       expand: 'agent_id,lxc_id',
     });
@@ -154,38 +141,6 @@ export const listAllRebootOperations = async (
 };
 
 /**
- * Poll for reboot operation completion
- */
-export const waitForRebootOperation = async (
-  operationId: string,
-  onProgress?: (status: RebootStatus) => void
-): Promise<RebootOperation | null> => {
-  const pollInterval = 5000;
-  const maxAttempts = 120; // 10 minutes (5s * 120)
-
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      const record = await pb.collection('reboot_operations').getOne(operationId);
-
-      if (onProgress) {
-        onProgress(record.status as RebootStatus);
-      }
-
-      if (['completed', 'failed', 'timeout'].includes(record.status)) {
-        return record as unknown as RebootOperation;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
-    } catch (error) {
-      console.error('Error polling reboot operation:', error);
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
-    }
-  }
-
-  return null;
-};
-
-/**
  * Check agent connection status (for reboot verification)
  */
 export const checkAgentRebootStatus = async (agentId: string): Promise<boolean> => {
@@ -208,18 +163,20 @@ export const getRebootSchedules = async (
   lxcId?: string
 ): Promise<RebootSchedule[]> => {
   try {
-    let filterStr = `agent_id = "${agentId}"`;
+    let filter: string;
     if (lxcId) {
       const proxmoxLxcId = await getProxmoxLxcId(agentId, lxcId);
       if (proxmoxLxcId) {
-        filterStr += ` && lxc_id = "${proxmoxLxcId}"`;
+        filter = pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId}', { agentId, lxcId: proxmoxLxcId });
+      } else {
+        filter = pb.filter('agent_id = {:agentId}', { agentId });
       }
     } else {
-      filterStr += ` && lxc_id = ""`;
+      filter = pb.filter('agent_id = {:agentId} && lxc_id = ""', { agentId });
     }
 
     const result = await pb.collection('reboot_schedules').getList(1, 50, {
-      filter: filterStr,
+      filter,
     });
 
     return result.items.map((record) => ({
@@ -246,20 +203,22 @@ export const saveRebootSchedule = async (
     if (!user) throw new Error('User not authenticated');
 
     // Check if schedule exists for this agent/lxc combination
-    let filterStr = `agent_id = "${agentId}"`;
     let proxmoxLxcId: string | null = null;
+    let filter: string;
     
     if (lxcId) {
       proxmoxLxcId = await getProxmoxLxcId(agentId, lxcId);
       if (proxmoxLxcId) {
-        filterStr += ` && lxc_id = "${proxmoxLxcId}"`;
+        filter = pb.filter('agent_id = {:agentId} && lxc_id = {:lxcId}', { agentId, lxcId: proxmoxLxcId });
+      } else {
+        filter = pb.filter('agent_id = {:agentId}', { agentId });
       }
     } else {
-      filterStr += ` && lxc_id = ""`;
+      filter = pb.filter('agent_id = {:agentId} && lxc_id = ""', { agentId });
     }
 
     const existing = await pb.collection('reboot_schedules').getList(1, 1, {
-      filter: filterStr,
+      filter,
     });
 
     const payload: Record<string, unknown> = {

@@ -74,8 +74,10 @@ export const RebootScheduleDialog: React.FC<RebootScheduleDialogProps> = ({
         }
 
         // Load existing schedule if we have an agentId
-        if (agentId) {
-          const schedules = await getRebootSchedules(agentId, lxcId);
+        // Use propAgentId or selectedAgentId directly to satisfy eslint
+        const currentAgentId = propAgentId || selectedAgentId;
+        if (currentAgentId) {
+          const schedules = await getRebootSchedules(currentAgentId, lxcId);
           if (schedules.length > 0) {
             const schedule = schedules[0];
             setExistingSchedule(schedule);
@@ -108,7 +110,7 @@ export const RebootScheduleDialog: React.FC<RebootScheduleDialogProps> = ({
     };
 
     loadData();
-  }, [open, propAgentId, agentId, lxcId]);
+  }, [open, propAgentId, selectedAgentId, lxcId]);
 
   const generateCron = () => {
     const [hour, minute] = time.split(':');

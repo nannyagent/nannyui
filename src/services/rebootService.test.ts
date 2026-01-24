@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  getProxmoxLxcId,
   createRebootOperation,
   getRebootOperation,
   getRebootHistory,
@@ -13,6 +12,7 @@ import {
   checkAgentRebootStatus,
   triggerAgentReboot,
 } from "./rebootService";
+import { getProxmoxLxcId } from "./lxcUtils";
 import { pb } from "@/lib/pocketbase";
 
 // Mock dependencies

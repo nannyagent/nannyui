@@ -286,32 +286,37 @@ const RebootHistory = () => {
     });
   };
 
-  // Paginated operations when viewing single agent
-  const paginatedOperations = useMemo(() => {
-    let filtered = operations;
+  // Filtered and sorted operations (by agent and date)
+  const filteredAndSortedOperations = useMemo(() => {
+    const filtered = agentId
+      ? operations.filter((e) => e.agent_id === agentId)
+      : operations;
 
-    if (agentId) {
-      filtered = filtered.filter((e) => e.agent_id === agentId);
-    }
-
-    // Sort by date descending
-    filtered.sort((a, b) => {
+    // Sort by date descending on a copied array to avoid mutating the original
+    return [...filtered].sort((a, b) => {
       const dateA = a.requested_at ? new Date(a.requested_at).getTime() : 0;
       const dateB = b.requested_at ? new Date(b.requested_at).getTime() : 0;
       return dateB - dateA;
     });
+  }, [operations, agentId]);
 
-    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  // Paginated operations
+  const paginatedOperations = useMemo(() => {
+    const total = filteredAndSortedOperations.length;
+    const totalPages = Math.ceil(total / itemsPerPage) || 1;
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedItems = filtered.slice(startIndex, startIndex + itemsPerPage);
+    const paginatedItems = filteredAndSortedOperations.slice(
+      startIndex,
+      startIndex + itemsPerPage
+    );
 
     return {
       items: paginatedItems,
-      total: filtered.length,
+      total,
       totalPages,
       currentPage,
     };
-  }, [operations, agentId, currentPage, itemsPerPage]);
+  }, [filteredAndSortedOperations, currentPage, itemsPerPage]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
