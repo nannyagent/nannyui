@@ -45,6 +45,7 @@ import { NotificationProvider } from "./contexts/NotificationContext";
 import PatchManagement from "./pages/PatchManagement";
 import PatchHistory from "./pages/PatchHistory";
 import PatchExecutionDetail from "./pages/PatchExecutionDetail";
+import RebootHistory from "./pages/RebootHistory";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +81,8 @@ const App = () => (
                 <Route path="/patch-history/:agentId" element={<PatchHistory />} />
                 <Route path="/patch-history" element={<PatchHistory />} />
                 <Route path="/patch-execution/:executionId" element={<PatchExecutionDetail />} />
+                <Route path="/reboot-history" element={<RebootHistory />} />
+                <Route path="/reboot-history/:agentId" element={<RebootHistory />} />
                 <Route path="/activities" element={<Activities />} />
                 <Route path="/investigations" element={<Investigations />} />
                 <Route path="/investigations/:investigationId" element={<InvestigationEpisode />} />

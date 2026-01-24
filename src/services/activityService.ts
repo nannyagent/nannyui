@@ -41,6 +41,13 @@ export const ACTIVITY_TYPES = {
   PATCH_FAILED: 'patch_failed',
   PATCH_SCHEDULED: 'patch_scheduled',
   
+  // Reboot activities
+  REBOOT_STARTED: 'reboot_started',
+  REBOOT_COMPLETED: 'reboot_completed',
+  REBOOT_FAILED: 'reboot_failed',
+  REBOOT_TIMEOUT: 'reboot_timeout',
+  REBOOT_SCHEDULED: 'reboot_scheduled',
+  
   // Investigation activities
   INVESTIGATION_STARTED: 'investigation_started',
   INVESTIGATION_COMPLETED: 'investigation_completed',

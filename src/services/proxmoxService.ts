@@ -1,5 +1,5 @@
 import { pb } from '@/lib/pocketbase';
-import { getProxmoxLxcId } from './patchManagementService';  // Add this import
+import { getProxmoxLxcId } from './lxcUtils';  // Add this import
 import { 
   ProxmoxClusterRecord, 
   ProxmoxNodeRecord, 

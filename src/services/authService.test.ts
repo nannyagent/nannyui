@@ -141,7 +141,7 @@ describe("authService", () => {
     });
 
     it("should update password", async () => {
-      const result = await updatePassword("newPass", "oldPass");
+      const result = await updatePassword("newPass");
       expect(result.error).toBeNull();
       expect(pb.collection).toHaveBeenCalledWith("users");
     });
