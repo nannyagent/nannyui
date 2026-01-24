@@ -161,3 +161,62 @@ export interface PackageExceptionRecord {
   created: string;
   updated: string;
 }
+
+export interface RebootOperationRecord {
+  id: string;
+  user_id: string;
+  agent_id: string;
+  lxc_id?: string;
+  status: 'pending' | 'sent' | 'rebooting' | 'completed' | 'failed' | 'timeout';
+  reason?: string;
+  requested_at: string;
+  acknowledged_at?: string;
+  completed_at?: string;
+  error_message?: string;
+  timeout_seconds: number;
+  created: string;
+  updated: string;
+  // Expanded fields
+  agent_name?: string;
+  lxc_name?: string;
+  expand?: {
+    agent_id?: {
+      id: string;
+      hostname: string;
+      status: string;
+    };
+    lxc_id?: {
+      id: string;
+      name: string;
+      vmid: number;
+    };
+  };
+}
+
+export interface RebootScheduleRecord {
+  id: string;
+  user_id: string;
+  agent_id: string;
+  lxc_id?: string;
+  cron_expression: string;
+  reason?: string;
+  next_run_at?: string;
+  last_run_at?: string;
+  is_active: boolean;
+  created: string;
+  updated: string;
+  // Expanded fields
+  agent_name?: string;
+  lxc_name?: string;
+  expand?: {
+    agent_id?: {
+      id: string;
+      hostname: string;
+    };
+    lxc_id?: {
+      id: string;
+      name: string;
+      vmid: number;
+    };
+  };
+}

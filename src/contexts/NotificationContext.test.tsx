@@ -63,7 +63,8 @@ describe('NotificationContext', () => {
 
     expect(pb.collection).toHaveBeenCalledWith('patch_operations');
     expect(pb.collection).toHaveBeenCalledWith('investigations');
-    expect(subscribeMock).toHaveBeenCalledTimes(2);
+    expect(pb.collection).toHaveBeenCalledWith('reboot_operations');
+    expect(subscribeMock).toHaveBeenCalledTimes(3);
   });
 
   it('handles patch_operations updates', async () => {

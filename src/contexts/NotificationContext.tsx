@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { pb } from '@/lib/pocketbase';
 import { useToast } from '@/hooks/use-toast';
-import { PatchOperationRecord } from '@/integrations/pocketbase/types';
+import { PatchOperationRecord, RebootOperationRecord } from '@/integrations/pocketbase/types';
 import { Investigation } from '@/services/investigationService';
 
 export interface Notification {
@@ -11,7 +11,7 @@ export interface Notification {
   link: string;
   read: boolean;
   timestamp: Date;
-  type: 'patch' | 'investigation';
+  type: 'patch' | 'investigation' | 'reboot';
 }
 
 export interface NotificationContextType {
@@ -107,12 +107,44 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     };
 
+    // Subscribe to reboot_operations
+    const subscribeToRebootOperations = async () => {
+      try {
+        await pb.collection('reboot_operations').subscribe('*', (e) => {
+          if (e.action === 'update') {
+            const record = e.record as unknown as RebootOperationRecord;
+            // Notify when status changes to completed, failed, or timeout
+            if (['completed', 'failed', 'timeout'].includes(record.status)) {
+              const statusText = record.status === 'completed' 
+                ? 'Completed' 
+                : record.status === 'timeout' 
+                  ? 'Timed Out' 
+                  : 'Failed';
+              addNotification({
+                id: `reboot-${record.id}-${Date.now()}`,
+                title: `Reboot ${statusText}`,
+                message: `Reboot operation for agent ${record.agent_id} has ${record.status}.${record.error_message ? ` Error: ${record.error_message}` : ''}`,
+                link: `/reboot-history`,
+                read: false,
+                timestamp: new Date(),
+                type: 'reboot'
+              });
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Failed to subscribe to reboot_operations:', error);
+      }
+    };
+
     subscribeToPatchOperations();
     subscribeToInvestigations();
+    subscribeToRebootOperations();
 
     return () => {
       pb.collection('patch_operations').unsubscribe('*');
       pb.collection('investigations').unsubscribe('*');
+      pb.collection('reboot_operations').unsubscribe('*');
     };
   }, [addNotification]);
 
