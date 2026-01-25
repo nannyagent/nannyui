@@ -1,8 +1,7 @@
-name: Docker Image CI
+name: Docker Image Publish
 
 on:
   push:
-    branches: [ "main" ]
     tags: [ 'v*.*.*' ]
 
 env:
@@ -36,16 +35,15 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=sha,enable=${{ github.event_name == 'push' }}
-            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=latest,enable=${{ !contains(github.ref, '-') }}
+            type=semver,pattern={{version}}
 
       - name: Build and push Docker image
         id: build-and-push
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
