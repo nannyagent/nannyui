@@ -56,6 +56,45 @@ npm run dev
 
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
+## Docker Deployment
+
+You can run NannyUI using the official Docker image. This image is lightweight and can be configured with environment variables.
+
+### Quick Start
+
+```bash
+docker run -d -p 8080:80 \
+  -e VITE_POCKETBASE_URL=https://api.example.com \
+  nannyagent/nannyui:latest
+```
+
+This will start the UI on http://localhost:8080.
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VITE_POCKETBASE_URL` | The URL of your PocketBase backend API | `http://127.0.0.1:8090` |
+
+### Building Locally
+
+To build the Docker image locally:
+
+```bash
+docker build -t nannyui .
+```
+
+### GitHub Actions
+
+This repository is configured to automatically build and push the Docker image to Docker Hub on every push to `main` or when a new tag is pushed.
+
+To enable this:
+1. Go to your GitHub Repository Settings > Secrets and variables > Actions.
+2. Add the following repository secrets:
+    *   `DOCKER_USERNAME`: Your Docker Hub username.
+    *   `DOCKER_PASSWORD`: Your Docker Hub access token (not password).
+
+
 ## What technologies are used for this project?
 
 This project is built with .

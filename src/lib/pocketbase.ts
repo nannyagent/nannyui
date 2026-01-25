@@ -1,8 +1,9 @@
 import PocketBase from 'pocketbase';
 
 // Initialize PocketBase client
-// Use environment variable or default to local backend
-export const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090');
+// Use runtime env (docker) or build env or default
+const url = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090';
+export const pb = new PocketBase(url);
 
 // Helper to get current auth record
 export const getCurrentUser = () => {

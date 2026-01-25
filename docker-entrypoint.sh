@@ -1,0 +1,32 @@
+#!/bin/sh
+
+# Recreate config file
+rm -rf /usr/share/nginx/html/env-config.js
+touch /usr/share/nginx/html/env-config.js
+
+# Add assignment 
+echo "window.env = {" >> /usr/share/nginx/html/env-config.js
+
+# Read each line in .env file
+# Each line represents key=value pairs
+printenv | grep VITE_ | while read -r line ; do
+  # Split env vars by character `=`
+  if printf '%s\n' "$line" | grep -q -e '='; then
+    varname=$(printf '%s\n' "$line" | sed -e 's/=.*//')
+    varvalue=$(printf '%s\n' "$line" | sed -e 's/^[^=]*=//')
+  fi
+
+  # Read value of current variable if exists as Environment variable
+  value=$(printf '%s\n' "${varvalue}" | sed -e 's/"/\\"/g')
+  
+  # Append configuration property to JS file
+  echo "  $varname: \"$value\"," >> /usr/share/nginx/html/env-config.js
+done
+
+# Remove the trailing comma from the last property if it exists
+sed -i '$ s/,$//' /usr/share/nginx/html/env-config.js
+
+echo "}" >> /usr/share/nginx/html/env-config.js
+
+# Execute the command passed as argument
+exec "$@"
