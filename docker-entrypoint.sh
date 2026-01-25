@@ -23,6 +23,9 @@ printenv | grep VITE_ | while read -r line ; do
   echo "  $varname: \"$value\"," >> /usr/share/nginx/html/env-config.js
 done
 
+# Remove the trailing comma from the last property if it exists
+sed -i '$ s/,$//' /usr/share/nginx/html/env-config.js
+
 echo "}" >> /usr/share/nginx/html/env-config.js
 
 # Execute the command passed as argument

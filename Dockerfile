@@ -16,17 +16,20 @@ COPY . .
 # Run the build (including docs:fetch)
 RUN npm run build
 
-# Stage 2: Serve with a simple HS server
-FROM node:20-alpine
+# Stage 2: Serve with nginx and environment variable injection
+FROM nginx:alpine
 
-WORKDIR /app
+# Copy built assets to nginx html directory
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Install 'serve' package
-RUN npm install -g serve
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy built assets
-COPY --from=builder /app/dist ./dist
+# Copy entrypoint script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 80
 
-CMD ["serve", "-s", "dist", "-l", "80"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["nginx", "-g", "daemon off;"]
