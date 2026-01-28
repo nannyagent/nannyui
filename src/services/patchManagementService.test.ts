@@ -83,7 +83,7 @@ vi.mock("@/lib/pocketbase", () => {
   };
 });
 
-global.fetch = vi.fn();
+globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
 describe("patchManagementService", () => {
   beforeEach(() => {
@@ -104,7 +104,7 @@ describe("patchManagementService", () => {
         getList: mockGetList,
       });
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify({ packages: [] }),
       });

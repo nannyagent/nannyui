@@ -6,9 +6,10 @@ import { DisableMFADialog } from '@/components/DisableMFADialog';
 // Mock the auth service
 vi.mock('@/services/authService', () => ({
   disableMFA: vi.fn(),
+  getMFAFactors: vi.fn(),
 }));
 
-import { disableMFA } from '@/services/authService';
+import { disableMFA, getMFAFactors } from '@/services/authService';
 
 describe('DisableMFADialog', () => {
   const defaultProps = {
@@ -17,14 +18,21 @@ describe('DisableMFADialog', () => {
     onSuccess: vi.fn(),
   };
 
+  const mockFactorId = 'factor-123';
+
   beforeEach(() => {
     vi.clearAllMocks();
+    (getMFAFactors as any).mockResolvedValue([
+      { id: mockFactorId, factor_type: 'totp', status: 'verified' }
+    ]);
   });
 
   // Basic rendering tests
-  it('should render dialog when open is true', () => {
+  it('should render dialog when open is true', async () => {
     render(<DisableMFADialog {...defaultProps} />);
-    expect(screen.getByText('Disable Multi-Factor Authentication')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Disable Multi-Factor Authentication')).toBeInTheDocument();
+    });
   });
 
   it('should not render dialog when open is false', () => {
@@ -32,30 +40,46 @@ describe('DisableMFADialog', () => {
     expect(screen.queryByText('Disable Multi-Factor Authentication')).not.toBeInTheDocument();
   });
 
-  it('should display warning message', () => {
+  it('should display warning message', async () => {
     render(<DisableMFADialog {...defaultProps} />);
-    expect(screen.getByText(/Warning/i)).toBeInTheDocument();
-    expect(screen.getByText(/Disabling MFA will make your account less secure/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Warning/i)).toBeInTheDocument();
+      expect(screen.getByText(/Disabling MFA will make your account less secure/i)).toBeInTheDocument();
+    });
   });
 
-  it('should display confirmation message', () => {
+  it('should display code input field', async () => {
     render(<DisableMFADialog {...defaultProps} />);
-    expect(screen.getByText(/Are you sure you want to disable MFA/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/123456 or XXXX-XXXX/i)).toBeInTheDocument();
+    });
   });
 
   // Button tests
-  it('should have keep MFA enabled button', () => {
+  it('should have keep MFA enabled button', async () => {
     render(<DisableMFADialog {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /Keep MFA Enabled/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Keep MFA Enabled/i })).toBeInTheDocument();
+    });
   });
 
-  it('should have disable MFA button', () => {
+  it('should have disable MFA button', async () => {
     render(<DisableMFADialog {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /Disable MFA/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Disable MFA/i })).toBeInTheDocument();
+    });
+  });
+
+  it('should disable the disable button when no code entered', async () => {
+    render(<DisableMFADialog {...defaultProps} />);
+    await waitFor(() => {
+      const disableButton = screen.getByRole('button', { name: /Disable MFA$/i });
+      expect(disableButton).toBeDisabled();
+    });
   });
 
   // Functionality tests
-  it('should call disableMFA when disable button is clicked', async () => {
+  it('should call disableMFA with factorId and code when disable button is clicked', async () => {
     const user = userEvent.setup();
     (disableMFA as any).mockResolvedValue({
       data: { success: true },
@@ -63,12 +87,18 @@ describe('DisableMFADialog', () => {
     });
 
     render(<DisableMFADialog {...defaultProps} />);
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/123456 or XXXX-XXXX/i)).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText(/123456 or XXXX-XXXX/i);
+    await user.type(input, '123456');
 
     const disableButton = screen.getByRole('button', { name: /Disable MFA$/i });
     await user.click(disableButton);
 
     await waitFor(() => {
-      expect(disableMFA).toHaveBeenCalled();
+      expect(disableMFA).toHaveBeenCalledWith(mockFactorId, '123456');
     });
   });
 
@@ -80,6 +110,12 @@ describe('DisableMFADialog', () => {
     });
 
     render(<DisableMFADialog {...defaultProps} />);
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/123456 or XXXX-XXXX/i)).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText(/123456 or XXXX-XXXX/i);
+    await user.type(input, '123456');
 
     const disableButton = screen.getByRole('button', { name: /Disable MFA$/i });
     await user.click(disableButton);
@@ -98,6 +134,12 @@ describe('DisableMFADialog', () => {
     });
 
     render(<DisableMFADialog {...defaultProps} />);
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/123456 or XXXX-XXXX/i)).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText(/123456 or XXXX-XXXX/i);
+    await user.type(input, '123456');
 
     const disableButton = screen.getByRole('button', { name: /Disable MFA$/i });
     await user.click(disableButton);
@@ -112,6 +154,9 @@ describe('DisableMFADialog', () => {
     const user = userEvent.setup();
 
     render(<DisableMFADialog open={true} onOpenChange={onOpenChange} />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Keep MFA Enabled/i })).toBeInTheDocument();
+    });
 
     const keepButton = screen.getByRole('button', { name: /Keep MFA Enabled/i });
     await user.click(keepButton);
@@ -136,12 +181,18 @@ describe('DisableMFADialog', () => {
         onSuccess={onSuccess}
       />
     );
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/123456 or XXXX-XXXX/i)).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText(/123456 or XXXX-XXXX/i);
+    await user.type(input, '123456');
 
     const disableButton = screen.getByRole('button', { name: /Disable MFA$/i });
     await user.click(disableButton);
 
     await waitFor(() => {
-      expect(disableMFA).toHaveBeenCalled();
+      expect(disableMFA).toHaveBeenCalledWith(mockFactorId, '123456');
     });
 
     // Just check that the success message appears
@@ -156,6 +207,12 @@ describe('DisableMFADialog', () => {
     (disableMFA as any).mockImplementation(() => new Promise(() => {})); // Never resolves
 
     render(<DisableMFADialog {...defaultProps} />);
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/123456 or XXXX-XXXX/i)).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText(/123456 or XXXX-XXXX/i);
+    await user.type(input, '123456');
 
     const disableButton = screen.getByRole('button', { name: /Disable MFA$/i });
     await user.click(disableButton);
@@ -173,6 +230,12 @@ describe('DisableMFADialog', () => {
     (disableMFA as any).mockImplementation(() => new Promise(() => {})); // Never resolves
 
     render(<DisableMFADialog {...defaultProps} />);
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/123456 or XXXX-XXXX/i)).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText(/123456 or XXXX-XXXX/i);
+    await user.type(input, '123456');
 
     const disableButton = screen.getByRole('button', { name: /Disable MFA$/i });
     await user.click(disableButton);
@@ -194,6 +257,12 @@ describe('DisableMFADialog', () => {
     render(
       <DisableMFADialog open={true} onOpenChange={onOpenChange} />
     );
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/123456 or XXXX-XXXX/i)).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText(/123456 or XXXX-XXXX/i);
+    await user.type(input, '123456');
 
     const disableButton = screen.getByRole('button', { name: /Disable MFA$/i });
     await user.click(disableButton);
@@ -206,14 +275,18 @@ describe('DisableMFADialog', () => {
   });
 
   // Accessibility tests
-  it('should have proper accessibility structure', () => {
+  it('should have proper accessibility structure', async () => {
     render(<DisableMFADialog {...defaultProps} />);
-    expect(screen.getByRole('heading', { name: /Disable Multi-Factor Authentication/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /Disable Multi-Factor Authentication/i })).toBeInTheDocument();
+    });
   });
 
-  it('should have accessible dialog description', () => {
+  it('should have accessible dialog description', async () => {
     render(<DisableMFADialog {...defaultProps} />);
-    expect(screen.getByText('Remove MFA protection from your account')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Remove MFA protection from your account')).toBeInTheDocument();
+    });
   });
 
   // Props handling tests
@@ -230,6 +303,12 @@ describe('DisableMFADialog', () => {
         onOpenChange={vi.fn()}
       />
     );
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/123456 or XXXX-XXXX/i)).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText(/123456 or XXXX-XXXX/i);
+    await user.type(input, '123456');
 
     const disableButton = screen.getByRole('button', { name: /Disable MFA$/i });
     await user.click(disableButton);
@@ -253,6 +332,12 @@ describe('DisableMFADialog', () => {
       });
 
     render(<DisableMFADialog {...defaultProps} />);
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/123456 or XXXX-XXXX/i)).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText(/123456 or XXXX-XXXX/i);
+    await user.type(input, '123456');
 
     const disableButton = screen.getByRole('button', { name: /Disable MFA$/i });
     await user.click(disableButton);
@@ -281,6 +366,12 @@ describe('DisableMFADialog', () => {
     render(
       <DisableMFADialog open={true} onOpenChange={onOpenChange} />
     );
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/123456 or XXXX-XXXX/i)).toBeInTheDocument();
+    });
+
+    const input = screen.getByPlaceholderText(/123456 or XXXX-XXXX/i);
+    await user.type(input, '123456');
 
     const disableButton = screen.getByRole('button', { name: /Disable MFA$/i });
     await user.click(disableButton);
@@ -296,5 +387,26 @@ describe('DisableMFADialog', () => {
       },
       { timeout: 3000 }
     );
+  });
+
+  // Factor loading error test
+  it('should show error when factor loading fails', async () => {
+    (getMFAFactors as any).mockRejectedValue(new Error('Network error'));
+
+    render(<DisableMFADialog {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to fetch MFA factors/i)).toBeInTheDocument();
+    });
+  });
+
+  it('should show error when no TOTP factor found', async () => {
+    (getMFAFactors as any).mockResolvedValue([]);
+
+    render(<DisableMFADialog {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/No MFA factors found/i)).toBeInTheDocument();
+    });
   });
 });

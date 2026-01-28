@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Github, Mail } from 'lucide-react';
@@ -110,7 +109,7 @@ const Login = () => {
 
     try {
       setIsLoading(true);
-      const { user, error } = await signInWithEmail(email, password);
+      const { user, error, mfaRequired } = await signInWithEmail(email, password);
       
       if (error) {
         setIsError(true);
@@ -123,18 +122,18 @@ const Login = () => {
       }
 
       if (user) {
-        // Check if user has MFA enabled
-        const mfaEnabled = await isMFAEnabled();
-        
-        toast({
-          title: "Success",
-          description: "Signed in successfully!",
-        });
-        
-        // Redirect to MFA verification if enabled, otherwise to dashboard
-        if (mfaEnabled) {
+        // Check if MFA verification is required
+        if (mfaRequired) {
+          toast({
+            title: "MFA Required",
+            description: "Please complete two-factor authentication.",
+          });
           navigate('/mfa-verification');
         } else {
+          toast({
+            title: "Success",
+            description: "Signed in successfully!",
+          });
           navigate('/dashboard');
         }
       }

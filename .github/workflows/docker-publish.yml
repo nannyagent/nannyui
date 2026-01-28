@@ -37,6 +37,14 @@ jobs:
           tags: |
             type=raw,value=latest,enable=${{ !contains(github.ref, '-') }}
             type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+
+      - name: Debug metadata
+        run: |
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Labels: ${{ steps.meta.outputs.labels }}"
+          echo "Version: ${{ steps.meta.outputs.version }}"
 
       - name: Build and push Docker image
         id: build-and-push

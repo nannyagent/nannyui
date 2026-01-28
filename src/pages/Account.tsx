@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Calendar, Clock, CheckCircle, XCircle, Key, Shield, Smartphone } from 'lucide-react';
 import Navbar from '@/components/Navbar';
@@ -11,7 +10,7 @@ import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 import { MFASetupDialog } from '@/components/MFASetupDialog';
 import { DisableMFADialog } from '@/components/DisableMFADialog';
 import withAuth from '@/utils/withAuth';
-import { getCurrentUser, getCurrentSession, isMFAEnabled } from '@/services/authService';
+import { getCurrentUser, getCurrentSession, isMFAEnabled, getUserAuthProviders } from '@/services/authService';
 import type { UserRecord } from '@/integrations/pocketbase/types';
 
 // Extended user record to include fields not yet in the backend type definition
@@ -32,22 +31,27 @@ export const Account = () => {
   const [isMFASetupOpen, setIsMFASetupOpen] = useState(false);
   const [isDisableMFAOpen, setIsDisableMFAOpen] = useState(false);
   const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [authProviders, setAuthProviders] = useState<string[]>([]);
+  const [isOAuthUser, setIsOAuthUser] = useState(false);
 
   useEffect(() => {
     // Fetch user and session data from PocketBase
     const fetchAccountData = async () => {
       setLoading(true);
       try {
-        const [currentUser, currentToken, mfaStatus] = await Promise.all([
+        const [currentUser, currentToken, mfaStatus, providers] = await Promise.all([
           getCurrentUser(),
           getCurrentSession(),
-          isMFAEnabled()
+          isMFAEnabled(),
+          getUserAuthProviders()
         ]);
 
         if (currentUser && currentToken) {
           setUser(currentUser as ExtendedUserRecord);
           setToken(currentToken);
           setMfaEnabled(mfaStatus);
+          setAuthProviders(providers);
+          setIsOAuthUser(providers.length > 0);
           setHasError(false);
         } else {
           setHasError(true);
@@ -92,7 +96,8 @@ export const Account = () => {
   };
 
   const displayName = user?.name || user?.username || user?.email?.split('@')[0] || 'User';
-  const provider = 'email'; // PocketBase doesn't have provider metadata yet
+  // Determine the authentication provider - OAuth providers or 'email' for password login
+  const provider = authProviders.length > 0 ? authProviders.join(', ') : 'email';
 
   if (loading) {
     return (
@@ -346,25 +351,31 @@ export const Account = () => {
                           <div>
                             <h4 className="font-medium">Multi-Factor Authentication (MFA)</h4>
                             <p className="text-sm text-muted-foreground mt-1">
-                              {mfaEnabled ? 'MFA is enabled on your account' : 'Add an extra layer of security to your account'}
+                              {isOAuthUser 
+                                ? `MFA is managed by your OAuth provider (${provider}). Enable 2FA in your ${authProviders[0] ? authProviders[0].charAt(0).toUpperCase() + authProviders[0].slice(1) : 'provider'} account settings.`
+                                : mfaEnabled 
+                                  ? 'MFA is enabled on your account' 
+                                  : 'Add an extra layer of security to your account'}
                             </p>
                           </div>
-                          <div className="ml-4 flex gap-2">
-                            {mfaEnabled ? (
-                              <button onClick={() => setIsDisableMFAOpen(true)} className="py-1.5 px-4 text-sm border border-red-300 rounded-md text-red-600 hover:bg-red-50 transition-colors">
-                                Disable MFA
-                              </button>
-                            ) : (
-                              <button onClick={() => setIsMFASetupOpen(true)} className="py-1.5 px-4 text-sm border border-primary rounded-md text-primary hover:bg-primary/10 transition-colors">
-                                Enable MFA
-                              </button>
-                            )}
-                          </div>
+                          {!isOAuthUser && (
+                            <div className="ml-4 flex gap-2">
+                              {mfaEnabled ? (
+                                <button onClick={() => setIsDisableMFAOpen(true)} className="py-1.5 px-4 text-sm border border-red-300 rounded-md text-red-600 hover:bg-red-50 transition-colors">
+                                  Disable MFA
+                                </button>
+                              ) : (
+                                <button onClick={() => setIsMFASetupOpen(true)} className="py-1.5 px-4 text-sm border border-primary rounded-md text-primary hover:bg-primary/10 transition-colors">
+                                  Enable MFA
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
                     
-                    {provider === 'email' && (
+                    {!isOAuthUser && (
                       <div className="border-t border-border/40 pt-6 flex items-start">
                         <div className="flex-shrink-0">
                           <Key className="h-5 w-5 text-muted-foreground mt-0.5" />

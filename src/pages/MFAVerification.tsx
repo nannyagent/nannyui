@@ -4,7 +4,7 @@ import { Shield, AlertCircle, CheckCircle, Key, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import GlassMorphicCard from '@/components/GlassMorphicCard';
 import { useToast } from '@/hooks/use-toast';
-import { verifyMFALogin, verifyBackupCode, getCurrentUser } from '@/services/authService';
+import { verifyMFALogin, verifyBackupCode, getCurrentUser, getMFAFactors, createMFAChallenge } from '@/services/authService';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,18 +21,54 @@ const MFAVerification = () => {
   const [remainingCodes, setRemainingCodes] = useState<number | null>(null);
   const [showBackupCodeInfo, setShowBackupCodeInfo] = useState(false);
   const [activeTab, setActiveTab] = useState('totp');
+  const [factorId, setFactorId] = useState<string | null>(null);
+  const [challengeId, setChallengeId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [initError, setInitError] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is authenticated
-    const checkAuth = async () => {
-      const user = await getCurrentUser();
-      if (!user) {
-        navigate('/login');
+    // Initialize MFA: check auth, get factors, create challenge
+    const initMFA = async () => {
+      try {
+        setLoading(true);
+        setInitError(null);
+
+        // Check if user is authenticated
+        const user = await getCurrentUser();
+        if (!user) {
+          navigate('/login');
+          return;
+        }
+
+        // Get MFA factors
+        const factors = await getMFAFactors();
+        if (!factors || factors.length === 0) {
+          // No MFA factors - user shouldn't be here
+          navigate('/dashboard');
+          return;
+        }
+
+        const factor = factors[0];
+        setFactorId(factor.id);
+
+        // Create a challenge for this factor
+        const { data: challengeData, error: challengeError } = await createMFAChallenge(factor.id);
+        if (challengeError || !challengeData?.challengeId) {
+          setInitError('Failed to create MFA challenge. Please try logging in again.');
+          return;
+        }
+
+        setChallengeId(challengeData.challengeId);
+      } catch {
+        setInitError('Failed to initialize MFA verification. Please try logging in again.');
+      } finally {
+        setLoading(false);
       }
     };
-    checkAuth();
+
+    initMFA();
   }, [navigate]);
 
   const handleTotpInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,23 +89,21 @@ const MFAVerification = () => {
       return;
     }
 
+    if (!factorId || !challengeId) {
+      setTotpError('MFA session expired. Please login again.');
+      navigate('/login');
+      return;
+    }
+
     setVerifyingTotp(true);
     setTotpError('');
 
     try {
-      // Get current user to ensure we're authenticated
-      const user = await getCurrentUser();
-      if (!user) {
-        setTotpError('Session expired. Please login again.');
-        navigate('/login');
-        return;
-      }
-
-      // Verify the TOTP code using the MFA login function
-      const { data, error } = await verifyMFALogin(totpCode);
+      // Verify the TOTP code with factor_id and challenge_id
+      const { data, error } = await verifyMFALogin(totpCode, challengeId, factorId);
 
       if (error) {
-        setTotpError('Invalid TOTP code. Please try again.');
+        setTotpError(error.message || 'Invalid TOTP code. Please try again.');
         return;
       }
 
@@ -85,7 +119,7 @@ const MFAVerification = () => {
           navigate('/dashboard');
         }, 1500);
       } else {
-        setTotpError(data?.error || 'Invalid TOTP code. Please try again.');
+        setTotpError('Invalid TOTP code. Please try again.');
       }
     } catch {
       setTotpError('Failed to verify TOTP. Please try again.');
@@ -100,23 +134,30 @@ const MFAVerification = () => {
       return;
     }
 
+    if (!factorId || !challengeId) {
+      setBackupError('MFA session expired. Please login again.');
+      navigate('/login');
+      return;
+    }
+
     setVerifyingBackup(true);
     setBackupError('');
 
     try {
-      const { data, error } = await verifyBackupCode(backupCode);
+      // Verify backup code with factor_id and challenge_id
+      const { data, error } = await verifyBackupCode(backupCode, challengeId, factorId);
 
       if (error) {
-        setBackupError('Invalid or already used backup code. Please try again.');
+        setBackupError(error.message || 'Invalid or already used backup code. Please try again.');
         return;
       }
 
       if (data?.valid) {
         setBackupVerified(true);
-        setRemainingCodes(data.remaining ?? 0);
+        setRemainingCodes(data.remaining ?? null);
         toast({
           title: 'Success',
-          description: `Backup code verified! ${data.remaining ?? 0} codes remaining.`,
+          description: 'Backup code verified successfully!',
         });
 
         // Redirect to dashboard after a short delay
@@ -124,7 +165,7 @@ const MFAVerification = () => {
           navigate('/dashboard');
         }, 1500);
       } else {
-        setBackupError(data?.error || 'Invalid backup code');
+        setBackupError('Invalid backup code');
       }
     } catch {
       setBackupError('Failed to verify backup code. Please try again.');
@@ -144,6 +185,46 @@ const MFAVerification = () => {
       handleVerifyBackupCode();
     }
   };
+
+  const handleRetryLogin = () => {
+    navigate('/login');
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <main className="flex-1 flex items-center justify-center p-6">
+          <GlassMorphicCard className="w-full max-w-md mx-auto">
+            <div className="py-8 px-4 sm:px-6 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Preparing MFA verification...</p>
+            </div>
+          </GlassMorphicCard>
+        </main>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (initError) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <main className="flex-1 flex items-center justify-center p-6">
+          <GlassMorphicCard className="w-full max-w-md mx-auto">
+            <div className="py-8 px-4 sm:px-6 text-center">
+              <div className="bg-red-100 rounded-full p-4 mx-auto w-fit mb-4">
+                <AlertCircle className="h-8 w-8 text-red-600" />
+              </div>
+              <h2 className="text-lg font-semibold mb-2">MFA Verification Error</h2>
+              <p className="text-muted-foreground mb-4">{initError}</p>
+              <Button onClick={handleRetryLogin}>Return to Login</Button>
+            </div>
+          </GlassMorphicCard>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

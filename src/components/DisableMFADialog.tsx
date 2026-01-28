@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -8,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { AlertCircle, CheckCircle, Shield } from 'lucide-react';
-import { disableMFA } from '@/services/authService';
+import { disableMFA, getMFAFactors } from '@/services/authService';
 
 interface DisableMFADialogProps {
   open: boolean;
@@ -24,13 +25,55 @@ export const DisableMFADialog: React.FC<DisableMFADialogProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [code, setCode] = useState('');
+  const [factorId, setFactorId] = useState<string | null>(null);
+  const [loadingFactor, setLoadingFactor] = useState(false);
+
+  // Fetch the MFA factor when dialog opens
+  useEffect(() => {
+    const fetchFactor = async () => {
+      if (open && !factorId) {
+        setLoadingFactor(true);
+        try {
+          const factors = await getMFAFactors();
+          if (factors && factors.length > 0) {
+            setFactorId(factors[0].id);
+          } else {
+            setError('No MFA factors found');
+          }
+        } catch {
+          setError('Failed to fetch MFA factors');
+        } finally {
+          setLoadingFactor(false);
+        }
+      }
+    };
+    fetchFactor();
+  }, [open, factorId]);
+
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Allow both 6-digit TOTP codes and backup codes (XXXX-XXXX format)
+    const value = e.target.value.toUpperCase();
+    setCode(value);
+    setError(null);
+  };
 
   const handleDisableMFA = async () => {
+    if (!code.trim()) {
+      setError('Please enter your TOTP code or a backup code');
+      return;
+    }
+
+    if (!factorId) {
+      setError('MFA factor not found. Please try again.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const { error: disableError } = await disableMFA();
+      const { error: disableError } = await disableMFA(factorId, code);
 
       if (disableError) {
         setError(disableError.message || 'Failed to disable MFA');
@@ -47,6 +90,8 @@ export const DisableMFADialog: React.FC<DisableMFADialogProps> = ({
         setTimeout(() => {
           setConfirmed(false);
           setError(null);
+          setCode('');
+          setFactorId(null);
         }, 300);
       }, 2000);
     } catch (err) {
@@ -61,7 +106,14 @@ export const DisableMFADialog: React.FC<DisableMFADialogProps> = ({
       onOpenChange(newOpen);
       if (!newOpen) {
         setError(null);
+        setCode('');
       }
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && code.trim() && !loading) {
+      handleDisableMFA();
     }
   };
 
@@ -88,6 +140,10 @@ export const DisableMFADialog: React.FC<DisableMFADialogProps> = ({
               Multi-factor authentication has been removed from your account. Your account is now less secure.
             </p>
           </div>
+        ) : loadingFactor ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
         ) : (
           <div className="space-y-4">
             {error && (
@@ -105,11 +161,27 @@ export const DisableMFADialog: React.FC<DisableMFADialogProps> = ({
                   <p className="text-yellow-800 mb-2">
                     Disabling MFA will make your account less secure. Anyone who gains access to your password could compromise your account.
                   </p>
-                  <p className="text-yellow-800 font-semibold">
-                    Are you sure you want to disable MFA?
-                  </p>
                 </div>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Enter your TOTP code or a backup code to confirm
+              </label>
+              <Input
+                type="text"
+                value={code}
+                onChange={handleCodeChange}
+                onKeyPress={handleKeyPress}
+                placeholder="123456 or XXXX-XXXX"
+                className="font-mono text-center text-lg tracking-widest"
+                maxLength={10}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter your 6-digit authenticator code or one of your backup codes
+              </p>
             </div>
 
             <div className="flex gap-2 pt-4">
@@ -124,7 +196,7 @@ export const DisableMFADialog: React.FC<DisableMFADialogProps> = ({
               <Button
                 variant="destructive"
                 onClick={handleDisableMFA}
-                disabled={loading}
+                disabled={loading || !code.trim()}
                 className="flex-1"
               >
                 {loading ? (

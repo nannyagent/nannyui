@@ -1,60 +1,61 @@
-# Welcome to your Lovable project
+# NannyUI
 
-## Project info
+NannyUI is the web-based user interface for [NannyAgent](https://github.com/nannyagent/nannyagent) - an autonomous AI-powered infrastructure management platform. It provides a modern, responsive dashboard for managing agents, investigations, patching operations, and system monitoring.
 
-**URL**: https://lovable.dev/projects/729ae276-7ed7-46d4-af66-8efba5622954
+## Features
 
-## How can I edit this code?
+- **Dashboard**: Real-time overview of infrastructure health and agent status
+- **Agent Management**: Register, monitor, and manage NannyAgent instances
+- **Investigations**: AI-powered root cause analysis and issue investigation
+- **Patch Management**: Automated patching with scheduling and rollback capabilities
+- **Multi-Factor Authentication**: TOTP-based MFA for enhanced security
+- **Dark/Light Theme**: Adaptive UI with theme support
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+- **Framework**: React 19 with TypeScript
+- **Build Tool**: Vite
+- **UI Components**: shadcn/ui + Radix UI
+- **Styling**: Tailwind CSS
+- **Backend**: PocketBase / NannyAPI
+- **Testing**: Vitest + React Testing Library
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/729ae276-7ed7-46d4-af66-8efba5622954) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js 20+ (recommend using [nvm](https://github.com/nvm-sh/nvm))
+- npm or bun package manager
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+```bash
+# Clone the repository
+git clone https://github.com/nannyagent/nannyui.git
+cd nannyui
 
-Follow these steps:
+# Install dependencies
+npm install
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The application will be available at `http://localhost:5173`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment Variables
 
-**Use GitHub Codespaces**
+Create a `.env` file in the project root:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
+```env
+VITE_POCKETBASE_URL=http://localhost:8090
+```
 
 ## Documentation
 
-- [CI/CD & Deployment Guide](docs/CICD.md) - Learn about the build, test, and deployment pipelines.
-- [Project Documentation](docs/README.md) - General project documentation.
-
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- [CI/CD & Deployment Guide](docs/CICD.md) - Build, test, and deployment pipelines
+- [MFA Documentation](MFA.md) - Multi-Factor Authentication setup and API reference
+- [Project Documentation](docs/README.md) - General project documentation
 
 ## Docker Deployment
 
@@ -95,20 +96,58 @@ To enable this:
     *   `DOCKER_PASSWORD`: Your Docker Hub access token (not password).
 
 
-## What technologies are used for this project?
+## Development
 
-This project is built with .
+### Available Scripts
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run preview      # Preview production build
+npm run test         # Run tests
+npm run lint         # Run ESLint
+```
 
-## How can I deploy this project?
+### Project Structure
 
-Simply open [Lovable](https://lovable.dev/projects/729ae276-7ed7-46d4-af66-8efba5622954) and click on Share -> Publish.
+```
+src/
+├── components/      # React components
+│   ├── ui/          # shadcn/ui base components
+│   └── ...          # Feature components
+├── contexts/        # React contexts (Auth, etc.)
+├── hooks/           # Custom React hooks
+├── pages/           # Page components
+├── services/        # API service functions
+├── integrations/    # External integrations (PocketBase)
+└── utils/           # Utility functions
+```
 
-## I want to use a custom domain - is that possible?
+## Deployment Options
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+### Docker (Recommended)
+
+See the Docker Deployment section above.
+
+### Cloudflare Pages
+
+The project is configured for automatic deployment to Cloudflare Pages on push to main.
+
+### Manual Deployment
+
+```bash
+npm run build
+# Deploy the contents of the `dist` folder to your hosting provider
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
