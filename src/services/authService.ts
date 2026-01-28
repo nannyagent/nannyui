@@ -1,4 +1,4 @@
-import { pb } from '@/integrations/pocketbase/client';
+import { pb, getPocketBaseUrl } from '@/integrations/pocketbase/client';
 import type { UserRecord } from '@/integrations/pocketbase/types';
 import { fetchWithTimeout } from '@/utils/fetchUtils';
 
@@ -60,7 +60,7 @@ export const signInWithEmail = async (
 
     // After successful password auth, check if user has MFA factors
     // The token is now valid, so we can check MFA status
-    const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+    const baseUrl = getPocketBaseUrl();
     let mfaRequired = false;
     
     try {
@@ -281,7 +281,7 @@ export const setupMFA = async (friendlyName?: string) => {
       return { data: null, error: { message: 'No authentication token available' } };
     }
 
-    const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+    const baseUrl = getPocketBaseUrl();
     const response = await fetchWithTimeout(`${baseUrl}/api/mfa/enroll`, {
       method: 'POST',
       headers: {
@@ -330,7 +330,7 @@ export const verifyTOTPCode = async (code: string, factorId: string) => {
       return { data: null, error: { message: 'No authentication token available' } };
     }
 
-    const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+    const baseUrl = getPocketBaseUrl();
     const response = await fetchWithTimeout(`${baseUrl}/api/mfa/enroll/verify`, {
       method: 'POST',
       headers: {
@@ -381,7 +381,7 @@ export const disableMFA = async (factorId: string, code: string) => {
       return { data: null, error: { message: 'No authentication token available' } };
     }
 
-    const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+    const baseUrl = getPocketBaseUrl();
     const response = await fetchWithTimeout(`${baseUrl}/api/mfa/unenroll`, {
       method: 'POST',
       headers: {
@@ -428,7 +428,7 @@ export const getMFAFactors = async () => {
       return [];
     }
 
-    const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+    const baseUrl = getPocketBaseUrl();
     const response = await fetchWithTimeout(`${baseUrl}/api/mfa/factors`, {
       method: 'GET',
       headers: {
@@ -450,17 +450,19 @@ export const getMFAFactors = async () => {
 
 /**
  * Get MFA backup codes for the current user
- * Note: Uses POST as required by the backend API (generates new codes if none exist)
- * The API only returns unused backup codes - used codes are not included in the response
+ * 
+ * Note: Uses POST as required by the backend API (generates new codes if none exist).
+ * The API only returns unused/valid backup codes - used codes are excluded from the response.
+ * Therefore, all codes returned are guaranteed to be unused and valid for MFA verification.
  */
-export const getMFABackupCodes = async (): Promise<{ codes: Array<{ code: string; used: boolean }>; unusedCount: number } | null> => {
+export const getMFABackupCodes = async (): Promise<{ codes: string[]; count: number } | null> => {
   try {
     const token = await getCurrentSession();
     if (!token) {
       return null;
     }
 
-    const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+    const baseUrl = getPocketBaseUrl();
     // POST is required by the backend API - it generates backup codes if needed
     const response = await fetchWithTimeout(`${baseUrl}/api/mfa/backup-codes`, {
       method: 'POST',
@@ -474,12 +476,11 @@ export const getMFABackupCodes = async (): Promise<{ codes: Array<{ code: string
     }
 
     const data = await response.json();
-    // API returns only unused backup codes in the codes array
-    // Used codes are excluded from the response, so all returned codes are valid
-    const codes = data.codes || [];
+    // API returns only unused backup codes - used codes are excluded from response
+    const codes: string[] = data.codes || [];
     return {
-      codes: codes.map((c: string) => ({ code: c, used: false })),
-      unusedCount: codes.length,
+      codes,
+      count: codes.length,
     };
   } catch {
     return null;
@@ -500,7 +501,7 @@ export const verifyBackupCode = async (code: string, challengeId: string, factor
       return { data: null, error: { message: 'No authentication token available' } };
     }
 
-    const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+    const baseUrl = getPocketBaseUrl();
     const response = await fetchWithTimeout(`${baseUrl}/api/mfa/verify`, {
       method: 'POST',
       headers: {
@@ -539,7 +540,7 @@ export const verifyBackupCode = async (code: string, challengeId: string, factor
 export const getRemainingBackupCodes = async (): Promise<number | null> => {
   try {
     const backupData = await getMFABackupCodes();
-    return backupData?.unusedCount ?? null;
+    return backupData?.count ?? null;
   } catch {
     return null;
   }
@@ -555,7 +556,7 @@ export const regenerateBackupCodes = async (code: string) => {
       return { data: null, error: { message: 'No authentication token available' } };
     }
 
-    const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+    const baseUrl = getPocketBaseUrl();
     const response = await fetchWithTimeout(`${baseUrl}/api/mfa/backup-codes/regenerate`, {
       method: 'POST',
       headers: {
@@ -593,7 +594,7 @@ export const createMFAChallenge = async (factorId: string) => {
       return { data: null, error: { message: 'No authentication token available' } };
     }
 
-    const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+    const baseUrl = getPocketBaseUrl();
     const response = await fetchWithTimeout(`${baseUrl}/api/mfa/challenge`, {
       method: 'POST',
       headers: {
@@ -635,7 +636,7 @@ export const verifyMFALogin = async (code: string, challengeId: string, factorId
       return { data: null, error: { message: 'No authentication token available' } };
     }
 
-    const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+    const baseUrl = getPocketBaseUrl();
     const response = await fetchWithTimeout(`${baseUrl}/api/mfa/verify`, {
       method: 'POST',
       headers: {
@@ -678,7 +679,7 @@ export const getMFAAssuranceLevel = async () => {
       return { data: null, error: { message: 'No authentication token available' } };
     }
 
-    const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+    const baseUrl = getPocketBaseUrl();
     const response = await fetchWithTimeout(`${baseUrl}/api/mfa/assurance-level`, {
       method: 'GET',
       headers: {

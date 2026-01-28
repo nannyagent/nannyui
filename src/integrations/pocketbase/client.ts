@@ -2,6 +2,8 @@ import PocketBase from 'pocketbase';
 
 const POCKETBASE_URL = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
 
+export const getPocketBaseUrl = () => POCKETBASE_URL;
+
 export const pb = new PocketBase(POCKETBASE_URL);
 
 // Helper to check if user is authenticated

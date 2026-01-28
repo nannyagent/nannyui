@@ -27,6 +27,12 @@ import {
 } from "./authService";
 import { pb } from "@/integrations/pocketbase/client";
 
+// Mock fetchWithTimeout utility
+const mockFetchWithTimeout = vi.fn();
+vi.mock("@/utils/fetchUtils", () => ({
+  fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
+}));
+
 // Mock dependencies
 vi.mock("@/integrations/pocketbase/client", () => ({
   pb: {
@@ -40,14 +46,15 @@ vi.mock("@/integrations/pocketbase/client", () => ({
       onChange: vi.fn(),
     },
   },
+  getPocketBaseUrl: () => 'http://localhost:8090',
 }));
 
 describe("authService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     
-    // Mock fetch for MFA factors check
-    globalThis.fetch = vi.fn().mockResolvedValue({
+    // Reset fetchWithTimeout mock to default (no MFA factors)
+    mockFetchWithTimeout.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ totp: [] }),
     });
@@ -87,8 +94,8 @@ describe("authService", () => {
     });
 
     it("should sign in user with MFA required", async () => {
-      // Mock fetch to return verified TOTP factor
-      globalThis.fetch = vi.fn().mockResolvedValue({
+      // Mock fetchWithTimeout to return verified TOTP factor
+      mockFetchWithTimeout.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({
           totp: [{ id: "factor-123", status: "verified" }],
@@ -99,6 +106,17 @@ describe("authService", () => {
       expect(result.user).not.toBeNull();
       expect(result.token).not.toBeNull();
       expect(result.mfaRequired).toBe(true);
+      
+      // Verify the MFA factors API endpoint was called with correct parameters
+      expect(mockFetchWithTimeout).toHaveBeenCalledWith(
+        expect.stringContaining('/api/mfa/factors'),
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer token-123'
+          })
+        })
+      );
     });
   });
 
@@ -180,15 +198,12 @@ describe("authService", () => {
   });
 
   describe("MFA functions", () => {
-    const mockFetch = vi.fn();
-    
     beforeEach(() => {
-      vi.stubGlobal('fetch', mockFetch);
-      mockFetch.mockReset();
+      mockFetchWithTimeout.mockReset();
     });
 
     it("should handle setupMFA success", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
           factor_id: 'factor-123',
@@ -205,7 +220,7 @@ describe("authService", () => {
     });
 
     it("should handle setupMFA error", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: false,
         json: () => Promise.resolve({ message: 'Failed to setup MFA' }),
       });
@@ -215,7 +230,7 @@ describe("authService", () => {
     });
 
     it("should handle verifyTOTPCode success", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
           codes: ['CODE1', 'CODE2'],
@@ -228,7 +243,7 @@ describe("authService", () => {
     });
 
     it("should handle verifyTOTPCode error", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: false,
         json: () => Promise.resolve({ message: 'Invalid code' }),
       });
@@ -238,7 +253,7 @@ describe("authService", () => {
     });
 
     it("should handle confirmMFASetup (wrapper for verifyTOTPCode)", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ codes: [] }),
       });
@@ -248,7 +263,7 @@ describe("authService", () => {
     });
 
     it("should handle disableMFA success", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ success: true }),
       });
@@ -258,7 +273,7 @@ describe("authService", () => {
     });
 
     it("should handle disableMFA error", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: false,
         json: () => Promise.resolve({ message: 'Invalid code' }),
       });
@@ -268,7 +283,7 @@ describe("authService", () => {
     });
 
     it("should handle isMFAEnabled when factors exist", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
           totp: [{ id: 'factor-123', status: 'verified' }],
@@ -280,7 +295,7 @@ describe("authService", () => {
     });
 
     it("should handle isMFAEnabled when no factors", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ totp: [] }),
       });
@@ -290,7 +305,7 @@ describe("authService", () => {
     });
 
     it("should handle getMFAFactors success", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
           totp: [{ id: 'factor-123', factor_type: 'totp', status: 'verified' }],
@@ -303,7 +318,7 @@ describe("authService", () => {
     });
 
     it("should handle getMFAFactors error", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: false,
       });
 
@@ -312,7 +327,7 @@ describe("authService", () => {
     });
 
     it("should handle verifyMFALogin success", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
           success: true,
@@ -326,7 +341,7 @@ describe("authService", () => {
     });
 
     it("should handle verifyMFALogin error", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: false,
         json: () => Promise.resolve({ message: 'Invalid code' }),
       });
@@ -336,7 +351,7 @@ describe("authService", () => {
     });
 
     it("should handle verifyBackupCode success", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
           success: true,
@@ -350,7 +365,7 @@ describe("authService", () => {
     });
 
     it("should handle verifyBackupCode error", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: false,
         json: () => Promise.resolve({ message: 'Invalid backup code' }),
       });
@@ -360,7 +375,7 @@ describe("authService", () => {
     });
 
     it("should handle createMFAChallenge success", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ challenge_id: 'challenge-123' }),
       });
@@ -370,7 +385,7 @@ describe("authService", () => {
     });
 
     it("should handle createMFAChallenge error", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: false,
         json: () => Promise.resolve({ message: 'Factor not found' }),
       });
@@ -380,7 +395,7 @@ describe("authService", () => {
     });
 
     it("should handle regenerateBackupCodes success", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
           codes: ['NEW-CODE-1', 'NEW-CODE-2'],
@@ -392,7 +407,7 @@ describe("authService", () => {
     });
 
     it("should handle regenerateBackupCodes error", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: false,
         json: () => Promise.resolve({ message: 'Invalid TOTP code' }),
       });
@@ -402,7 +417,7 @@ describe("authService", () => {
     });
 
     it("should handle getMFAAssuranceLevel success", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
           current_level: 'aal1',
@@ -417,7 +432,7 @@ describe("authService", () => {
     });
 
     it("should handle getMFAAssuranceLevel error", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: false,
       });
 
@@ -426,7 +441,7 @@ describe("authService", () => {
     });
 
     it("should handle getRemainingBackupCodes", async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockFetchWithTimeout.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
           codes: ['CODE1', 'CODE2', 'CODE3', 'CODE4', 'CODE5', 'CODE6', 'CODE7', 'CODE8'],
