@@ -124,14 +124,12 @@ const Login = () => {
       if (user) {
         // Check if MFA verification is required
         if (mfaRequired) {
-          console.log('[Login] MFA required, redirecting to verification page');
           toast({
             title: "MFA Required",
             description: "Please complete two-factor authentication.",
           });
           navigate('/mfa-verification');
         } else {
-          console.log('[Login] No MFA required, redirecting to dashboard');
           toast({
             title: "Success",
             description: "Signed in successfully!",

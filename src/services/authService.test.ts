@@ -320,7 +320,7 @@ describe("authService", () => {
         }),
       });
 
-      const result = await verifyMFALogin('123456', 'challenge-123');
+      const result = await verifyMFALogin('123456', 'challenge-123', 'factor-123');
       expect(result.data?.valid).toBe(true);
       expect(result.data?.assuranceLevel).toBe('aal2');
     });
@@ -331,7 +331,7 @@ describe("authService", () => {
         json: () => Promise.resolve({ message: 'Invalid code' }),
       });
 
-      const result = await verifyMFALogin('000000');
+      const result = await verifyMFALogin('000000', 'challenge-123', 'factor-123');
       expect(result.error).not.toBeNull();
     });
 
@@ -344,7 +344,7 @@ describe("authService", () => {
         }),
       });
 
-      const result = await verifyBackupCode('BACKUP-CODE', 'challenge-123');
+      const result = await verifyBackupCode('BACKUP-CODE', 'challenge-123', 'factor-123');
       expect(result.data?.valid).toBe(true);
       expect(result.data?.assuranceLevel).toBe('aal2');
     });
@@ -355,7 +355,7 @@ describe("authService", () => {
         json: () => Promise.resolve({ message: 'Invalid backup code' }),
       });
 
-      const result = await verifyBackupCode('INVALID');
+      const result = await verifyBackupCode('INVALID', 'challenge-123', 'factor-123');
       expect(result.error).not.toBeNull();
     });
 

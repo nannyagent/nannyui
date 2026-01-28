@@ -352,7 +352,7 @@ export const Account = () => {
                             <h4 className="font-medium">Multi-Factor Authentication (MFA)</h4>
                             <p className="text-sm text-muted-foreground mt-1">
                               {isOAuthUser 
-                                ? `MFA is managed by your OAuth provider (${provider}). Enable 2FA in your ${authProviders[0]?.charAt(0).toUpperCase() + authProviders[0]?.slice(1) || 'provider'} account settings.`
+                                ? `MFA is managed by your OAuth provider (${provider}). Enable 2FA in your ${authProviders[0] ? authProviders[0].charAt(0).toUpperCase() + authProviders[0].slice(1) : 'provider'} account settings.`
                                 : mfaEnabled 
                                   ? 'MFA is enabled on your account' 
                                   : 'Add an extra layer of security to your account'}

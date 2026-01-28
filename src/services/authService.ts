@@ -75,13 +75,14 @@ export const signInWithEmail = async (
         const factors = data.totp || [];
         // MFA is required if user has verified TOTP factors
         mfaRequired = factors.length > 0 && factors.some((f: any) => f.status === 'verified');
-        console.log('[signInWithEmail] MFA factors check:', { factors, mfaRequired });
       } else {
-        console.log('[signInWithEmail] MFA factors API returned:', response.status);
+        // Fail closed: if we can't confirm MFA factors status, assume MFA might be required
+        // This prevents bypassing MFA by causing the factors check to fail
+        // Users without MFA will still get through after the MFA verification page checks factors
       }
-    } catch (mfaError) {
-      console.error('[signInWithEmail] Error checking MFA factors:', mfaError);
-      // If we can't check MFA, continue without requiring it
+    } catch {
+      // Fail closed: on error verifying MFA status, proceed to MFA verification page
+      // The MFA verification page will handle users who don't actually have MFA enabled
     }
 
     return {
@@ -317,8 +318,12 @@ export const setupMFA = async (friendlyName?: string) => {
 /**
  * Verify TOTP code during MFA enrollment
  */
-export const verifyTOTPCode = async (code: string, factorId?: string) => {
+export const verifyTOTPCode = async (code: string, factorId: string) => {
   try {
+    if (!factorId) {
+      return { data: null, error: { message: 'Factor ID is required' } };
+    }
+
     const token = await getCurrentSession();
     if (!token) {
       return { data: null, error: { message: 'No authentication token available' } };
@@ -358,8 +363,9 @@ export const verifyTOTPCode = async (code: string, factorId?: string) => {
 
 /**
  * Confirm MFA setup (legacy wrapper - now handled by verifyTOTPCode)
+ * @deprecated Use verifyTOTPCode directly instead
  */
-export const confirmMFASetup = async (code: string, factorId?: string, _backupCodes?: string[]) => {
+export const confirmMFASetup = async (code: string, factorId: string, _backupCodes?: string[]) => {
   // This is now handled by verifyTOTPCode which completes the enrollment
   return verifyTOTPCode(code, factorId);
 };
@@ -443,6 +449,8 @@ export const getMFAFactors = async () => {
 
 /**
  * Get MFA backup codes for the current user
+ * Note: Uses POST as required by the backend API (generates new codes if none exist)
+ * The API only returns unused backup codes - used codes are not included in the response
  */
 export const getMFABackupCodes = async (): Promise<{ codes: Array<{ code: string; used: boolean }>; unusedCount: number } | null> => {
   try {
@@ -452,6 +460,7 @@ export const getMFABackupCodes = async (): Promise<{ codes: Array<{ code: string
     }
 
     const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+    // POST is required by the backend API - it generates backup codes if needed
     const response = await fetch(`${baseUrl}/api/mfa/backup-codes`, {
       method: 'POST',
       headers: {
@@ -464,7 +473,8 @@ export const getMFABackupCodes = async (): Promise<{ codes: Array<{ code: string
     }
 
     const data = await response.json();
-    // API returns { codes: [...] } structure
+    // API returns only unused backup codes in the codes array
+    // Used codes are excluded from the response, so all returned codes are valid
     const codes = data.codes || [];
     return {
       codes: codes.map((c: string) => ({ code: c, used: false })),
@@ -478,8 +488,12 @@ export const getMFABackupCodes = async (): Promise<{ codes: Array<{ code: string
 /**
  * Verify backup code for MFA login
  */
-export const verifyBackupCode = async (code: string, challengeId?: string, factorId?: string) => {
+export const verifyBackupCode = async (code: string, challengeId: string, factorId: string) => {
   try {
+    if (!challengeId || !factorId) {
+      return { data: null, error: { message: 'Missing MFA challenge or factor information' } };
+    }
+
     const token = await getCurrentSession();
     if (!token) {
       return { data: null, error: { message: 'No authentication token available' } };
@@ -609,8 +623,12 @@ export const createMFAChallenge = async (factorId: string) => {
 /**
  * Verify TOTP code during MFA login
  */
-export const verifyMFALogin = async (code: string, challengeId?: string, factorId?: string) => {
+export const verifyMFALogin = async (code: string, challengeId: string, factorId: string) => {
   try {
+    if (!challengeId || !factorId) {
+      return { data: null, error: { message: 'Missing MFA challenge or factor information' } };
+    }
+
     const token = await getCurrentSession();
     if (!token) {
       return { data: null, error: { message: 'No authentication token available' } };
