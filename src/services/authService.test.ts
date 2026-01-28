@@ -18,6 +18,12 @@ import {
   verifyBackupCode,
   isMFAEnabled,
   getRemainingBackupCodes,
+  getMFAFactors,
+  createMFAChallenge,
+  regenerateBackupCodes,
+  getMFAAssuranceLevel,
+  getUserAuthProviders,
+  isOAuthUser,
 } from "./authService";
 import { pb } from "@/integrations/pocketbase/client";
 
@@ -40,6 +46,12 @@ describe("authService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     
+    // Mock fetch for MFA factors check
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ totp: [] }),
+    });
+    
     // Reset collection mock to default success state
     (pb.collection as any).mockReturnValue({
       create: vi.fn().mockResolvedValue({ id: "user-123", email: "test@example.com" }),
@@ -53,6 +65,7 @@ describe("authService", () => {
       }),
       requestPasswordReset: vi.fn().mockResolvedValue(true),
       update: vi.fn().mockResolvedValue({ id: "user-123" }),
+      listExternalAuths: vi.fn().mockResolvedValue([]),
     });
   });
 
@@ -65,11 +78,27 @@ describe("authService", () => {
   });
 
   describe("signInWithEmail", () => {
-    it("should sign in user", async () => {
+    it("should sign in user without MFA", async () => {
       const result = await signInWithEmail("test@example.com", "password");
       expect(result.user).not.toBeNull();
       expect(result.token).not.toBeNull();
+      expect(result.mfaRequired).toBe(false);
       expect(pb.collection).toHaveBeenCalledWith("users");
+    });
+
+    it("should sign in user with MFA required", async () => {
+      // Mock fetch to return verified TOTP factor
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          totp: [{ id: "factor-123", status: "verified" }],
+        }),
+      });
+
+      const result = await signInWithEmail("test@example.com", "password");
+      expect(result.user).not.toBeNull();
+      expect(result.token).not.toBeNull();
+      expect(result.mfaRequired).toBe(true);
     });
   });
 
@@ -96,15 +125,316 @@ describe("authService", () => {
     });
   });
 
-  describe("MFA placeholders", () => {
-    it("should handle setupMFA", async () => {
+  describe("getUserAuthProviders", () => {
+    it("should return empty array when no external auths", async () => {
+      (pb.collection as any).mockReturnValue({
+        listExternalAuths: vi.fn().mockResolvedValue([]),
+      });
+
+      const providers = await getUserAuthProviders();
+      expect(providers).toEqual([]);
+    });
+
+    it("should return provider names when external auths exist", async () => {
+      (pb.collection as any).mockReturnValue({
+        listExternalAuths: vi.fn().mockResolvedValue([
+          { provider: 'github' },
+          { provider: 'google' },
+        ]),
+      });
+
+      const providers = await getUserAuthProviders();
+      expect(providers).toEqual(['github', 'google']);
+    });
+
+    it("should return empty array on error", async () => {
+      (pb.collection as any).mockReturnValue({
+        listExternalAuths: vi.fn().mockRejectedValue(new Error("Failed")),
+      });
+
+      const providers = await getUserAuthProviders();
+      expect(providers).toEqual([]);
+    });
+  });
+
+  describe("isOAuthUser", () => {
+    it("should return false when no external auths", async () => {
+      (pb.collection as any).mockReturnValue({
+        listExternalAuths: vi.fn().mockResolvedValue([]),
+      });
+
+      const result = await isOAuthUser();
+      expect(result).toBe(false);
+    });
+
+    it("should return true when external auths exist", async () => {
+      (pb.collection as any).mockReturnValue({
+        listExternalAuths: vi.fn().mockResolvedValue([
+          { provider: 'github' },
+        ]),
+      });
+
+      const result = await isOAuthUser();
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("MFA functions", () => {
+    const mockFetch = vi.fn();
+    
+    beforeEach(() => {
+      vi.stubGlobal('fetch', mockFetch);
+      mockFetch.mockReset();
+    });
+
+    it("should handle setupMFA success", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          factor_id: 'factor-123',
+          totp_secret: 'TOTP_SECRET',
+          totp_uri: 'otpauth://totp/test',
+          qr_code_base64: 'data:image/png;base64,abc',
+        }),
+      });
+
+      const result = await setupMFA('My Phone');
+      expect(result.data).not.toBeNull();
+      expect(result.data?.factorId).toBe('factor-123');
+      expect(result.data?.secret).toBe('TOTP_SECRET');
+    });
+
+    it("should handle setupMFA error", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ message: 'Failed to setup MFA' }),
+      });
+
       const result = await setupMFA();
+      expect(result.error).not.toBeNull();
+    });
+
+    it("should handle verifyTOTPCode success", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          codes: ['CODE1', 'CODE2'],
+        }),
+      });
+
+      const result = await verifyTOTPCode('123456', 'factor-123');
+      expect(result.data?.valid).toBe(true);
+      expect(result.data?.backupCodes).toHaveLength(2);
+    });
+
+    it("should handle verifyTOTPCode error", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ message: 'Invalid code' }),
+      });
+
+      const result = await verifyTOTPCode('000000', 'factor-123');
+      expect(result.error).not.toBeNull();
+    });
+
+    it("should handle confirmMFASetup (wrapper for verifyTOTPCode)", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ codes: [] }),
+      });
+
+      const result = await confirmMFASetup('123456', 'factor-123');
       expect(result.data).not.toBeNull();
     });
 
-    it("should handle isMFAEnabled", async () => {
+    it("should handle disableMFA success", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true }),
+      });
+
+      const result = await disableMFA('factor-123', '123456');
+      expect(result.data?.success).toBe(true);
+    });
+
+    it("should handle disableMFA error", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ message: 'Invalid code' }),
+      });
+
+      const result = await disableMFA('factor-123', '000000');
+      expect(result.error).not.toBeNull();
+    });
+
+    it("should handle isMFAEnabled when factors exist", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          totp: [{ id: 'factor-123', status: 'verified' }],
+        }),
+      });
+
+      const result = await isMFAEnabled();
+      expect(result).toBe(true);
+    });
+
+    it("should handle isMFAEnabled when no factors", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ totp: [] }),
+      });
+
       const result = await isMFAEnabled();
       expect(result).toBe(false);
+    });
+
+    it("should handle getMFAFactors success", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          totp: [{ id: 'factor-123', factor_type: 'totp', status: 'verified' }],
+        }),
+      });
+
+      const result = await getMFAFactors();
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('factor-123');
+    });
+
+    it("should handle getMFAFactors error", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+      });
+
+      const result = await getMFAFactors();
+      expect(result).toEqual([]);
+    });
+
+    it("should handle verifyMFALogin success", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          success: true,
+          aal: 'aal2',
+        }),
+      });
+
+      const result = await verifyMFALogin('123456', 'challenge-123');
+      expect(result.data?.valid).toBe(true);
+      expect(result.data?.assuranceLevel).toBe('aal2');
+    });
+
+    it("should handle verifyMFALogin error", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ message: 'Invalid code' }),
+      });
+
+      const result = await verifyMFALogin('000000');
+      expect(result.error).not.toBeNull();
+    });
+
+    it("should handle verifyBackupCode success", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          success: true,
+          aal: 'aal2',
+        }),
+      });
+
+      const result = await verifyBackupCode('BACKUP-CODE', 'challenge-123');
+      expect(result.data?.valid).toBe(true);
+      expect(result.data?.assuranceLevel).toBe('aal2');
+    });
+
+    it("should handle verifyBackupCode error", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ message: 'Invalid backup code' }),
+      });
+
+      const result = await verifyBackupCode('INVALID');
+      expect(result.error).not.toBeNull();
+    });
+
+    it("should handle createMFAChallenge success", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ challenge_id: 'challenge-123' }),
+      });
+
+      const result = await createMFAChallenge('factor-123');
+      expect(result.data?.challengeId).toBe('challenge-123');
+    });
+
+    it("should handle createMFAChallenge error", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ message: 'Factor not found' }),
+      });
+
+      const result = await createMFAChallenge('invalid-factor');
+      expect(result.error).not.toBeNull();
+    });
+
+    it("should handle regenerateBackupCodes success", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          codes: ['NEW-CODE-1', 'NEW-CODE-2'],
+        }),
+      });
+
+      const result = await regenerateBackupCodes('123456');
+      expect(result.data?.backupCodes).toHaveLength(2);
+    });
+
+    it("should handle regenerateBackupCodes error", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ message: 'Invalid TOTP code' }),
+      });
+
+      const result = await regenerateBackupCodes('000000');
+      expect(result.error).not.toBeNull();
+    });
+
+    it("should handle getMFAAssuranceLevel success", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          current_level: 'aal1',
+          next_level: 'aal2',
+          mfa_enabled: true,
+        }),
+      });
+
+      const result = await getMFAAssuranceLevel();
+      expect(result.data?.currentLevel).toBe('aal1');
+      expect(result.data?.mfaEnabled).toBe(true);
+    });
+
+    it("should handle getMFAAssuranceLevel error", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+      });
+
+      const result = await getMFAAssuranceLevel();
+      expect(result.error).not.toBeNull();
+    });
+
+    it("should handle getRemainingBackupCodes", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          codes: ['CODE1', 'CODE2', 'CODE3', 'CODE4', 'CODE5', 'CODE6', 'CODE7', 'CODE8'],
+        }),
+      });
+
+      const result = await getRemainingBackupCodes();
+      expect(result).toBe(8);
     });
   });
 

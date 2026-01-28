@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MFAVerification from './MFAVerification';
 import * as authService from '@/services/authService';
@@ -15,6 +15,8 @@ vi.mock('@/services/authService', () => ({
   verifyBackupCode: vi.fn(),
   getRemainingBackupCodes: vi.fn(),
   getCurrentUser: vi.fn(),
+  getMFAFactors: vi.fn(),
+  createMFAChallenge: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
@@ -31,6 +33,8 @@ vi.mock('@/components/ErrorBanner', () => ({
 
 describe('MFAVerification Component', () => {
   const mockNavigate = vi.fn();
+  const mockFactorId = 'factor-123';
+  const mockChallengeId = 'challenge-456';
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -39,24 +43,37 @@ describe('MFAVerification Component', () => {
       id: 'test-user',
       email: 'test@example.com',
     });
+    (authService.getMFAFactors as any).mockResolvedValue([
+      { id: mockFactorId, factor_type: 'totp', status: 'verified' }
+    ]);
+    (authService.createMFAChallenge as any).mockResolvedValue({
+      data: { challengeId: mockChallengeId },
+      error: null,
+    });
   });
 
   describe('Page Rendering', () => {
-    it('should display Two-Factor Authentication title', () => {
+    it('should display Two-Factor Authentication title after loading', async () => {
       render(<MFAVerification />);
-      expect(screen.getByText('Two-Factor Authentication')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Two-Factor Authentication')).toBeInTheDocument();
+      });
     });
 
-    it('should display Authenticator and Backup Code tabs', () => {
+    it('should display Authenticator and Backup Code tabs', async () => {
       render(<MFAVerification />);
-      expect(screen.getByRole('tab', { name: /Authenticator/i })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /Backup Code/i })).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /Authenticator/i })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: /Backup Code/i })).toBeInTheDocument();
+      });
     });
 
-    it('should display support contact link', () => {
+    it('should display support contact link', async () => {
       render(<MFAVerification />);
-      const link = screen.getByRole('link', { name: /support@nannyai.dev/i });
-      expect(link).toHaveAttribute('href', 'mailto:support@nannyai.dev');
+      await waitFor(() => {
+        const link = screen.getByRole('link', { name: /support@nannyai.dev/i });
+        expect(link).toHaveAttribute('href', 'mailto:support@nannyai.dev');
+      });
     });
   });
 
@@ -64,6 +81,9 @@ describe('MFAVerification Component', () => {
     it('should only accept numeric characters', async () => {
       const user = userEvent.setup();
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('000000')).toBeInTheDocument();
+      });
       const input = screen.getByPlaceholderText('000000') as HTMLInputElement;
       
       await user.type(input, 'abc123xyz');
@@ -73,14 +93,20 @@ describe('MFAVerification Component', () => {
     it('should limit to 6 digits', async () => {
       const user = userEvent.setup();
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('000000')).toBeInTheDocument();
+      });
       const input = screen.getByPlaceholderText('000000') as HTMLInputElement;
       
       await user.type(input, '1234567890');
       expect(input.value).toBe('123456');
     });
 
-    it('should disable verify button when code incomplete', () => {
+    it('should disable verify button when code incomplete', async () => {
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('000000')).toBeInTheDocument();
+      });
       const buttons = screen.getAllByRole('button', { name: /Verify/i });
       expect(buttons[0]).toBeDisabled();
     });
@@ -88,6 +114,9 @@ describe('MFAVerification Component', () => {
     it('should enable verify button with 6 digits', async () => {
       const user = userEvent.setup();
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('000000')).toBeInTheDocument();
+      });
       const input = screen.getByPlaceholderText('000000');
       const buttons = screen.getAllByRole('button', { name: /Verify/i });
       
@@ -100,6 +129,9 @@ describe('MFAVerification Component', () => {
     it('should convert to uppercase', async () => {
       const user = userEvent.setup();
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /Backup Code/i })).toBeInTheDocument();
+      });
       const tab = screen.getByRole('tab', { name: /Backup Code/i });
       await user.click(tab);
       
@@ -111,6 +143,9 @@ describe('MFAVerification Component', () => {
     it('should disable verify button when empty', async () => {
       const user = userEvent.setup();
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /Backup Code/i })).toBeInTheDocument();
+      });
       const tab = screen.getByRole('tab', { name: /Backup Code/i });
       await user.click(tab);
       
@@ -121,6 +156,9 @@ describe('MFAVerification Component', () => {
     it('should enable verify button when filled', async () => {
       const user = userEvent.setup();
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /Backup Code/i })).toBeInTheDocument();
+      });
       const tab = screen.getByRole('tab', { name: /Backup Code/i });
       await user.click(tab);
       
@@ -133,8 +171,11 @@ describe('MFAVerification Component', () => {
   });
 
   describe('Tab Navigation', () => {
-    it('should start with Authenticator tab active', () => {
+    it('should start with Authenticator tab active', async () => {
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /Authenticator/i })).toBeInTheDocument();
+      });
       const tab = screen.getByRole('tab', { name: /Authenticator/i });
       expect(tab).toHaveAttribute('data-state', 'active');
     });
@@ -142,6 +183,9 @@ describe('MFAVerification Component', () => {
     it('should switch to Backup Code tab', async () => {
       const user = userEvent.setup();
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /Backup Code/i })).toBeInTheDocument();
+      });
       const tab = screen.getByRole('tab', { name: /Backup Code/i });
       
       await user.click(tab);
@@ -151,6 +195,9 @@ describe('MFAVerification Component', () => {
     it('should display backup code specific text when active', async () => {
       const user = userEvent.setup();
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /Backup Code/i })).toBeInTheDocument();
+      });
       const tab = screen.getByRole('tab', { name: /Backup Code/i });
       
       await user.click(tab);
@@ -159,7 +206,7 @@ describe('MFAVerification Component', () => {
   });
 
   describe('API Calls', () => {
-    it('should call verifyMFALogin with code', async () => {
+    it('should call verifyMFALogin with code, challengeId, and factorId', async () => {
       const user = userEvent.setup();
       (authService.verifyMFALogin as any).mockResolvedValue({
         data: { valid: true },
@@ -167,16 +214,19 @@ describe('MFAVerification Component', () => {
       });
       
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('000000')).toBeInTheDocument();
+      });
       const input = screen.getByPlaceholderText('000000');
       const buttons = screen.getAllByRole('button', { name: /Verify/i });
       
       await user.type(input, '123456');
       await user.click(buttons[0]);
       
-      expect(authService.verifyMFALogin).toHaveBeenCalledWith('123456');
+      expect(authService.verifyMFALogin).toHaveBeenCalledWith('123456', mockChallengeId, mockFactorId);
     });
 
-    it('should call verifyBackupCode with code', async () => {
+    it('should call verifyBackupCode with code, challengeId, and factorId', async () => {
       const user = userEvent.setup();
       (authService.verifyBackupCode as any).mockResolvedValue({
         data: { valid: true, remaining: 7 },
@@ -184,6 +234,9 @@ describe('MFAVerification Component', () => {
       });
       
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /Backup Code/i })).toBeInTheDocument();
+      });
       const tab = screen.getByRole('tab', { name: /Backup Code/i });
       await user.click(tab);
       
@@ -193,7 +246,7 @@ describe('MFAVerification Component', () => {
       await user.type(input, 'ABC12345');
       await user.click(buttons[buttons.length - 1]);
       
-      expect(authService.verifyBackupCode).toHaveBeenCalledWith('ABC12345');
+      expect(authService.verifyBackupCode).toHaveBeenCalledWith('ABC12345', mockChallengeId, mockFactorId);
     });
 
     it('should display backup code input as uppercase', async () => {
@@ -204,6 +257,9 @@ describe('MFAVerification Component', () => {
       });
       
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /Backup Code/i })).toBeInTheDocument();
+      });
       const tab = screen.getByRole('tab', { name: /Backup Code/i });
       await user.click(tab);
       
@@ -212,12 +268,23 @@ describe('MFAVerification Component', () => {
       
       expect(input.value).toBe('ABC12345');
     });
+
+    it('should initialize MFA by getting factors and creating challenge', async () => {
+      render(<MFAVerification />);
+      await waitFor(() => {
+        expect(authService.getMFAFactors).toHaveBeenCalled();
+        expect(authService.createMFAChallenge).toHaveBeenCalledWith(mockFactorId);
+      });
+    });
   });
 
   describe('Help Features', () => {
     it('should show Help button on backup tab', async () => {
       const user = userEvent.setup();
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /Backup Code/i })).toBeInTheDocument();
+      });
       const tab = screen.getByRole('tab', { name: /Backup Code/i });
       await user.click(tab);
       
@@ -227,6 +294,9 @@ describe('MFAVerification Component', () => {
     it('should toggle help info display', async () => {
       const user = userEvent.setup();
       render(<MFAVerification />);
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /Backup Code/i })).toBeInTheDocument();
+      });
       const tab = screen.getByRole('tab', { name: /Backup Code/i });
       await user.click(tab);
       
@@ -238,17 +308,29 @@ describe('MFAVerification Component', () => {
   });
 
   describe('Session Management', () => {
-    it('should check authentication on load', () => {
+    it('should check authentication on load', async () => {
       render(<MFAVerification />);
-      expect(authService.getCurrentUser).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(authService.getCurrentUser).toHaveBeenCalled();
+      });
     });
 
     it('should redirect to login if not authenticated', async () => {
       (authService.getCurrentUser as any).mockResolvedValue(null);
       render(<MFAVerification />);
       
-      await new Promise(r => setTimeout(r, 100));
-      expect(mockNavigate).toHaveBeenCalledWith('/login');
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith('/login');
+      });
+    });
+
+    it('should redirect to dashboard if no MFA factors', async () => {
+      (authService.getMFAFactors as any).mockResolvedValue([]);
+      render(<MFAVerification />);
+      
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+      });
     });
   });
 });

@@ -7,7 +7,6 @@ import { MFASetupDialog } from '@/components/MFASetupDialog';
 vi.mock('@/services/authService', () => ({
   setupMFA: vi.fn(),
   verifyTOTPCode: vi.fn(),
-  confirmMFASetup: vi.fn(),
 }));
 
 // Mock QRCode
@@ -17,7 +16,7 @@ vi.mock('qrcode', () => ({
   },
 }));
 
-import { setupMFA, verifyTOTPCode, confirmMFASetup } from '@/services/authService';
+import { setupMFA, verifyTOTPCode } from '@/services/authService';
 
 describe('MFASetupDialog', () => {
   const defaultProps = {
@@ -27,6 +26,7 @@ describe('MFASetupDialog', () => {
   };
 
   const mockMFAData = {
+    factorId: 'test-factor-id-123',
     secret: 'JBSWY3DPEBLW64TMMQ======',
     backupCodes: [
       'ABC123DEF456',
@@ -212,11 +212,7 @@ describe('MFASetupDialog', () => {
   it('should verify TOTP code successfully', async () => {
     const user = userEvent.setup();
     (verifyTOTPCode as any).mockResolvedValue({
-      data: { valid: true },
-      error: null,
-    });
-    (confirmMFASetup as any).mockResolvedValue({
-      data: { success: true },
+      data: { valid: true, backupCodes: mockMFAData.backupCodes },
       error: null,
     });
 
@@ -236,11 +232,7 @@ describe('MFASetupDialog', () => {
     await user.click(verifyButton);
 
     await waitFor(() => {
-      expect(verifyTOTPCode).toHaveBeenCalledWith('123456', mockMFAData.secret);
-    });
-
-    await waitFor(() => {
-      expect(confirmMFASetup).toHaveBeenCalled();
+      expect(verifyTOTPCode).toHaveBeenCalledWith('123456', mockMFAData.factorId);
     });
 
     await waitFor(() => {
@@ -278,11 +270,7 @@ describe('MFASetupDialog', () => {
   it('should allow pressing Enter to verify code', async () => {
     const user = userEvent.setup();
     (verifyTOTPCode as any).mockResolvedValue({
-      data: { valid: true },
-      error: null,
-    });
-    (confirmMFASetup as any).mockResolvedValue({
-      data: { success: true },
+      data: { valid: true, backupCodes: mockMFAData.backupCodes },
       error: null,
     });
 
@@ -431,11 +419,7 @@ describe('MFASetupDialog', () => {
   it('should display success message after TOTP verification', async () => {
     const user = userEvent.setup();
     (verifyTOTPCode as any).mockResolvedValue({
-      data: { valid: true },
-      error: null,
-    });
-    (confirmMFASetup as any).mockResolvedValue({
-      data: { success: true },
+      data: { valid: true, backupCodes: mockMFAData.backupCodes },
       error: null,
     });
 

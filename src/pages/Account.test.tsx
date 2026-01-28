@@ -40,6 +40,7 @@ vi.mock('@/services/authService', () => ({
   getCurrentUser: vi.fn(),
   getCurrentSession: vi.fn(),
   isMFAEnabled: vi.fn(),
+  getUserAuthProviders: vi.fn(),
 }));
 
 describe('Account', () => {
@@ -59,6 +60,7 @@ describe('Account', () => {
     (authService.getCurrentUser as any).mockResolvedValue(mockUser);
     (authService.getCurrentSession as any).mockResolvedValue('token-123');
     (authService.isMFAEnabled as any).mockResolvedValue(false);
+    (authService.getUserAuthProviders as any).mockResolvedValue([]);
   });
 
   it('renders loading state initially', () => {
@@ -165,6 +167,39 @@ describe('Account', () => {
     await waitFor(() => {
       expect(authService.getCurrentUser).toHaveBeenCalledTimes(2);
       expect(authService.isMFAEnabled).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('hides MFA buttons for OAuth/SSO users', async () => {
+    (authService.getUserAuthProviders as any).mockResolvedValue(['github']);
+
+    render(
+      <BrowserRouter>
+        <Account />
+      </BrowserRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/MFA is managed by your OAuth provider/i)).toBeInTheDocument();
+    });
+
+    // Enable MFA button should not be present for OAuth users
+    expect(screen.queryByText('Enable MFA')).not.toBeInTheDocument();
+    // Change Password button should also not be present for OAuth users
+    expect(screen.queryByText('Change Password')).not.toBeInTheDocument();
+  });
+
+  it('shows correct provider name for OAuth users', async () => {
+    (authService.getUserAuthProviders as any).mockResolvedValue(['google']);
+
+    render(
+      <BrowserRouter>
+        <Account />
+      </BrowserRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Enable 2FA in your Google account settings/i)).toBeInTheDocument();
     });
   });
 });

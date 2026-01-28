@@ -27,21 +27,32 @@ mermaid.initialize({
 const MermaidDiagram: React.FC<{ chart: string }> = ({ chart }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string>('');
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
+    
     if (ref.current && chart) {
       const renderDiagram = async () => {
         try {
           const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
           const { svg: renderedSvg } = await mermaid.render(id, chart);
-          setSvg(renderedSvg);
+          if (mountedRef.current) {
+            setSvg(renderedSvg);
+          }
         } catch (error) {
           console.error('Mermaid rendering error:', error);
-          setSvg('<div style="color: red; padding: 1rem;">Error rendering diagram</div>');
+          if (mountedRef.current) {
+            setSvg('<div style="color: red; padding: 1rem;">Error rendering diagram</div>');
+          }
         }
       };
       renderDiagram();
     }
+    
+    return () => {
+      mountedRef.current = false;
+    };
   }, [chart]);
 
   const handleOpenInNewTab = (e: React.MouseEvent) => {

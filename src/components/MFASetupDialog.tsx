@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Smartphone, Copy, AlertCircle, CheckCircle, Info } from 'lucide-react';
-import { setupMFA, verifyTOTPCode, confirmMFASetup } from '@/services/authService';
+import { setupMFA, verifyTOTPCode } from '@/services/authService';
 import QRCode from 'qrcode';
 import { Input } from '@/components/ui/input';
 
@@ -21,9 +21,11 @@ interface MFASetupDialogProps {
 }
 
 interface MFASetupData {
+  factorId: string;
   secret: string;
   backupCodes: string[];
   qrUrl: string;
+  qrCode?: string;
 }
 
 export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
@@ -56,20 +58,32 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
           return;
         }
 
-        const setupData = data as MFASetupData;
+        // Map the API response to our interface
+        const setupData: MFASetupData = {
+          factorId: data.factorId || '',
+          secret: data.secret || '',
+          backupCodes: data.backupCodes || [],
+          qrUrl: data.qrUrl || '',
+          qrCode: data.qrCode,
+        };
         setMFAData(setupData);
 
-        // Generate QR code
+        // Generate QR code from the TOTP URI, or use the pre-generated one
         try {
-          const qrUrl = await QRCode.toDataURL(setupData.qrUrl, {
-            width: 200,
-            margin: 1,
-            color: {
-              dark: '#000000',
-              light: '#FFFFFF',
-            },
-          });
-          setQRCodeUrl(qrUrl);
+          // If backend provides a base64 QR code, use it directly
+          if (setupData.qrCode) {
+            setQRCodeUrl(setupData.qrCode);
+          } else if (setupData.qrUrl) {
+              const qrUrl = await QRCode.toDataURL(setupData.qrUrl, {
+              width: 200,
+              margin: 1,
+              color: {
+                dark: '#000000',
+                light: '#FFFFFF',
+              },
+            });
+            setQRCodeUrl(qrUrl);
+          }
         } catch {
           // Still proceed even if QR code generation fails
         }
@@ -121,11 +135,17 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
       return;
     }
 
+    if (!mfaData?.factorId) {
+      setTotpError('MFA setup incomplete. Please try again.');
+      return;
+    }
+
     setVerifyingTotp(true);
     setTotpError(null);
 
     try {
-      const { data, error } = await verifyTOTPCode(totpCode, mfaData?.secret);
+      // Verify the TOTP code with the factor ID
+      const { data, error } = await verifyTOTPCode(totpCode, mfaData.factorId);
 
       if (error) {
         setTotpError(error.message || 'Invalid TOTP code. Please try again.');
@@ -133,16 +153,12 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
       }
 
       if (data?.valid) {
-        // Now confirm the MFA setup
-        const { error: confirmError } = await confirmMFASetup(
-          totpCode,
-          mfaData?.secret,  // This maps to totp_secret in the handler
-          mfaData?.backupCodes  // This maps to backup_codes in the handler
-        );
-        
-        if (confirmError) {
-          setTotpError(confirmError.message || 'Failed to confirm MFA setup. Please try again.');
-          return;
+        // Update mfaData with backup codes from the verify response
+        if (data.backupCodes && data.backupCodes.length > 0) {
+          setMFAData(prev => prev ? {
+            ...prev,
+            backupCodes: data.backupCodes,
+          } : null);
         }
 
         setTotpVerified(true);
@@ -308,13 +324,14 @@ export const MFASetupDialog: React.FC<MFASetupDialogProps> = ({
                   <label className="text-sm font-medium">Secret Key (Manual Entry)</label>
                   <div className="flex gap-2">
                     <div className="flex-1 p-3 bg-gray-100 rounded-md font-mono text-sm break-all">
-                      {mfaData.secret}
+                      {mfaData.secret || 'Secret not available - please use QR code'}
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => copyToClipboard(mfaData.secret, 'secret')}
+                      onClick={() => mfaData.secret && copyToClipboard(mfaData.secret, 'secret')}
                       className="flex-shrink-0"
+                      disabled={!mfaData.secret}
                     >
                       {copiedCode === 'secret' ? (
                         <>
