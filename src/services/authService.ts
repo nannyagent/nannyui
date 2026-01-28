@@ -1,5 +1,6 @@
 import { pb } from '@/integrations/pocketbase/client';
 import type { UserRecord } from '@/integrations/pocketbase/types';
+import { fetchWithTimeout } from '@/utils/fetchUtils';
 
 export interface AuthResponse {
   user: UserRecord | null;
@@ -63,7 +64,7 @@ export const signInWithEmail = async (
     let mfaRequired = false;
     
     try {
-      const response = await fetch(`${baseUrl}/api/mfa/factors`, {
+      const response = await fetchWithTimeout(`${baseUrl}/api/mfa/factors`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${authData.token}`,
@@ -281,7 +282,7 @@ export const setupMFA = async (friendlyName?: string) => {
     }
 
     const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
-    const response = await fetch(`${baseUrl}/api/mfa/enroll`, {
+    const response = await fetchWithTimeout(`${baseUrl}/api/mfa/enroll`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -330,7 +331,7 @@ export const verifyTOTPCode = async (code: string, factorId: string) => {
     }
 
     const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
-    const response = await fetch(`${baseUrl}/api/mfa/enroll/verify`, {
+    const response = await fetchWithTimeout(`${baseUrl}/api/mfa/enroll/verify`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -381,7 +382,7 @@ export const disableMFA = async (factorId: string, code: string) => {
     }
 
     const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
-    const response = await fetch(`${baseUrl}/api/mfa/unenroll`, {
+    const response = await fetchWithTimeout(`${baseUrl}/api/mfa/unenroll`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -428,7 +429,7 @@ export const getMFAFactors = async () => {
     }
 
     const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
-    const response = await fetch(`${baseUrl}/api/mfa/factors`, {
+    const response = await fetchWithTimeout(`${baseUrl}/api/mfa/factors`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -461,7 +462,7 @@ export const getMFABackupCodes = async (): Promise<{ codes: Array<{ code: string
 
     const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
     // POST is required by the backend API - it generates backup codes if needed
-    const response = await fetch(`${baseUrl}/api/mfa/backup-codes`, {
+    const response = await fetchWithTimeout(`${baseUrl}/api/mfa/backup-codes`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -500,7 +501,7 @@ export const verifyBackupCode = async (code: string, challengeId: string, factor
     }
 
     const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
-    const response = await fetch(`${baseUrl}/api/mfa/verify`, {
+    const response = await fetchWithTimeout(`${baseUrl}/api/mfa/verify`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -555,7 +556,7 @@ export const regenerateBackupCodes = async (code: string) => {
     }
 
     const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
-    const response = await fetch(`${baseUrl}/api/mfa/backup-codes/regenerate`, {
+    const response = await fetchWithTimeout(`${baseUrl}/api/mfa/backup-codes/regenerate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -593,7 +594,7 @@ export const createMFAChallenge = async (factorId: string) => {
     }
 
     const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
-    const response = await fetch(`${baseUrl}/api/mfa/challenge`, {
+    const response = await fetchWithTimeout(`${baseUrl}/api/mfa/challenge`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -635,7 +636,7 @@ export const verifyMFALogin = async (code: string, challengeId: string, factorId
     }
 
     const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
-    const response = await fetch(`${baseUrl}/api/mfa/verify`, {
+    const response = await fetchWithTimeout(`${baseUrl}/api/mfa/verify`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -678,7 +679,7 @@ export const getMFAAssuranceLevel = async () => {
     }
 
     const baseUrl = window.env?.VITE_POCKETBASE_URL || import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
-    const response = await fetch(`${baseUrl}/api/mfa/assurance-level`, {
+    const response = await fetchWithTimeout(`${baseUrl}/api/mfa/assurance-level`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
