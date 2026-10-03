@@ -1,6 +1,42 @@
-name = "nannyui-test"
+# NannyAI UI is deployed to two Cloudflare Workers from this single repository:
+#
+#   main     branch -> Worker `nannyui-test`  (wrangler environment: test)
+#   released branch -> Worker `nannyui-prod`  (wrangler environment: prod)
+#
+# A single top-level name cannot satisfy both Workers, so we use Wrangler
+# Environments. The environment name is appended to the base name, i.e.
+#   nannyui + test -> nannyui-test
+#   nannyui + prod -> nannyui-prod
+#
+# In the Cloudflare dashboard, configure each Worker's build settings:
+#   nannyui-test -> Deploy command: npx wrangler deploy --env test
+#   nannyui-prod -> Deploy command: npx wrangler deploy --env prod
+# (if Preview builds are enabled, add the same `--env <name>` to the Preview command)
+#
+# Ref: https://developers.cloudflare.com/workers/ci-cd/builds/advanced-setups/#wrangler-environments
+name = "nannyui"
 compatibility_date = "2025-12-31"
 
+# Static assets config. `assets` is inheritable, but it is repeated under each
+# environment so both Workers are guaranteed to serve ./dist the same way.
 [assets]
 directory = "./dist/"
 not_found_handling = "single-page-application"
+
+# ---------------------------------------------------------------------------
+# test environment -> Worker `nannyui-test` (built/deployed from `main`)
+# ---------------------------------------------------------------------------
+[env.test]
+
+  [env.test.assets]
+  directory = "./dist/"
+  not_found_handling = "single-page-application"
+
+# ---------------------------------------------------------------------------
+# prod environment -> Worker `nannyui-prod` (built/deployed from `released`)
+# ---------------------------------------------------------------------------
+[env.prod]
+
+  [env.prod.assets]
+  directory = "./dist/"
+  not_found_handling = "single-page-application"
