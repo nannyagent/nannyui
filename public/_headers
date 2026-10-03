@@ -1,0 +1,14 @@
+# Security headers for Cloudflare Pages / Workers (static assets) and Netlify.
+# Vite copies everything in /public into the build output (dist/), so this file
+# ships as /_headers and is honored by the platform edge.
+#
+# Clickjacking protection:
+#   - X-Frame-Options: SAMEORIGIN  -> legacy header, blocks cross-origin framing
+#   - CSP frame-ancestors 'self'   -> modern replacement, same policy
+/*
+  X-Frame-Options: SAMEORIGIN
+  Content-Security-Policy: frame-ancestors 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
