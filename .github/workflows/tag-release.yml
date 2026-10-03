@@ -3,7 +3,7 @@ name: Bump Version
 on:
   push:
     branches:
-      - prod
+      - released
 
 jobs:
   tag:
